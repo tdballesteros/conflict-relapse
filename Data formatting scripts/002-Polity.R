@@ -8,7 +8,7 @@ library(countrycode)
 library(dplyr)
 
 # load data file
-polity <- readxl::read_excel("Data files/p5v2018.xls")
+polity <- readxl::read_excel("Data files/Raw data files/p5v2018.xls")
 
 # formatting
 polity <- polity %>%
@@ -41,6 +41,8 @@ polity$xropen[polity$xropen %in% c(-66,-77,-88)] <- NA
 polity <- polity %>%
   filter(country != "Serbia and Montenegro" | year != 2006)
 polity$iso3c[polity$iso3c=="RUS"&polity$year<=1991] <- "SOV"
+polity$iso3c[polity$iso3c=="YUG"&polity$year>=1992] <- "SRB"
+polity$iso3c[polity$iso3c=="DEU"&polity$year<=1990] <- "BRD"
 
 # duplicates 2018 values for 2019, as 2019 values have yet to be published
 polity <- rbind(polity,polity %>% dplyr::filter(year == 2018) %>% dplyr::mutate(year = 2019))
@@ -82,20 +84,12 @@ polity_complete <- polity_complete %>%
 
 polity_pca3_df3 <- dplyr::full_join(polity_pca3_df1,polity_complete,by=c("iso3c","year"))
 
-#
+polity_pca3_df3$pc1[is.na(polity_pca3_df3$pc1)] <- 0
 
-
-pol <- pol %>%
-  full_join(polcomplete2,by=c("iso3c","year"))
-
-plot(pol$est,pol$pc1)
-
-pol$pc1[is.na(pol$pc1)] <- 0
-
-pol <- pol %>%
+polity_pca3_df3 <- polity_pca3_df3 %>%
   select(iso3c,year,pc1) %>%
   rename(polity = pc1) %>%
   mutate(politysq = polity^2)
 
-pol$iso3c[pol$iso3c=="YUG"&pol$year>=1992] <- "SRB"
-pol$iso3c[pol$iso3c=="DEU"&pol$year<=1990] <- "BRD"
+# writes formatted dataframe as csv files
+write.csv(polity_pca3_df3,"Data files/Formatted data files/polity.csv")

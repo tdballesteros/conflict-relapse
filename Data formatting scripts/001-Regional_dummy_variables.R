@@ -42,3 +42,7 @@ country_regions2$country[country_regions2$iso3c=="SOV"] <- "North Vietnam"
 country_regions2$country[country_regions2$iso3c=="YAR"] <- "Yemen North"
 country_regions2$country[country_regions2$iso3c=="YPR"] <- "Yemen South"
 country_regions2$country[country_regions2$iso3c=="YUG"] <- "Yugoslavia"
+
+# writes formatted dataframes as csv files
+write.csv(country_regions1,"Data files/Formatted data files/country_regions1.csv")
+write.csv(country_regions2,"Data files/Formatted data files/country_regions2.csv")
