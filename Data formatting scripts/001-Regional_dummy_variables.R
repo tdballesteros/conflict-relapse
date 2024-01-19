@@ -8,9 +8,9 @@ library(countrycode)
 library(dplyr)
 
 # load data files and add 0s
-country_regions1 <- readxl::read_excel("Data files/country_regions.xlsx") %>%
+country_regions1 <- readxl::read_excel("Data files/Raw data files/country_regions.xlsx") %>%
   dplyr::mutate(across(everything(), .fns = ~replace_na(.,0)))
-country_regions2 <- readxl::read_excel("Data files/country_regions2.xlsx") %>%
+country_regions2 <- readxl::read_excel("Data files/Raw data files/country_regions2.xlsx") %>%
   dplyr::mutate(across(everything(), .fns = ~replace_na(.,0)))
 
 # data formatting
