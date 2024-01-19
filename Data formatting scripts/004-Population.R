@@ -1,0 +1,442 @@
+# This script formats population variables.
+
+# load libraries
+library(readxl)
+library(countrycode)
+library(dplyr)
+library(tidyr)
+
+# not in function
+'%!in%' <- function(x,y)!('%in%'(x,y))
+
+#### population data from United Nations Department of Economic and Social Affairs, Population Division ####
+pd <- read_excel("Data files/Raw data files/AnnualTotPopMidYear-20200708071736.xlsx", sheet = 2, skip = 1)
+pd2 <- read_excel("Data files/Raw data files/AnnualTotPopMidYear-20200708071835.xlsx", sheet = 2, skip = 1)
+
+# Puerto Rico added to USA pop
+pd <- pd %>%
+  dplyr::select(-c(`ISO 3166-1 numeric code`,Note)) %>%
+  dplyr::filter(Location %!in% c("World","More developed regions","Less developed regions",
+                                 "Least developed countries",
+                                 "Less developed regions, excluding least developed countries",
+                                 "Less developed regions, excluding China","High-income countries",
+                                 "Middle-income countries","Lower-middle-income countries",
+                                 "Upper-middle-income countries","Low-income countries","Sub-Saharan Africa",
+                                 "Africa","Eastern Africa","Comoros","Mayotte","Réunion","Seychelles",
+                                 "Middle Africa","Sao Tome and Principe","Northern Africa","Southern Africa",
+                                 "Western Africa","Saint Helena","Asia","Eastern Asia","China, Hong Kong SAR",
+                                 "China, Macao SAR","Central Asia","Southern Asia","Maldives",
+                                 "South-Eastern Asia","Brunei Darussalam","Western Asia","Europe",
+                                 "Eastern Europe","Northern Europe","Channel Islands","Faeroe Islands",
+                                 "Iceland","Isle of Man","Southern Europe","Andorra","Gibraltar","Holy See",
+                                 "Malta","San Marino","Western Europe","Liechtenstein","Luxembourg","Monaco",
+                                 "Latin America and the Caribbean","Caribbean","Anguilla","Antigua and Barbuda",
+                                 "Aruba","Bahamas","Barbados","British Virgin Islands","Caribbean Netherlands",
+                                 "Cayman Islands","Curaçao","Dominica","Grenada","Guadeloupe","Martinique",
+                                 "Montserrat","Saint Kitts and Nevis","Saint Lucia",
+                                 "Saint Vincent and the Grenadines","Sint Maarten (Dutch part)",
+                                 "Turks and Caicos Islands","United States Virgin Islands","Central America",
+                                 "Belize","South America","Falkland Islands (Malvinas)","French Guiana","Guyana",
+                                 "Suriname","North America","Bermuda","Greenland","Saint Pierre and Miquelon",
+                                 "Oceania","Australia/New Zealand","Melanesia","Fiji","New Caledonia",
+                                 "Solomon Islands","Vanuatu","Micronesia","Guam","Kiribati","Marshall Islands",
+                                 "Micronesia (Fed. States of)","Nauru","Northern Mariana Islands","Palau",
+                                 "Polynesia","American Samoa","Cook Islands","French Polynesia","Niue","Samoa",
+                                 "Tokelau","Tonga","Tuvalu","Wallis and Futuna Islands","South-Central Asia",
+                                 "Northern America","Western Sahara","Cabo Verde")) %>%
+  tidyr::pivot_longer(2:36, names_to = "year", values_to = "value")
+
+pd2 <- pd2 %>%
+  dplyr::select(-c(`ISO 3166-1 numeric code`,Note)) %>%
+  dplyr::filter(Location %!in% c("World","More developed regions","Less developed regions",
+                                 "Least developed countries",
+                                 "Less developed regions, excluding least developed countries",
+                                 "Less developed regions, excluding China","High-income countries",
+                                 "Middle-income countries","Lower-middle-income countries",
+                                 "Upper-middle-income countries","Low-income countries","Sub-Saharan Africa",
+                                 "Africa","Eastern Africa","Comoros","Mayotte","Réunion","Seychelles",
+                                 "Middle Africa","Sao Tome and Principe","Northern Africa","Southern Africa",
+                                 "Western Africa","Saint Helena","Asia","Eastern Asia","China, Hong Kong SAR",
+                                 "China, Macao SAR","Central Asia","Southern Asia","Maldives",
+                                 "South-Eastern Asia","Brunei Darussalam","Western Asia","Europe",
+                                 "Eastern Europe","Northern Europe","Channel Islands","Faeroe Islands",
+                                 "Iceland","Isle of Man","Southern Europe","Andorra","Gibraltar","Holy See",
+                                 "Malta","San Marino","Western Europe","Liechtenstein","Luxembourg","Monaco",
+                                 "Latin America and the Caribbean","Caribbean","Anguilla","Antigua and Barbuda",
+                                 "Aruba","Bahamas","Barbados","British Virgin Islands","Caribbean Netherlands",
+                                 "Cayman Islands","Curaçao","Dominica","Grenada","Guadeloupe","Martinique",
+                                 "Montserrat","Saint Kitts and Nevis","Saint Lucia",
+                                 "Saint Vincent and the Grenadines","Sint Maarten (Dutch part)",
+                                 "Turks and Caicos Islands","United States Virgin Islands","Central America",
+                                 "Belize","South America","Falkland Islands (Malvinas)","French Guiana","Guyana",
+                                 "Suriname","North America","Bermuda","Greenland","Saint Pierre and Miquelon",
+                                 "Oceania","Australia/New Zealand","Melanesia","Fiji","New Caledonia",
+                                 "Solomon Islands","Vanuatu","Micronesia","Guam","Kiribati","Marshall Islands",
+                                 "Micronesia (Fed. States of)","Nauru","Northern Mariana Islands","Palau",
+                                 "Polynesia","American Samoa","Cook Islands","French Polynesia","Niue","Samoa",
+                                 "Tokelau","Tonga","Tuvalu","Wallis and Futuna Islands","South-Central Asia",
+                                 "Northern America","Western Sahara","Cabo Verde")) %>%
+  tidyr::pivot_longer(2:36, names_to = "year", values_to = "value")
+
+pd <- rbind(pd,pd2)
+
+pd$Location[pd$Location=="Puerto Rico"] <- "United States of America"
+pd <- pd %>%
+  dplyr::group_by(Location,year) %>%
+  dplyr::summarise(value = sum(value)) %>%
+  dplyr::ungroup() %>%
+  dplyr::mutate(value = 1000 * value,
+                iso3c = countrycode::countrycode(Location,"country.name","iso3c")) %>%
+  dplyr::select(iso3c,year,value)
+
+# YEM is combined population of YPR and YAR, DEU is combined DDR and BRD, VNM is combined with RVN
+# SRB includes KSV, 6 YUG republics have component populations individually
+
+# cow populations to determine ratio of pop between YPR and YAR / DDR and BRD / VNM and RVN / SRB and KSV
+cow.pop <- read_csv("Data files/Raw data files/NMC_5_0.csv")
+
+cow.pop <- cow.pop %>%
+  as.data.frame() %>%
+  dplyr::select(stateabb,year,tpop)
+
+# YEM
+cow.pop.yem <- cow.pop %>%
+  dplyr::filter(stateabb %in% c("YAR","YPR","YEM")) %>%
+  tidyr::pivot_wider(names_from = "stateabb", values_from = "tpop") %>%
+  dplyr::mutate(total = YAR + YPR,
+                yar.p = YAR / total,
+                ypr.p = YPR / total)
+
+yem <- pd %>%
+  dplyr::filter(iso3c == "YEM") 
+yem$year <- as.numeric(yem$year)
+
+yem <- yem %>%
+  dplyr::full_join(cow.pop.yem,by="year")
+
+yem$yar.p[is.na(yem$yar.p)&yem$year<1990] <- 0.7783003
+yem$ypr.p[is.na(yem$ypr.p)&yem$year<1990] <- 0.2216997
+
+yem <- yem %>%
+  dplyr::mutate(yar.e = value * yar.p,
+                ypr.e = value * ypr.p)
+
+ypr <- yem %>%
+  dplyr::select(iso3c,year,ypr.e,value) %>%
+  dplyr::filter(year >= 1950)
+
+for(i in 1:nrow(ypr)){
+  if(is.na(ypr$ypr.e[i])){
+    ypr$ypr.e[i] <- ypr$value[i]
+  }
+}
+
+# unified YEM value for 1990
+ypr$ypr.e[ypr$year==1990] <- 12057000
+
+ypr <- ypr %>%
+  dplyr::select(iso3c,year,ypr.e) %>%
+  dplyr::mutate(iso3c = "YPR") %>%
+  dplyr::rename(value = ypr.e) %>%
+  dplyr::filter(year < 1991)
+
+yar <- yem %>%
+  dplyr::select(iso3c,year,yar.e,value) %>%
+  dplyr::filter(year >= 1950)
+
+for(i in 1:nrow(yar)){
+  if(is.na(yar$yar.e[i])){
+    yar$yar.e[i] <- yar$value[i]
+  }
+}
+
+# unified YEM value for 1990
+yar$yar.e[yar$year==1990] <- 12057000
+
+yar <- yar %>%
+  dplyr::select(iso3c,year,yar.e) %>%
+  dplyr::mutate(iso3c = "YAR") %>%
+  dplyr::rename(value = yar.e) %>%
+  dplyr::filter(year < 1991)
+
+yem <- yem %>%
+  dplyr::select(iso3c,year,value) %>%
+  dplyr::filter(year > 1990) %>%
+  rbind(yar,ypr)
+
+pd <- pd %>%
+  dplyr::filter(iso3c != "YEM") %>%
+  rbind(yem)
+
+# unified YEM value for 1990
+pd$value[pd$iso3c=="YEM"&pd$year==1990] <- 12057000
+
+# DEU
+cow.pop.deu <- cow.pop %>%
+  dplyr::filter(stateabb %in% c("GDR","GFR","GMY")) %>%
+  tidyr::pivot_wider(names_from = "stateabb", values_from = "tpop") %>%
+  dplyr::mutate(total = GDR + GFR,
+                gfr.p = GFR / total,
+                gdr.p = GDR / total)
+
+deu <- pd %>%
+  dplyr::filter(iso3c == "DEU") 
+deu$year <- as.numeric(deu$year)
+
+deu <- deu %>%
+  dplyr::full_join(cow.pop.deu,by="year")
+
+deu$gdr.p[is.na(deu$gdr.p)&deu$year<1990] <- 0.2552199
+deu$gfr.p[is.na(deu$gfr.p)&deu$year<1990] <- 0.7447801
+
+deu <- deu %>%
+  dplyr::mutate(gfr.e = value * gfr.p,
+                gdr.e = value * gdr.p)
+
+gfr <- deu %>%
+  dplyr::select(iso3c,year,gfr.e,value) %>%
+  dplyr::filter(year >= 1950)
+
+for(i in 1:nrow(gfr)){
+  if(is.na(gfr$gfr.e[i])){
+    gfr$gfr.e[i] <- gfr$value[i]
+  }
+}
+
+gdr <- deu %>%
+  dplyr::select(iso3c,year,gdr.e,value) %>%
+  dplyr::filter(year >= 1950)
+
+for(i in 1:nrow(gdr)){
+  if(is.na(gdr$gdr.e[i])){
+    gdr$gdr.e[i] <- gdr$value[i]
+  }
+}
+
+gdr <- gdr %>%
+  dplyr::select(iso3c,year,gdr.e) %>%
+  dplyr::mutate(iso3c = "DDR") %>%
+  dplyr::rename(value = gdr.e)
+
+gfr <- deu %>%
+  dplyr::select(iso3c,year,gfr.e,value) %>%
+  dplyr::filter(year >= 1950)
+
+for(i in 1:nrow(gfr)){
+  if(is.na(gfr$gfr.e[i])){
+    gfr$gfr.e[i] <- gfr$value[i]
+  }
+}
+
+gfr <- gfr %>%
+  dplyr::select(iso3c,year,gfr.e) %>%
+  dplyr::mutate(iso3c = "BRD") %>%
+  dplyr::rename(value = gfr.e)
+
+deu <- deu %>%
+  dplyr::select(iso3c,year,value) %>%
+  dplyr::filter(iso3c >= 1990) %>%
+  rbind(gdr,gfr)
+
+pd <- pd %>%
+  dplyr::filter(iso3c != "DEU") %>%
+  rbind(deu)
+
+# VNM
+cow.pop.vnm <- cow.pop %>%
+  dplyr::filter(stateabb %in% c("DRV","RVN")) %>%
+  tidyr::pivot_wider(names_from = "stateabb", values_from = "tpop") %>%
+  dplyr::mutate(total = DRV + RVN,
+                vnm.p = DRV / total,
+                rvn.p = RVN / total)
+
+vnm <- pd %>%
+  dplyr::filter(iso3c == "VNM") 
+vnm$year <- as.numeric(vnm$year)
+
+vnm <- vnm %>%
+  dplyr::full_join(cow.pop.vnm,by="year") %>%
+  dplyr::mutate(vnm.e = value * vnm.p,
+                rvn.e = value * rvn.p)
+
+vnm2 <- vnm %>%
+  dplyr::select(iso3c,year,vnm.e,value)
+
+for(i in 1:nrow(vnm2)){
+  if(is.na(vnm2$vnm.e[i])){
+    vnm2$vnm.e[i] <- vnm2$value[i]
+  }
+}
+
+vnm2 <- vnm2 %>%
+  dplyr::select(iso3c,year,vnm.e) %>%
+  dplyr::mutate(iso3c = "VNM") %>%
+  dplyr::rename(value = vnm.e)
+
+rvn <- vnm %>%
+  dplyr::select(iso3c,year,rvn.e,value)
+
+for(i in 1:nrow(rvn)){
+  if(is.na(rvn$rvn.e[i])){
+    rvn$rvn.e[i] <- rvn$value[i]
+  }
+}
+
+rvn <- rvn %>%
+  dplyr::select(iso3c,year,rvn.e) %>%
+  dplyr::mutate(iso3c = "RVN") %>%
+  dplyr::rename(value = rvn.e)
+
+vnm <- rbind(vnm2,rvn)
+
+pd <- pd %>%
+  dplyr::filter(iso3c != "VNM") %>%
+  rbind(vnm)
+
+# USSR
+ussr <- pd %>%
+  dplyr::filter(iso3c %in% c("EST","LVA","LTU","MDA","BLR","UKR","RUS","GEO","ARM","AZE",
+                             "KAZ","KGZ","TJK","TKM","UZB")) %>%
+  tidyr::pivot_wider(names_from = iso3c, values_from = value) %>%
+  dplyr::mutate(sov = EST + LVA + LTU + MDA + BLR + UKR + RUS + GEO + ARM + AZE + KAZ + KGZ + TJK + TKM + UZB) %>%
+  dplyr::select(sov,year) %>%
+  dplyr::mutate(iso3c = "RUS") %>%
+  dplyr::filter(year <= 1991) %>%
+  dplyr::rename(value = sov)
+
+pd <- pd %>%
+  dplyr::filter(iso3c != "EST" | year >= 1992) %>%
+  dplyr::filter(iso3c != "LVA" | year >= 1992) %>%
+  dplyr::filter(iso3c != "LTU" | year >= 1992) %>%
+  dplyr::filter(iso3c != "BLR" | year >= 1992) %>%
+  dplyr::filter(iso3c != "MDA" | year >= 1992) %>%
+  dplyr::filter(iso3c != "UKR" | year >= 1992) %>%
+  dplyr::filter(iso3c != "GEO" | year >= 1992) %>%
+  dplyr::filter(iso3c != "ARM" | year >= 1992) %>%
+  dplyr::filter(iso3c != "AZE" | year >= 1992) %>%
+  dplyr::filter(iso3c != "TJK" | year >= 1992) %>%
+  dplyr::filter(iso3c != "TKM" | year >= 1992) %>%
+  dplyr::filter(iso3c != "KAZ" | year >= 1992) %>%
+  dplyr::filter(iso3c != "KGZ" | year >= 1992) %>%
+  dplyr::filter(iso3c != "UZB" | year >= 1992) %>%
+  dplyr::filter(iso3c != "RUS" | year >= 1992) %>%
+  rbind(ussr)
+
+# YUG
+yug <- pd %>%
+  dplyr::filter(iso3c %in% c("SVN","HRV","MKD","BIH","SRB","MNE")) %>%
+  tidyr::pivot_wider(names_from = iso3c, values_from = value) %>%
+  dplyr::mutate(yug = SVN + HRV + MKD + BIH + SRB + MNE,
+                smn = SRB + MNE) %>%
+  dplyr::select(year,yug,smn) %>%
+  dplyr::mutate(iso3c = "YUG",
+                value = NA)
+
+yug$value[yug$year<=1991] <- yug$yug[yug$year<=1991]
+yug$value[yug$year<=2006&yug$year>1991] <- yug$smn[yug$year<=2006&yug$year>1991]
+
+yug <- yug %>%
+  dplyr::select(iso3c,year,value) %>%
+  dplyr::filter(year <= 2006)
+
+srb <- yug %>%
+  dplyr::filter(year <= 2006,
+                year > 1991) %>%
+  dplyr::mutate(iso3c = "SRB")
+
+yug <- yug %>%
+  dplyr::filter(year <= 1991)
+
+pd <- pd %>%
+  dplyr::filter(iso3c != "SRB" | year > 2006) %>%
+  dplyr::filter(iso3c != "SVN" | year >= 1992) %>%
+  dplyr::filter(iso3c != "HRV" | year >= 1992) %>%
+  dplyr::filter(iso3c != "MKD" | year >= 1992) %>%
+  dplyr::filter(iso3c != "BIH" | year >= 1992) %>%
+  dplyr::filter(iso3c != "MNE") %>%
+  rbind(yug,srb)
+
+# KSV
+cow.pop.srb <- cow.pop %>%
+  dplyr::filter(stateabb %in% c("KOS","YUG")) %>%
+  tidyr::pivot_wider(names_from = "stateabb", values_from = "tpop") %>%
+  dplyr::mutate(total = KOS + YUG,
+                srb.p = YUG / total,
+                ksv.p = KOS / total)
+
+srb <- pd %>%
+  dplyr::filter(iso3c == "SRB") 
+srb$year <- as.numeric(srb$year)
+
+srb <- srb %>%
+  dplyr::full_join(cow.pop.srb,by="year")
+
+srb$srb.p[srb$year>=2013] <- 0.8410812
+srb$ksv.p[srb$year>=2013] <- 0.1589188
+
+srb <- srb %>%
+  dplyr::mutate(srb.e = value * srb.p,
+                ksv.e = value * ksv.p)
+
+srb2 <- srb %>%
+  dplyr::select(iso3c,year,srb.e,value)
+
+for(i in 1:nrow(srb2)){
+  if(is.na(srb2$srb.e[i])){
+    srb2$srb.e[i] <- srb2$value[i]
+  }
+}
+
+srb2 <- srb2 %>%
+  dplyr::select(iso3c,year,srb.e) %>%
+  dplyr::mutate(iso3c = "SRB") %>%
+  dplyr::rename(value = srb.e)
+
+ksv <- srb %>%
+  dplyr::select(iso3c,year,ksv.e,value)
+
+for(i in 1:nrow(ksv)){
+  if(is.na(ksv$ksv.e[i])){
+    ksv$ksv.e[i] <- ksv$value[i]
+  }
+}
+
+ksv <- ksv %>%
+  dplyr::select(iso3c,year,ksv.e) %>%
+  dplyr::mutate(iso3c = "KSV") %>%
+  dplyr::rename(value = ksv.e) %>%
+  dplyr::filter(year >= 2008)
+
+srb <- rbind(srb2,ksv)
+
+pd <- pd %>%
+  dplyr::filter(iso3c != "SRB") %>%
+  rbind(srb) %>%
+  dplyr::rename(pop.pd = value)
+
+pd$iso3c[pd$iso3c=="RUS" & pd$year<= 1991] <- "SOV"
+
+# CZE
+cs <- pd %>%
+  dplyr::filter(iso3c %in% c("CZE","SVK")) %>%
+  tidyr::pivot_wider(names_from = iso3c, values_from = pop.pd) %>%
+  dplyr::mutate(cs = CZE + SVK) %>%
+  dplyr::filter(year <= 1992) %>%
+  dplyr::select(year, cs) %>%
+  dplyr::rename(pop.pd = cs) %>%
+  dplyr::mutate(iso3c = "CZE")
+
+pd <- pd %>%
+  dplyr::filter(iso3c %!in% c("CZE","SVK") | year >= 1993) %>%
+  rbind(cs)
+
+pd$year <- as.numeric(pd$year)
+
+pop_40s <- read_excel("~/Documents/pop_estimates.xlsx", sheet = 1) %>%
+  dplyr::select(-method)
+
+pd <- pd %>%
+  rbind(pop_40s)
+
+# writes formatted dataframe as csv files
+write.csv(pd,"Data files/Formatted data files/population.csv")
