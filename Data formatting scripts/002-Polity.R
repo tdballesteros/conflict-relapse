@@ -1,4 +1,5 @@
-# This script formats the polity measurement from the Center for Systemic Peace.
+# This script takes the Center for Systemic Peace's Polity V (2018) dataset and recalculates a polity
+# variable using 3 of the 5 component scores of the Center for Systemic Peace's polity metric.
 
 # Polity component scores of XCONST, XRCOMP, and XROPEN are used, while PARCOMP and PARREG are dropped.
 
@@ -17,7 +18,8 @@ polity <- polity %>%
   # using the countrycode package, add country name based on iso3c value
   dplyr::mutate(iso3c = countrycode::countrycode(country,"country.name","iso3c"))
 
-# manually add country codes to missing country names: Czechoslovakia, Germany East, Kosovo, Serbia and Montenegro, South Vietnam, Yemen North, Yemen South, Yugoslavia
+# manually add country codes to missing country names: Czechoslovakia, Germany East, Kosovo, Serbia and Montenegro,
+# South Vietnam, Yemen North, Yemen South, Yugoslavia
 polity$iso3c[polity$country=="Czechoslovakia"] <- "CZE"
 polity$iso3c[polity$country=="Germany East"] <- "DDR"
 polity$iso3c[polity$country=="Kosovo"] <- "KSV"
@@ -37,15 +39,21 @@ polity$xconst[polity$xconst %in% c(-66,-77,-88)] <- NA
 polity$xrcomp[polity$xrcomp %in% c(-66,-77,-88)] <- NA
 polity$xropen[polity$xropen %in% c(-66,-77,-88)] <- NA
 
-# alters some entries to correct countries breaking apart                                                                                   
+# alters some entries to correct countries breaking apart or unifying
 polity <- polity %>%
-  filter(country != "Serbia and Montenegro" | year != 2006)
+  dplyr::filter(country != "Serbia and Montenegro" | year != 2006)
 polity$iso3c[polity$iso3c=="RUS"&polity$year<=1991] <- "SOV"
 polity$iso3c[polity$iso3c=="YUG"&polity$year>=1992] <- "SRB"
 polity$iso3c[polity$iso3c=="DEU"&polity$year<=1990] <- "BRD"
 
 # duplicates 2018 values for 2019, as 2019 values have yet to be published
-polity <- rbind(polity,polity %>% dplyr::filter(year == 2018) %>% dplyr::mutate(year = 2019))
+polity <- rbind(polity,
+                polity %>%
+                  dplyr::filter(year == 2018) %>%
+                  dplyr::mutate(year = 2019))
+
+# writes formatted dataframe as csv files
+write.csv(polity,"Data files/Formatted data files/polity_full.csv")
 
 ##### PCA for 3 components
 # XCONST, XRCOMP, XROPEN

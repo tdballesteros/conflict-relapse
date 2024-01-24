@@ -32,6 +32,7 @@ rpc <- rpc %>%
   dplyr::select(-country)
 
 # CUB approx
+# Take mean of Dominican Republic, Haiti, and Jamaica
 rpc.cub <- rpc %>%
   dplyr::filter(iso3c %in% c("HTI","DOM","JAM")) %>%
   dplyr::group_by(year) %>%
@@ -39,6 +40,7 @@ rpc.cub <- rpc %>%
   dplyr::mutate(iso3c = "CUB")
 
 # TKM approx
+# Take mean of Kazakhstan, Kyrgyzstan, Tajikistan, and Uzbekistan
 rpc.tkm <- rpc %>%
   dplyr::filter(iso3c %in% c("KAZ","KGZ","TJK","UZB")) %>%
   dplyr::group_by(year) %>%

@@ -1,6 +1,12 @@
-# This script formats two regional dummy variables at the country level, based on country_regions.xlsx and country_regions2.xlsx.
-# Continent-Region level: Americas, Asia, Europe, Middle East & North Africa (MENA), and Sub-Saharan Africa (SSA)
-# Sub-Region level: Western Europe & Others Group (WEOG),	Central America,	Carribean,	South America,	Eastern Europe,	Middle East,	North Africa,	East Africa,	West Africa,	Central Africa,	Southern Africa,	Central Asia,	South Asia,	East Asia, and	Southeast Asia
+# This script takes two Excel spreadsheets coding each country into a region and subregion.
+
+# country_regions.xlsx codes countries into 5 Continent-Region levels
+## Levels: Americas, Asia, Europe, MENA (Middle East & North Africa), and SSA (Sub-Saharan Africa)
+
+# country_regions2.xlsx codes countries into 15 subregional levels
+## Levels: WEOG (Western Europe & Others Group), Central America, Caribbean, South America, Eastern Europe,
+## Middle East, North Africa, East Africa, West Africa, Central Africa, Southern Africa, Central Asia,
+## South Asia, East Asia, and Southeast Asia
 
 # load libraries
 library(readxl)
@@ -13,7 +19,7 @@ country_regions1 <- readxl::read_excel("Data files/Raw data files/country_region
 country_regions2 <- readxl::read_excel("Data files/Raw data files/country_regions2.xlsx") %>%
   dplyr::mutate(across(everything(), .fns = ~replace_na(.,0)))
 
-# data formatting
+# additional data formatting
 country_regions1 <- country_regions1 %>%
   # using the countrycode package, add country name based on iso3c value
   dplyr::mutate(country = countrycode::countrycode(iso3c,origin="iso3c",destination="country.name"))

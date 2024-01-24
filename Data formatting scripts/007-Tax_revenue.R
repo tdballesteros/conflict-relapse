@@ -93,15 +93,16 @@ taxrev <- dplyr::full_join(tax.ictd,tax.oecd,by=c("iso3c","year")) %>%
   dplyr::full_join(tax.imf,by=c("iso3c","year")) %>%
   dplyr::full_join(tax.wb,by=c("iso3c","year")) %>%
   dplyr::full_join(tax.imf2,by=c("iso3c","year")) %>%
-  dplyr::mutate(ictd.value = 100*ictd.value,
-                max = NA,
-                min = NA,
-                points = NA) %>%
-  dplyr::filter(iso3c %!in% c("BHS","BTN",NA))
+  dplyr::mutate(ictd.value = 100*ictd.value) %>%
+  dplyr::filter(iso3c %!in% c("BHS","BTN",NA)) %>%
+  dplyr::rowwise() %>%
+  dplyr::mutate(max = max(ictd.value,oecd.value,imf.value,wb.value,na.rm=TRUE),
+                min = min(ictd.value,oecd.value,imf.value,wb.value,na.rm=TRUE))
+
+taxrev$max[taxrev$max==-Inf] <- NA
+taxrev$min[taxrev$min==Inf] <- NA
 
 for(i in 1:nrow(taxrev)){
-  taxrev$max[i] <- max(taxrev$ictd.value[i],taxrev$oecd.value[i],taxrev$imf.value[i],taxrev$wb.value[i],na.rm=T)
-  taxrev$min[i] <- min(taxrev$ictd.value[i],taxrev$oecd.value[i],taxrev$imf.value[i],taxrev$wb.value[i],na.rm=T)
   taxrev$points[i] <- sum(!is.na(taxrev$ictd.value[i]),!is.na(taxrev$oecd.value[i]),!is.na(taxrev$imf.value[i]),
                           !is.na(taxrev$wb.value[i]))
 }
@@ -109,7 +110,7 @@ for(i in 1:nrow(taxrev)){
 taxrev <- taxrev %>%
   dplyr::filter(points > 0) %>%
   dplyr::mutate(diff = max - min) #%>%
-#filter(diff > 5)
+# dplyr::filter(diff > 5)
 
 hist(taxrev$diff,breaks=100)
 
