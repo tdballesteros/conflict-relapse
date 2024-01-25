@@ -1,105 +1,76 @@
-# This script formats population variables.
+# This script formats a population estimate variable.
 
-# load libraries
+### load libraries ----------------------------------------------------------------------
 library(readxl)
 library(countrycode)
 library(dplyr)
 library(tidyr)
 
-# not in function
+### not in function ----------------------------------------------------------------------
 '%!in%' <- function(x,y)!('%in%'(x,y))
 
-#### population data from United Nations Department of Economic and Social Affairs, Population Division ####
-pd <- read_excel("Data files/Raw data files/AnnualTotPopMidYear-20200708071736.xlsx", sheet = 2, skip = 1)
-pd2 <- read_excel("Data files/Raw data files/AnnualTotPopMidYear-20200708071835.xlsx", sheet = 2, skip = 1)
+### load data files ----------------------------------------------------------------------
+# population data from United Nations Department of Economic and Social Affairs, Population Division
+# 1950 - 1984
+pd1 <- readxl::read_excel("Data files/Raw data files/AnnualTotPopMidYear-20200708071736.xlsx", sheet = 2, skip = 1)
+# 1985 - 2019
+pd2 <- readxl::read_excel("Data files/Raw data files/AnnualTotPopMidYear-20200708071835.xlsx", sheet = 2, skip = 1)
+
+### format data ----------------------------------------------------------------------
+# merge datasets
+pd <- dplyr::full_join(pd1,pd2,by=c("ISO 3166-1 numeric code","Location")) %>%
+  # drop ISO 3166-1 code and data notes columns
+  select(-c(`ISO 3166-1 numeric code`,Note.x,Note.y)) %>%
+  # filter out non-countries (regions and economic groups)
+  dplyr::filter(Location %!in% c("World","More developed regions","Less developed regions",
+                                 "Least developed countries","Less developed regions, excluding least developed countries",
+                                 "Less developed regions, excluding China","High-income countries",
+                                 "Middle-income countries","Lower-middle-income countries",
+                                 "Upper-middle-income countries","Low-income countries","Sub-Saharan Africa",
+                                 "Africa","Eastern Africa","Middle Africa","Northern Africa","Southern Africa",
+                                 "Western Africa","Asia","Eastern Asia","Central Asia","Southern Asia",
+                                 "South-Eastern Asia","Western Asia","Europe","Eastern Europe","Northern Europe",
+                                 "Southern Europe","Western Europe","Latin America and the Caribbean","Caribbean",
+                                 "Central America","South America","North America","Oceania","Australia/New Zealand",
+                                 "Melanesia","Polynesia","South-Central Asia","Northern America","Micronesia"),
+                # filter out country sub-units + Holy See
+                Location %!in% c("Mayotte","Réunion","Saint Helena","China, Hong Kong SAR","China, Macao SAR","Maldives",
+                                 "Channel Islands","Faeroe Islands","Isle of Man","Gibraltar","Holy See","Anguilla","Aruba",
+                                 "British Virgin Islands","Caribbean Netherlands","Cayman Islands","Curaçao","Guadeloupe",
+                                 "Martinique","Montserrat","Sint Maarten (Dutch part)","Turks and Caicos Islands",
+                                 "United States Virgin Islands","Belize","Falkland Islands (Malvinas)","French Guiana","Bermuda",
+                                 "Greenland","Saint Pierre and Miquelon","New Caledonia","Guam","Northern Mariana Islands",
+                                 "American Samoa","Cook Islands","French Polynesia","Niue","Tokelau","Wallis and Futuna Islands",
+                                 "Western Sahara")) %>%
+  # convert to long data
+  tidyr::pivot_longer(2:71, names_to = "year", values_to = "value")
 
 # Puerto Rico added to USA pop
-pd <- pd %>%
-  dplyr::select(-c(`ISO 3166-1 numeric code`,Note)) %>%
-  dplyr::filter(Location %!in% c("World","More developed regions","Less developed regions",
-                                 "Least developed countries",
-                                 "Less developed regions, excluding least developed countries",
-                                 "Less developed regions, excluding China","High-income countries",
-                                 "Middle-income countries","Lower-middle-income countries",
-                                 "Upper-middle-income countries","Low-income countries","Sub-Saharan Africa",
-                                 "Africa","Eastern Africa","Comoros","Mayotte","Réunion","Seychelles",
-                                 "Middle Africa","Sao Tome and Principe","Northern Africa","Southern Africa",
-                                 "Western Africa","Saint Helena","Asia","Eastern Asia","China, Hong Kong SAR",
-                                 "China, Macao SAR","Central Asia","Southern Asia","Maldives",
-                                 "South-Eastern Asia","Brunei Darussalam","Western Asia","Europe",
-                                 "Eastern Europe","Northern Europe","Channel Islands","Faeroe Islands",
-                                 "Iceland","Isle of Man","Southern Europe","Andorra","Gibraltar","Holy See",
-                                 "Malta","San Marino","Western Europe","Liechtenstein","Luxembourg","Monaco",
-                                 "Latin America and the Caribbean","Caribbean","Anguilla","Antigua and Barbuda",
-                                 "Aruba","Bahamas","Barbados","British Virgin Islands","Caribbean Netherlands",
-                                 "Cayman Islands","Curaçao","Dominica","Grenada","Guadeloupe","Martinique",
-                                 "Montserrat","Saint Kitts and Nevis","Saint Lucia",
-                                 "Saint Vincent and the Grenadines","Sint Maarten (Dutch part)",
-                                 "Turks and Caicos Islands","United States Virgin Islands","Central America",
-                                 "Belize","South America","Falkland Islands (Malvinas)","French Guiana","Guyana",
-                                 "Suriname","North America","Bermuda","Greenland","Saint Pierre and Miquelon",
-                                 "Oceania","Australia/New Zealand","Melanesia","Fiji","New Caledonia",
-                                 "Solomon Islands","Vanuatu","Micronesia","Guam","Kiribati","Marshall Islands",
-                                 "Micronesia (Fed. States of)","Nauru","Northern Mariana Islands","Palau",
-                                 "Polynesia","American Samoa","Cook Islands","French Polynesia","Niue","Samoa",
-                                 "Tokelau","Tonga","Tuvalu","Wallis and Futuna Islands","South-Central Asia",
-                                 "Northern America","Western Sahara","Cabo Verde")) %>%
-  tidyr::pivot_longer(2:36, names_to = "year", values_to = "value")
-
-pd2 <- pd2 %>%
-  dplyr::select(-c(`ISO 3166-1 numeric code`,Note)) %>%
-  dplyr::filter(Location %!in% c("World","More developed regions","Less developed regions",
-                                 "Least developed countries",
-                                 "Less developed regions, excluding least developed countries",
-                                 "Less developed regions, excluding China","High-income countries",
-                                 "Middle-income countries","Lower-middle-income countries",
-                                 "Upper-middle-income countries","Low-income countries","Sub-Saharan Africa",
-                                 "Africa","Eastern Africa","Comoros","Mayotte","Réunion","Seychelles",
-                                 "Middle Africa","Sao Tome and Principe","Northern Africa","Southern Africa",
-                                 "Western Africa","Saint Helena","Asia","Eastern Asia","China, Hong Kong SAR",
-                                 "China, Macao SAR","Central Asia","Southern Asia","Maldives",
-                                 "South-Eastern Asia","Brunei Darussalam","Western Asia","Europe",
-                                 "Eastern Europe","Northern Europe","Channel Islands","Faeroe Islands",
-                                 "Iceland","Isle of Man","Southern Europe","Andorra","Gibraltar","Holy See",
-                                 "Malta","San Marino","Western Europe","Liechtenstein","Luxembourg","Monaco",
-                                 "Latin America and the Caribbean","Caribbean","Anguilla","Antigua and Barbuda",
-                                 "Aruba","Bahamas","Barbados","British Virgin Islands","Caribbean Netherlands",
-                                 "Cayman Islands","Curaçao","Dominica","Grenada","Guadeloupe","Martinique",
-                                 "Montserrat","Saint Kitts and Nevis","Saint Lucia",
-                                 "Saint Vincent and the Grenadines","Sint Maarten (Dutch part)",
-                                 "Turks and Caicos Islands","United States Virgin Islands","Central America",
-                                 "Belize","South America","Falkland Islands (Malvinas)","French Guiana","Guyana",
-                                 "Suriname","North America","Bermuda","Greenland","Saint Pierre and Miquelon",
-                                 "Oceania","Australia/New Zealand","Melanesia","Fiji","New Caledonia",
-                                 "Solomon Islands","Vanuatu","Micronesia","Guam","Kiribati","Marshall Islands",
-                                 "Micronesia (Fed. States of)","Nauru","Northern Mariana Islands","Palau",
-                                 "Polynesia","American Samoa","Cook Islands","French Polynesia","Niue","Samoa",
-                                 "Tokelau","Tonga","Tuvalu","Wallis and Futuna Islands","South-Central Asia",
-                                 "Northern America","Western Sahara","Cabo Verde")) %>%
-  tidyr::pivot_longer(2:36, names_to = "year", values_to = "value")
-
-pd <- rbind(pd,pd2)
-
 pd$Location[pd$Location=="Puerto Rico"] <- "United States of America"
 pd <- pd %>%
   dplyr::group_by(Location,year) %>%
   dplyr::summarise(value = sum(value)) %>%
   dplyr::ungroup() %>%
+  # convert to full value
   dplyr::mutate(value = 1000 * value,
+                # using the countrycode package, add iso3c based on country name
                 iso3c = countrycode::countrycode(Location,"country.name","iso3c")) %>%
-  dplyr::select(iso3c,year,value)
+  # move iso3c variable first
+  dplyr::relocate(iso3c, .before = Location) %>%
+  dplyr::rename(country = Location)
 
+### calculate unified/divided country data ----------------------------------------------------------------------
 # YEM is combined population of YPR and YAR, DEU is combined DDR and BRD, VNM is combined with RVN
 # SRB includes KSV, 6 YUG republics have component populations individually
 
-# cow populations to determine ratio of pop between YPR and YAR / DDR and BRD / VNM and RVN / SRB and KSV
-cow.pop <- read_csv("Data files/Raw data files/NMC_5_0.csv")
+# load COW populations to determine ratio of pop between YPR and YAR / DDR and BRD / VNM and RVN / SRB and KSV
+cow.pop <- read.csv("Data files/Raw data files/NMC_5_0.csv")
 
 cow.pop <- cow.pop %>%
   as.data.frame() %>%
   dplyr::select(stateabb,year,tpop)
 
-# YEM
+#### Yemen ----------------------------------------------------------------------
 cow.pop.yem <- cow.pop %>%
   dplyr::filter(stateabb %in% c("YAR","YPR","YEM")) %>%
   tidyr::pivot_wider(names_from = "stateabb", values_from = "tpop") %>%
@@ -171,7 +142,7 @@ pd <- pd %>%
 # unified YEM value for 1990
 pd$value[pd$iso3c=="YEM"&pd$year==1990] <- 12057000
 
-# DEU
+#### Germany ----------------------------------------------------------------------
 cow.pop.deu <- cow.pop %>%
   dplyr::filter(stateabb %in% c("GDR","GFR","GMY")) %>%
   tidyr::pivot_wider(names_from = "stateabb", values_from = "tpop") %>%
@@ -242,7 +213,7 @@ pd <- pd %>%
   dplyr::filter(iso3c != "DEU") %>%
   rbind(deu)
 
-# VNM
+#### Vietnam ----------------------------------------------------------------------
 cow.pop.vnm <- cow.pop %>%
   dplyr::filter(stateabb %in% c("DRV","RVN")) %>%
   tidyr::pivot_wider(names_from = "stateabb", values_from = "tpop") %>%
@@ -293,7 +264,7 @@ pd <- pd %>%
   dplyr::filter(iso3c != "VNM") %>%
   rbind(vnm)
 
-# USSR
+#### USSR ----------------------------------------------------------------------
 ussr <- pd %>%
   dplyr::filter(iso3c %in% c("EST","LVA","LTU","MDA","BLR","UKR","RUS","GEO","ARM","AZE",
                              "KAZ","KGZ","TJK","TKM","UZB")) %>%
@@ -322,7 +293,7 @@ pd <- pd %>%
   dplyr::filter(iso3c != "RUS" | year >= 1992) %>%
   rbind(ussr)
 
-# YUG
+#### Yugoslavia ----------------------------------------------------------------------
 yug <- pd %>%
   dplyr::filter(iso3c %in% c("SVN","HRV","MKD","BIH","SRB","MNE")) %>%
   tidyr::pivot_wider(names_from = iso3c, values_from = value) %>%
@@ -356,7 +327,7 @@ pd <- pd %>%
   dplyr::filter(iso3c != "MNE") %>%
   rbind(yug,srb)
 
-# KSV
+#### Kosovo ----------------------------------------------------------------------
 cow.pop.srb <- cow.pop %>%
   dplyr::filter(stateabb %in% c("KOS","YUG")) %>%
   tidyr::pivot_wider(names_from = "stateabb", values_from = "tpop") %>%
@@ -416,7 +387,7 @@ pd <- pd %>%
 
 pd$iso3c[pd$iso3c=="RUS" & pd$year<= 1991] <- "SOV"
 
-# CZE
+#### Czeckoslovakia ----------------------------------------------------------------------
 cs <- pd %>%
   dplyr::filter(iso3c %in% c("CZE","SVK")) %>%
   tidyr::pivot_wider(names_from = iso3c, values_from = pop.pd) %>%
@@ -432,11 +403,14 @@ pd <- pd %>%
 
 pd$year <- as.numeric(pd$year)
 
-pop_40s <- read_excel("~/Documents/pop_estimates.xlsx", sheet = 1) %>%
+### add workbook estimates ----------------------------------------------------------------------
+# adds population estimates for countries in the 1940s (file notes sources of estimates)
+pop_40s <- readxl::read_excel("Data files/Workbooks/pop_estimates.xlsx", sheet = 1) %>%
   dplyr::select(-method)
 
 pd <- pd %>%
   rbind(pop_40s)
 
+### write data ----------------------------------------------------------------------
 # writes formatted dataframe as csv files
 write.csv(pd,"Data files/Formatted data files/population.csv")
