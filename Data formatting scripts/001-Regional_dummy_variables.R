@@ -15,19 +15,20 @@ library(countrycode)
 library(dplyr)
 
 ### load data files ----------------------------------------------------------------------
-# also fills in 0s for blank cells
-country_regions1 <- readxl::read_excel("Data files/Raw data files/country_regions.xlsx") %>%
-  dplyr::mutate(across(everything(), .fns = ~replace_na(.,0)))
-country_regions2 <- readxl::read_excel("Data files/Raw data files/country_regions2.xlsx") %>%
-  dplyr::mutate(across(everything(), .fns = ~replace_na(.,0)))
+country_regions1 <- readxl::read_excel("Data files/Raw data files/country_regions.xlsx") 
+country_regions2 <- readxl::read_excel("Data files/Raw data files/country_regions2.xlsx")
 
-### additional data formatting ----------------------------------------------------------------------
+### data formatting ----------------------------------------------------------------------
 country_regions1 <- country_regions1 %>%
+  # fills in 0s for blank cells
+  dplyr::mutate(across(everything(), .fns = ~replace_na(.,0))) %>%
   # using the countrycode package, add country name based on iso3c value
   dplyr::mutate(country = countrycode::countrycode(iso3c,origin="iso3c",destination="country.name")) %>%
   dplyr::relocate(country, .after = iso3c)
 
 country_regions2 <- country_regions2 %>%
+  # fills in 0s for blank cells
+  dplyr::mutate(across(everything(), .fns = ~replace_na(.,0))) %>%
   # using the countrycode package, add country name based on iso3c value
   dplyr::mutate(country = countrycode::countrycode(iso3c,origin="iso3c",destination="country.name")) %>%
   dplyr::relocate(country, .after = iso3c)

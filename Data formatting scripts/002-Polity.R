@@ -1,22 +1,28 @@
-# This script takes the Center for Systemic Peace's Polity V (2018) dataset and recalculates a polity
-# variable using 3 of the 5 component scores of the Center for Systemic Peace's polity metric.
+# This script takes the Center for Systemic Peace's Polity V (2018) dataset and calculates three
+# additional metrics using three of the five component scores in the Polity V dataset. The variable
+# xpolity is a simple sum of component scores XCONST, XRCOMP, and XROPEN, omitting PARCOMP and PARREG.
+# The variable polity is calculated by taking the first component of the principal component analysis (PCA)
+# on the XCONST, XRCOMP, and XROPEN variables. The variable politysq is the square of polity.
 
 # Polity component scores of XCONST, XRCOMP, and XROPEN are used, while PARCOMP and PARREG are dropped.
 
-# load libraries
+### load libraries ----------------------------------------------------------------------
 library(readxl)
+library(stats)
 library(countrycode)
 library(dplyr)
 
-# load data file
+### load data files ----------------------------------------------------------------------
 polity <- readxl::read_excel("Data files/Raw data files/p5v2018.xls")
 
-# formatting
+### data formatting ----------------------------------------------------------------------
 polity <- polity %>%
   dplyr::select(country,year,democ,autoc,polity2,parcomp,parreg,xconst,xrcomp,xropen) %>%
   dplyr::filter(year >= 1946) %>%
   # using the countrycode package, add country name based on iso3c value
-  dplyr::mutate(iso3c = countrycode::countrycode(country,"country.name","iso3c"))
+  dplyr::mutate(iso3c = countrycode::countrycode(country,"country.name","iso3c")) %>%
+  # moves iso3c variable first
+  dplyr::relocate(iso3c,.before = country)
 
 # manually add country codes to missing country names: Czechoslovakia, Germany East, Kosovo, Serbia and Montenegro,
 # South Vietnam, Yemen North, Yemen South, Yugoslavia
@@ -41,80 +47,90 @@ polity$xropen[polity$xropen %in% c(-66,-77,-88)] <- NA
 
 # alters some entries to correct countries breaking apart or unifying
 polity <- polity %>%
-  dplyr::filter(country != "Serbia and Montenegro" | year != 2006)
-polity$iso3c[polity$iso3c=="RUS"&polity$year<=1991] <- "SOV"
-polity$iso3c[polity$iso3c=="YUG"&polity$year>=1992] <- "SRB"
-polity$iso3c[polity$iso3c=="DEU"&polity$year<=1990] <- "BRD"
+  dplyr::filter(country != "Serbia and Montenegro" | year != 2006) # remove 2006 Serbia and Montenegro country-year (they are coded separately)
+polity$iso3c[polity$iso3c=="RUS"&polity$year<=1991] <- "SOV" # code Russia as USSR for 1991 and before
+polity$iso3c[polity$iso3c=="YUG"&polity$year>=1992] <- "SRB" # code Yugoslavia as Serbia for 1992 and after
+polity$iso3c[polity$iso3c=="DEU"&polity$year<=1990] <- "BRD" # code Germany as West German for 1990 and before
 
 # duplicates 2018 values for 2019, as 2019 values have yet to be published
 polity <- rbind(polity,
                 polity %>%
                   dplyr::filter(year == 2018) %>%
                   dplyr::mutate(year = 2019)) %>%
-  # drops country variable and moves iso3c variable first
-  dplyr::select(-country) %>%
-  dplyr::relocate(iso3c,.before = year) %>%
   # creates xpolity score summing the 3 components of interest (XCONST, XRCOMP, XROPEN)
-  dplyr::mutate(xpolity = xconst + xrcomp + xropen)
-
-# writes formatted dataframe as csv files
-write.csv(polity,"Data files/Formatted data files/polity_full.csv")
-
-##### PCA for 3 components (XCONST, XRCOMP, XROPEN)
-# select 3 component variables, CSP's overall polity2 score, and the xpolity score
-polity_pca3_df1 <- polity %>%
-  dplyr::select(iso3c,year,xconst,xrcomp,xropen,polity2,xpolity) %>%
+  dplyr::mutate(xpolity = xconst + xrcomp + xropen) %>%
   unique()
 
-# creates second df filtering out all country-years missing values
-# all country-years missing a polity2 score are missing the 3 component scores,
-# though some country-years missing the 3 component scores are not missing the polity2 score
-polity_pca3_df2 <- polity_pca3_df1 %>%
+### PCA on components ----------------------------------------------------------------------
+# creates dataset of only iso3c, year, and the three component metrics
+polity_pca_df <- polity %>%
+  dplyr::select(iso3c,year,xconst,xrcomp,xropen) %>%
+  unique() %>%
+  # omits country-years with missing component metric values
   na.omit()
 
-# PCA using the 3 component scores
-polity_pca3 <- stats::prcomp(~ xconst + xrcomp + xropen, data = polity_pca3_df2, retx = T, center = T, scale. = T)
+# computes PCA
+polity_pca <- stats::prcomp(~ xconst + xrcomp + xropen, data = polity_pca_df, retx = T, center = T, scale. = T)
 
-# replaces data with first principal component calculation, only for the country-years with no missing values
-polity_pca3_df2 <- polity_pca3_df2 %>%
-  cbind(polity_pca3$x[,1]) %>%
-  dplyr::select(-c(xconst,xrcomp,xropen,polity2,xpolity)) %>%
-  dplyr::rename(pc1 = 3) %>%
+polity_pca_df <- polity_pca_df %>%
+  # combines principal component scores with PCA dataset
+  cbind(polity_pca[["x"]]) %>%
+  # drops second and third principal component scores as well as the three component metrics
+  dplyr::select(-c(PC2,PC3,xconst,xrcomp,xropen)) %>%
+  # renames first principal component as polity.pca
+  dplyr::rename(polity.pca = PC1) %>%
+  # creates polity.pca.sq variable, the square of polity.pca
+  dplyr::mutate(polity.pca.sq = polity.pca^2)
+
+# merges PCA score with full polity dataset
+polity <- dplyr::full_join(polity,polity_pca_df,by=c("iso3c","year")) %>%
   unique()
 
-# merges the dataset including missing values with the principal component dataset
-polity_pca3_df1 <- dplyr::full_join(polity_pca3_df1,polity_pca3_df2,by=c("iso3c","year")) %>%
-  unique()
+### linear model ----------------------------------------------------------------------
+# Tests the polity.pca metric based on linear modelling using the country and year along with
+# either polity2 or the three component metrics. The polity.pca metric is not meant to align
+# fully with the polity2 metric, though they are expected to generally align.
 
-# creates a df filtering out all country-years missing values
-polity_complete <- polity_pca3_df1 %>%
+#### polity2 linear model ----------------------------------------------------------------------
+# creates a dataset for a linear model using the polity2 variable
+polity_lm_df1 <- polity %>%
+  dplyr::select(iso3c,year,polity2,polity.pca) %>%
+  unique() %>%
   na.omit()
 
 # creates a linear model predicting the principal component based on CSP's polity2 score, the country, and the year
-pol.glm <- glm(pc1 ~ polity2 + iso3c + year, data = polity_complete)
-summary(pol.glm)
-pol.est <- fitted(pol.glm) %>%
+pol_lm1 <- stats::glm(polity.pca ~ polity2 + iso3c + year, data = polity_lm_df1)
+summary(pol_lm1)
+
+# creates a dataframe with the fitted results of the linear model
+pol_lm1_fitted <- stats::fitted(pol_lm1) %>%
   as.data.frame()
 
-polity_complete <- polity_complete %>%
-  # adds the estimated principal component from the linear model to the dataset
-  cbind(pol.est) %>%
-  dplyr::select(-c(xconst,xrcomp,xropen,polity2,pc1,xpolity)) %>%
-  dplyr::rename(estimate = 3) %>%
-  unique()
+#### component variables linear model ----------------------------------------------------------------------
+# creates a dataset for a linear model using the XCONST, XRCOMP, and XROPEN variables
+polity_lm_df2 <- polity %>%
+  dplyr::select(iso3c,year,xconst,xrcomp,xropen,polity.pca) %>%
+  unique() %>%
+  na.omit()
 
-# adds the linear model estimate to the full PCA dataset
-polity_pca3_df3 <- dplyr::full_join(polity_pca3_df1,polity_complete,by=c("iso3c","year"))
+# creates a linear model predicting the principal component based on CSP's XCONST, XRCOMP, and XROPEN scores; the country; and the year
+pol_lm2 <- stats::glm(polity.pca ~ xconst + xrcomp + xropen + iso3c + year, data = polity_lm_df2)
+summary(pol_lm2)
 
-# codes all country-years missing a principal component score as 0
-polity_pca3_df3$pc1[is.na(polity_pca3_df3$pc1)] <- 0
+# creates a dataframe with the fitted results of the linear model
+pol_lm2_fitted <- stats::fitted(pol_lm2) %>%
+  as.data.frame()
 
-# selects only the principal component variable and creates a second variable squaring the
-# principal component score
-polity_pca3_df3 <- polity_pca3_df3 %>%
-  dplyr::select(iso3c,year,pc1) %>%
-  dplyr::rename(polity = pc1) %>%
-  dplyr::mutate(politysq = polity^2)
+### final dataset formatting ----------------------------------------------------------------------
+# codes all country-years missing polity.pca, polity.pca.sq, xpolity, and polity2 as 0
+polity$polity.pca[is.na(polity$polity.pca)] <- 0
+polity$polity.pca.sq[is.na(polity$polity.pca.sq)] <- 0
+polity$xpolity[is.na(polity$xpolity)] <- 0
+polity$polity2[is.na(polity$polity2)] <- 0
+
+# selects only the iso3c, county, year, three constructed polity variables, and CSP's polity2 variable
+polity <- polity %>%
+  dplyr::select(iso3c,country,year,polity.pca,polity.pca.sq,xpolity,polity2)
 
 # writes formatted dataframe as csv files
-write.csv(polity_pca3_df3,"Data files/Formatted data files/polity.csv")
+write.csv(polity,"Data files/Formatted data files/polity.csv")
