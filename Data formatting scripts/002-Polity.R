@@ -132,5 +132,6 @@ polity$polity2[is.na(polity$polity2)] <- 0
 polity <- polity %>%
   dplyr::select(iso3c,country,year,polity.pca,polity.pca.sq,xpolity,polity2)
 
+### write data ----------------------------------------------------------------------
 # writes formatted dataframe as csv files
 write.csv(polity,"Data files/Formatted data files/polity.csv")

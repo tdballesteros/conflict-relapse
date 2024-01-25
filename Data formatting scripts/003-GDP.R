@@ -1,27 +1,36 @@
-# This script formats GDP per capita variables.
+# This script formats two GDP estimates and creates a composite estimate score.
 
-# load libraries
+### load libraries ----------------------------------------------------------------------
 library(readxl)
+library(utils)
 library(countrycode)
 library(dplyr)
 
-# not in function
+### not in function ----------------------------------------------------------------------
 '%!in%' <- function(x,y)!('%in%'(x,y))
 
-#### GDP data (Penn World Tables) ####
+### load and format data ----------------------------------------------------------------------
+#### Penn World Tables ----------------------------------------------------------------------
 # IMF GDP growth rates from https://www.imf.org/external/datamapper/NGDP_RPCH@WEO/SSD?zoom=SSD&highlight=SSD
-
 # Real GDP at constant 2011 national prices (in mil. 2011US$)
-pwt <- read_excel("Data files/Raw data files/pwt91.xlsx", sheet = 3) %>%
+pwt <- readxl::read_excel("Data files/Raw data files/pwt91.xlsx", sheet = 3) %>%
   dplyr::select(country,year,rgdpna) %>%
-  dplyr::mutate(rgdpna = rgdpna * 1000000 * (1 + 0.14), # converts to 2019$
-                iso3c = countrycode::countrycode(country,"country.name","iso3c")) 
+  # convert real gdp to 2019$
+  dplyr::mutate(rgdpna = rgdpna * 1000000 * (1 + 0.14),
+                # using the countrycode package, add iso3c based on country name
+                iso3c = countrycode::countrycode(country,"country.name","iso3c"))  %>%
+  # move iso3c variable first
+  dplyr::relocate(iso3c, .before = country)
 
-#### GDP from Gleditsch ####
+#### Gleditsch ----------------------------------------------------------------------
 # realgdp	- total real GDP, 2005 
-gdpgl <- read.delim("Data files/Raw data files/gdpv6.txt") %>%
-  dplyr::mutate(iso3c = countrycode::countrycode(stateid,"gwc","iso3c"))
+gdpgl <- utils::read.delim("Data files/Raw data files/gdpv6.txt") %>%
+  # using the countrycode package, add iso3c based on country name
+  dplyr::mutate(iso3c = countrycode::countrycode(stateid,"gwc","iso3c")) %>%
+  # move iso3c variable first
+  dplyr::relocate(iso3c, .before = stateid)
 
+# codes iso3c values missing from the countrycode package
 gdpgl$iso3c[gdpgl$stateid=="AAB"] <- "ATG"
 gdpgl$iso3c[gdpgl$stateid=="ABK"] <- "ABK" # Abkhazia
 gdpgl$iso3c[gdpgl$stateid=="AND"] <- "AND"
@@ -55,19 +64,23 @@ gdpgl$iso3c[gdpgl$stateid=="YPR"] <- "YPR"
 gdpgl$iso3c[gdpgl$stateid=="YUG"] <- "YUG"
 gdpgl$iso3c[gdpgl$stateid=="ZAN"] <- "ZAN"
 gdpgl$iso3c[gdpgl$stateid=="RVN"] <- "RVN"
-gdpgl$iso3c[gdpgl$stateid=="DEU"&gdpgl$year<1991] <- "BRD"
+gdpgl$iso3c[gdpgl$stateid=="DEU"&gdpgl$year<1991] <- "BRD" # recodes Germany before 1991 as West Germany
 
 gdpgl <- gdpgl %>%
   dplyr::select(iso3c,year,realgdp) %>%
-  dplyr::mutate(realgdp = realgdp * (1 + 0.31) * 1000000) %>% # in 2019$
+  # convert real gdp to 2019$
+  dplyr::mutate(realgdp = realgdp * (1 + 0.31) * 1000000) %>%
   dplyr::rename(gdp = realgdp)
 
-#### merged GDP data ####
+### merge data ----------------------------------------------------------------------
 gdp <- full_join(pwt,gdpgl,by=c("iso3c","year")) %>%
   dplyr::filter(iso3c %!in% c("ABW","AIA","ATG","BHS","BLZ","BMU","BRB","BRN","BTN","COM","CPV","CUW","DMA",
                               "GRD","HKG","ISL","KNA","LCA","LUX","MAC","MDV","MLT","MSR","STP","SUR","SXM",
                               "SYC","TCA","VCT","VGB","GUY","MCO","LIE","AND","ZAN","TBT","VUT","SLB","KIR",
                               "NRU","TON","TUV","MHL","PLW","FSM","WSM",NA,"ABK","CYM"))
+
+### modify data ----------------------------------------------------------------------
+# modifications calculated on Excel workbook unless otherwise denoted
 
 # AFG
 # No pwt data, use gl data
@@ -892,7 +905,9 @@ gdp <- gdp %>%
   dplyr::select(iso3c,year,rgdpna) %>%
   dplyr::rename(gdp = rgdpna)
 
-gdp.add <- read_excel("~/Documents/gdp_add.xlsx") %>%
+### add workbook estimates ----------------------------------------------------------------------
+# adds additional gdp estimates (file notes sources of estimates)
+gdp.add <- readxl::read_excel("Data files/Workbooks/gdp_add.xlsx") %>%
   dplyr::select(iso3c,year,gdp)
 
 gdp <- gdp %>%
@@ -903,11 +918,13 @@ gdp$iso3c[gdp$iso3c=="RUS"&gdp$year<= 1991] <- "SOV"
 gdp <- gdp %>%
   na.omit()
 
-gdp_40s <- read_excel("~/Documents/gdp_estimates_40s.xlsx", sheet = 1) %>%
+# adds gdp estimates for countries in the 1940s (file notes sources of estimates)
+gdp_40s <- readxl::read_excel("Data files/Workbooks/gdp_estimates_40s.xlsx", sheet = 1) %>%
   dplyr::select(-method)
 
 gdp <- gdp %>%
   rbind(gdp_40s)
 
+### write data ----------------------------------------------------------------------
 # writes formatted dataframe as csv files
 write.csv(gdp,"Data files/Formatted data files/gdp.csv")
