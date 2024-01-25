@@ -1,13 +1,13 @@
 # This script creates an estimated tax revenue variable for each country-year.
 
-# load libraries
+### load libraries ----------------------------------------------------------------------
 library(readxl)
 library(countrycode)
 library(imputeTS)
 library(dplyr)
 library(tidyr)
 
-### load datasets ------------------------------------------------------------
+### load datasets ----------------------------------------------------------------------
 # World Bank - Tax Revenue (% of GDP) - GC.TAX.TOTL.GD.ZS
 tax.wb <- read.csv("Data files/Raw data files/API_GC.TAX.TOTL.GD.ZS_DS2_en_csv_v2_1124880.csv",skip=4)
 # IMF - General_government_Percent_of_GDP [imf2]
@@ -19,7 +19,7 @@ tax.imf <- readxl::read_excel("Data files/Raw data files/Tax_Revenue_in_Percent_
 # ICTD / UNU-WIDER
 tax.ictd <- readxl::read_excel("~/Downloads/ICTDWIDERGRD_2020.xlsx", sheet = 2)
 
-### format datasets ------------------------------------------------------------
+### format datasets ----------------------------------------------------------------------
 # format World Bank (wb) data
 tax.wb <- tax.wb %>%
   dplyr::select(-c(Indicator.Name,Indicator.Code,X)) %>%
@@ -88,7 +88,7 @@ tax.ictd <- tax.ictd %>%
                               "HKG","KIR","KNA","LCA","MAC","MHL","MNE","MSR","NRU","PLW",
                               "SLB","SMR","TON","TUV","VCT","VUT","WSM"))
 
-### merge datasets ------------------------------------------------------------
+### merge datasets ----------------------------------------------------------------------
 taxrev <- dplyr::full_join(tax.ictd,tax.oecd,by=c("iso3c","year")) %>%
   dplyr::full_join(tax.imf,by=c("iso3c","year")) %>%
   dplyr::full_join(tax.wb,by=c("iso3c","year")) %>%
@@ -216,7 +216,7 @@ for(i in 1:nrow(taxrev2)){
   }
 }
 
-### add estimates from spreadsheet ------------------------------------------------------------
+### add estimates from spreadsheet ----------------------------------------------------------------------
 # ARE
 taxrev2$est[taxrev2$iso3c=="ARE"&taxrev2$year==2014] <- 18.26893705
 taxrev2$est[taxrev2$iso3c=="ARE"&taxrev2$year==2015] <- 12.08599045
