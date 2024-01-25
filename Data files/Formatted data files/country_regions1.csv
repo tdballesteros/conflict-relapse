@@ -1,213 +1,213 @@
-"","iso3c","SSA","MENA","Americas","Asia","Europe","country"
-"1","ABW",0,0,1,0,0,"Aruba"
-"2","AFG",0,0,0,1,0,"Afghanistan"
-"3","AGO",1,0,0,0,0,"Angola"
-"4","AIA",0,0,1,0,0,"Anguilla"
-"5","ALB",0,0,0,0,0,"Albania"
-"6","AND",0,0,0,0,1,"Andorra"
-"7","ANT",0,0,1,0,0,NA
-"8","ARE",0,1,0,0,0,"United Arab Emirates"
-"9","ARG",0,0,1,0,0,"Argentina"
-"10","ARM",0,0,0,0,1,"Armenia"
-"11","ATG",0,0,1,0,0,"Antigua & Barbuda"
-"12","AUS",0,0,0,1,0,"Australia"
-"13","AUT",0,0,0,0,1,"Austria"
-"14","AZE",0,0,0,0,1,"Azerbaijan"
-"15","BDI",1,0,0,0,0,"Burundi"
-"16","BEL",0,0,0,0,1,"Belgium"
-"17","BEN",1,0,0,0,0,"Benin"
-"18","BFA",1,0,0,0,0,"Burkina Faso"
-"19","BGD",0,0,0,1,0,"Bangladesh"
-"20","BGR",0,0,0,0,1,"Bulgaria"
-"21","BHR",0,1,0,0,0,"Bahrain"
-"22","BHS",0,0,1,0,0,"Bahamas"
-"23","BIH",0,0,0,0,1,"Bosnia & Herzegovina"
-"24","BLR",0,0,0,0,1,"Belarus"
-"25","BLZ",0,0,1,0,0,"Belize"
-"26","BOL",0,0,1,0,0,"Bolivia"
-"27","BRA",0,0,1,0,0,"Brazil"
-"28","BRB",0,0,1,0,0,"Barbados"
-"29","BRD",0,0,0,0,1,NA
-"30","BRN",0,0,0,1,0,"Brunei"
-"31","BTN",0,0,0,1,0,"Bhutan"
-"32","BWA",1,0,0,0,0,"Botswana"
-"33","CAF",1,0,0,0,0,"Central African Republic"
-"34","CAN",0,0,1,0,0,"Canada"
-"35","CHE",0,0,0,0,1,"Switzerland"
-"36","CHL",0,0,1,0,0,"Chile"
-"37","CHN",0,0,0,1,0,"China"
-"38","CIV",1,0,0,0,0,"Côte d’Ivoire"
-"39","CMR",1,0,0,0,0,"Cameroon"
-"40","COD",1,0,0,0,0,"Congo - Kinshasa"
-"41","COG",1,0,0,0,0,"Congo - Brazzaville"
-"42","COL",0,0,1,0,0,"Colombia"
-"43","COM",1,0,0,0,0,"Comoros"
-"44","CPV",1,0,0,0,0,"Cape Verde"
-"45","CRI",0,0,1,0,0,"Costa Rica"
-"46","CUB",0,0,1,0,0,"Cuba"
-"47","CYP",0,0,0,0,1,"Cyprus"
-"48","CZE",0,0,0,0,1,"Czechia"
-"49","DDR",0,0,0,0,1,NA
-"50","DEU",0,0,0,0,1,"Germany"
-"51","DJI",1,0,0,0,0,"Djibouti"
-"52","DMA",0,0,1,0,0,"Dominica"
-"53","DNK",0,0,0,0,1,"Denmark"
-"54","DOM",0,0,1,0,0,"Dominican Republic"
-"55","DZA",0,1,0,0,0,"Algeria"
-"56","ECU",0,0,1,0,0,"Ecuador"
-"57","EGY",0,1,0,0,0,"Egypt"
-"58","ERI",1,0,0,0,0,"Eritrea"
-"59","ESH",0,1,0,0,0,"Western Sahara"
-"60","ESP",0,0,0,0,1,"Spain"
-"61","EST",0,0,0,0,1,"Estonia"
-"62","ETH",1,0,0,0,0,"Ethiopia"
-"63","FIN",0,0,0,0,1,"Finland"
-"64","FJI",0,0,0,1,0,"Fiji"
-"65","FRA",0,0,0,0,1,"France"
-"66","FSM",0,0,0,1,0,"Micronesia (Federated States of)"
-"67","GAB",1,0,0,0,0,"Gabon"
-"68","GBR",0,0,0,0,1,"United Kingdom"
-"69","GEO",0,0,0,0,1,"Georgia"
-"70","GHA",1,0,0,0,0,"Ghana"
-"71","GIN",1,0,0,0,0,"Guinea"
-"72","GMB",1,0,0,0,0,"Gambia"
-"73","GNB",1,0,0,0,0,"Guinea-Bissau"
-"74","GNQ",1,0,0,0,0,"Equatorial Guinea"
-"75","GRC",0,0,0,0,1,"Greece"
-"76","GRD",0,0,1,0,0,"Grenada"
-"77","GTM",0,0,1,0,0,"Guatemala"
-"78","GUF",0,0,1,0,0,"French Guiana"
-"79","GUY",0,0,1,0,0,"Guyana"
-"80","HKG",0,0,0,1,0,"Hong Kong SAR China"
-"81","HND",0,0,1,0,0,"Honduras"
-"82","HRV",0,0,0,0,1,"Croatia"
-"83","HTI",0,0,1,0,0,"Haiti"
-"84","HUN",0,0,0,0,1,"Hungary"
-"85","IDN",0,0,0,1,0,"Indonesia"
-"86","IND",0,0,0,1,0,"India"
-"87","IRL",0,0,0,0,1,"Ireland"
-"88","IRN",0,1,0,0,0,"Iran"
-"89","IRQ",0,1,0,0,0,"Iraq"
-"90","ISL",0,0,0,0,1,"Iceland"
-"91","ISR",0,1,0,0,0,"Israel"
-"92","ITA",0,0,0,0,1,"Italy"
-"93","JAM",0,0,1,0,0,"Jamaica"
-"94","JOR",0,1,0,0,0,"Jordan"
-"95","JPN",0,0,0,1,0,"Japan"
-"96","KAZ",0,0,0,1,0,"Kazakhstan"
-"97","KEN",1,0,0,0,0,"Kenya"
-"98","KGZ",0,0,0,1,0,"Kyrgyzstan"
-"99","KHM",0,0,0,1,0,"Cambodia"
-"100","KIR",0,0,0,1,0,"Kiribati"
-"101","KNA",0,0,1,0,0,"St. Kitts & Nevis"
-"102","KOR",0,0,0,1,0,"South Korea"
-"103","KSV",0,0,0,0,1,NA
-"104","KWT",0,1,0,0,0,"Kuwait"
-"105","LAO",0,0,0,1,0,"Laos"
-"106","LBN",0,1,0,0,0,"Lebanon"
-"107","LBR",1,0,0,0,0,"Liberia"
-"108","LBY",0,1,0,0,0,"Libya"
-"109","LCA",0,0,1,0,0,"St. Lucia"
-"110","LIE",0,0,0,0,1,"Liechtenstein"
-"111","LKA",0,0,0,1,0,"Sri Lanka"
-"112","LSO",1,0,0,0,0,"Lesotho"
-"113","LTU",0,0,0,0,1,"Lithuania"
-"114","LUX",0,0,0,0,1,"Luxembourg"
-"115","LVA",0,0,0,0,1,"Latvia"
-"116","MAC",0,0,0,1,0,"Macao SAR China"
-"117","MAR",0,1,0,0,0,"Morocco"
-"118","MCO",0,0,0,0,1,"Monaco"
-"119","MDA",0,0,0,0,1,"Moldova"
-"120","MDG",1,0,0,0,0,"Madagascar"
-"121","MDV",0,0,0,1,0,"Maldives"
-"122","MEX",0,0,1,0,0,"Mexico"
-"123","MHL",0,0,0,1,0,"Marshall Islands"
-"124","MKD",0,0,0,0,1,"North Macedonia"
-"125","MLI",1,0,0,0,0,"Mali"
-"126","MLT",0,0,0,0,1,"Malta"
-"127","MMR",0,0,0,1,0,"Myanmar (Burma)"
-"128","MNE",0,0,0,0,1,"Montenegro"
-"129","MNG",0,0,0,1,0,"Mongolia"
-"130","MOZ",1,0,0,0,0,"Mozambique"
-"131","MRT",1,0,0,0,0,"Mauritania"
-"132","MUS",1,0,0,0,0,"Mauritius"
-"133","MWI",1,0,0,0,0,"Malawi"
-"134","MYS",0,0,0,1,0,"Malaysia"
-"135","NAM",1,0,0,0,0,"Namibia"
-"136","NER",1,0,0,0,0,"Niger"
-"137","NGA",1,0,0,0,0,"Nigeria"
-"138","NIC",0,0,1,0,0,"Nicaragua"
-"139","NIU",0,0,0,1,0,"Niue"
-"140","NLD",0,0,0,0,1,"Netherlands"
-"141","NOR",0,0,0,0,1,"Norway"
-"142","NPL",0,0,0,1,0,"Nepal"
-"143","NRU",0,0,0,1,0,"Nauru"
-"144","NZL",0,0,0,1,0,"New Zealand"
-"145","OMN",0,1,0,0,0,"Oman"
-"146","PAK",0,0,0,1,0,"Pakistan"
-"147","PAN",0,0,1,0,0,"Panama"
-"148","PER",0,0,1,0,0,"Peru"
-"149","PHL",0,0,0,1,0,"Philippines"
-"150","PLW",0,0,0,1,0,"Palau"
-"151","PNG",0,0,0,1,0,"Papua New Guinea"
-"152","POL",0,0,0,0,1,"Poland"
-"153","PRK",0,0,0,1,0,"North Korea"
-"154","PRT",0,0,0,0,1,"Portugal"
-"155","PRY",0,0,1,0,0,"Paraguay"
-"156","PSE",0,1,0,0,0,"Palestinian Territories"
-"157","QAT",0,1,0,0,0,"Qatar"
-"158","ROU",0,0,0,0,1,"Romania"
-"159","RUS",0,0,0,0,1,"Russia"
-"160","RVN",0,0,0,1,0,NA
-"161","RWA",1,0,0,0,0,"Rwanda"
-"162","SAU",0,1,0,0,0,"Saudi Arabia"
-"163","SDN",1,0,0,0,0,"Sudan"
-"164","SEN",1,0,0,0,0,"Senegal"
-"165","SGP",0,0,0,1,0,"Singapore"
-"166","SLB",0,0,0,1,0,"Solomon Islands"
-"167","SLE",1,0,0,0,0,"Sierra Leone"
-"168","SLV",0,0,1,0,0,"El Salvador"
-"169","SMR",0,0,0,0,1,"San Marino"
-"170","SOM",1,0,0,0,0,"Somalia"
-"171","SOV",0,0,0,0,1,NA
-"172","SRB",0,0,0,0,1,"Serbia"
-"173","STP",1,0,0,0,0,"São Tomé & Príncipe"
-"174","SUR",0,0,1,0,0,"Suriname"
-"175","SVK",0,0,0,0,1,"Slovakia"
-"176","SVN",0,0,0,0,1,"Slovenia"
-"177","SWE",0,0,0,0,1,"Sweden"
-"178","SWZ",1,0,0,0,0,"Eswatini"
-"179","SYC",1,0,0,0,0,"Seychelles"
-"180","SYR",0,1,0,0,0,"Syria"
-"181","TCD",1,0,0,0,0,"Chad"
-"182","TGO",1,0,0,0,0,"Togo"
-"183","THA",0,0,0,1,0,"Thailand"
-"184","TJK",0,0,0,1,0,"Tajikistan"
-"185","TKL",0,0,0,1,0,"Tokelau"
-"186","TKM",0,0,0,1,0,"Turkmenistan"
-"187","TLS",0,0,0,1,0,"Timor-Leste"
-"188","TON",0,0,0,1,0,"Tonga"
-"189","TTO",0,0,1,0,0,"Trinidad & Tobago"
-"190","TUN",0,1,0,0,0,"Tunisia"
-"191","TUR",0,1,0,0,0,"Turkey"
-"192","TUV",0,0,0,1,0,"Tuvalu"
-"193","TWN",0,0,0,1,0,"Taiwan"
-"194","TZA",1,0,0,0,0,"Tanzania"
-"195","UGA",1,0,0,0,0,"Uganda"
-"196","UKR",0,0,0,0,1,"Ukraine"
-"197","URY",0,0,1,0,0,"Uruguay"
-"198","USA",0,0,1,0,0,"United States"
-"199","UZB",0,0,0,1,0,"Uzbekistan"
-"200","VAT",0,0,0,0,1,"Vatican City"
-"201","VCT",0,0,1,0,0,"St. Vincent & Grenadines"
-"202","VEN",0,0,1,0,0,"Venezuela"
-"203","VNM",0,0,0,1,0,"Vietnam"
-"204","VUT",0,0,0,1,0,"Vanuatu"
-"205","WSM",0,0,0,1,0,"Samoa"
-"206","YAR",0,1,0,0,0,NA
-"207","YEM",0,1,0,0,0,"Yemen"
-"208","YPR",0,1,0,0,0,NA
-"209","YUG",0,0,0,0,1,NA
-"210","ZAF",1,0,0,0,0,"South Africa"
-"211","ZMB",1,0,0,0,0,"Zambia"
-"212","ZWE",1,0,0,0,0,"Zimbabwe"
+"","iso3c","country","SSA","MENA","Americas","Asia","Europe"
+"1","ABW","Aruba",0,0,1,0,0
+"2","AFG","Afghanistan",0,0,0,1,0
+"3","AGO","Angola",1,0,0,0,0
+"4","AIA","Anguilla",0,0,1,0,0
+"5","ALB","Albania",0,0,0,0,0
+"6","AND","Andorra",0,0,0,0,1
+"7","ANT","Netherlands Antilles",0,0,1,0,0
+"8","ARE","United Arab Emirates",0,1,0,0,0
+"9","ARG","Argentina",0,0,1,0,0
+"10","ARM","Armenia",0,0,0,0,1
+"11","ATG","Antigua & Barbuda",0,0,1,0,0
+"12","AUS","Australia",0,0,0,1,0
+"13","AUT","Austria",0,0,0,0,1
+"14","AZE","Azerbaijan",0,0,0,0,1
+"15","BDI","Burundi",1,0,0,0,0
+"16","BEL","Belgium",0,0,0,0,1
+"17","BEN","Benin",1,0,0,0,0
+"18","BFA","Burkina Faso",1,0,0,0,0
+"19","BGD","Bangladesh",0,0,0,1,0
+"20","BGR","Bulgaria",0,0,0,0,1
+"21","BHR","Bahrain",0,1,0,0,0
+"22","BHS","Bahamas",0,0,1,0,0
+"23","BIH","Bosnia & Herzegovina",0,0,0,0,1
+"24","BLR","Belarus",0,0,0,0,1
+"25","BLZ","Belize",0,0,1,0,0
+"26","BOL","Bolivia",0,0,1,0,0
+"27","BRA","Brazil",0,0,1,0,0
+"28","BRB","Barbados",0,0,1,0,0
+"29","BRD","Germany West",0,0,0,0,1
+"30","BRN","Brunei",0,0,0,1,0
+"31","BTN","Bhutan",0,0,0,1,0
+"32","BWA","Botswana",1,0,0,0,0
+"33","CAF","Central African Republic",1,0,0,0,0
+"34","CAN","Canada",0,0,1,0,0
+"35","CHE","Switzerland",0,0,0,0,1
+"36","CHL","Chile",0,0,1,0,0
+"37","CHN","China",0,0,0,1,0
+"38","CIV","Côte d’Ivoire",1,0,0,0,0
+"39","CMR","Cameroon",1,0,0,0,0
+"40","COD","Congo - Kinshasa",1,0,0,0,0
+"41","COG","Congo - Brazzaville",1,0,0,0,0
+"42","COL","Colombia",0,0,1,0,0
+"43","COM","Comoros",1,0,0,0,0
+"44","CPV","Cape Verde",1,0,0,0,0
+"45","CRI","Costa Rica",0,0,1,0,0
+"46","CUB","Cuba",0,0,1,0,0
+"47","CYP","Cyprus",0,0,0,0,1
+"48","CZE","Czechia",0,0,0,0,1
+"49","DDR","Germany East",0,0,0,0,1
+"50","DEU","Germany",0,0,0,0,1
+"51","DJI","Djibouti",1,0,0,0,0
+"52","DMA","Dominica",0,0,1,0,0
+"53","DNK","Denmark",0,0,0,0,1
+"54","DOM","Dominican Republic",0,0,1,0,0
+"55","DZA","Algeria",0,1,0,0,0
+"56","ECU","Ecuador",0,0,1,0,0
+"57","EGY","Egypt",0,1,0,0,0
+"58","ERI","Eritrea",1,0,0,0,0
+"59","ESH","Western Sahara",0,1,0,0,0
+"60","ESP","Spain",0,0,0,0,1
+"61","EST","Estonia",0,0,0,0,1
+"62","ETH","Ethiopia",1,0,0,0,0
+"63","FIN","Finland",0,0,0,0,1
+"64","FJI","Fiji",0,0,0,1,0
+"65","FRA","France",0,0,0,0,1
+"66","FSM","Micronesia (Federated States of)",0,0,0,1,0
+"67","GAB","Gabon",1,0,0,0,0
+"68","GBR","United Kingdom",0,0,0,0,1
+"69","GEO","Georgia",0,0,0,0,1
+"70","GHA","Ghana",1,0,0,0,0
+"71","GIN","Guinea",1,0,0,0,0
+"72","GMB","Gambia",1,0,0,0,0
+"73","GNB","Guinea-Bissau",1,0,0,0,0
+"74","GNQ","Equatorial Guinea",1,0,0,0,0
+"75","GRC","Greece",0,0,0,0,1
+"76","GRD","Grenada",0,0,1,0,0
+"77","GTM","Guatemala",0,0,1,0,0
+"78","GUF","French Guiana",0,0,1,0,0
+"79","GUY","Guyana",0,0,1,0,0
+"80","HKG","Hong Kong SAR China",0,0,0,1,0
+"81","HND","Honduras",0,0,1,0,0
+"82","HRV","Croatia",0,0,0,0,1
+"83","HTI","Haiti",0,0,1,0,0
+"84","HUN","Hungary",0,0,0,0,1
+"85","IDN","Indonesia",0,0,0,1,0
+"86","IND","India",0,0,0,1,0
+"87","IRL","Ireland",0,0,0,0,1
+"88","IRN","Iran",0,1,0,0,0
+"89","IRQ","Iraq",0,1,0,0,0
+"90","ISL","Iceland",0,0,0,0,1
+"91","ISR","Israel",0,1,0,0,0
+"92","ITA","Italy",0,0,0,0,1
+"93","JAM","Jamaica",0,0,1,0,0
+"94","JOR","Jordan",0,1,0,0,0
+"95","JPN","Japan",0,0,0,1,0
+"96","KAZ","Kazakhstan",0,0,0,1,0
+"97","KEN","Kenya",1,0,0,0,0
+"98","KGZ","Kyrgyzstan",0,0,0,1,0
+"99","KHM","Cambodia",0,0,0,1,0
+"100","KIR","Kiribati",0,0,0,1,0
+"101","KNA","St. Kitts & Nevis",0,0,1,0,0
+"102","KOR","South Korea",0,0,0,1,0
+"103","KSV","Kosovo",0,0,0,0,1
+"104","KWT","Kuwait",0,1,0,0,0
+"105","LAO","Laos",0,0,0,1,0
+"106","LBN","Lebanon",0,1,0,0,0
+"107","LBR","Liberia",1,0,0,0,0
+"108","LBY","Libya",0,1,0,0,0
+"109","LCA","St. Lucia",0,0,1,0,0
+"110","LIE","Liechtenstein",0,0,0,0,1
+"111","LKA","Sri Lanka",0,0,0,1,0
+"112","LSO","Lesotho",1,0,0,0,0
+"113","LTU","Lithuania",0,0,0,0,1
+"114","LUX","Luxembourg",0,0,0,0,1
+"115","LVA","Latvia",0,0,0,0,1
+"116","MAC","Macao SAR China",0,0,0,1,0
+"117","MAR","Morocco",0,1,0,0,0
+"118","MCO","Monaco",0,0,0,0,1
+"119","MDA","Moldova",0,0,0,0,1
+"120","MDG","Madagascar",1,0,0,0,0
+"121","MDV","Maldives",0,0,0,1,0
+"122","MEX","Mexico",0,0,1,0,0
+"123","MHL","Marshall Islands",0,0,0,1,0
+"124","MKD","North Macedonia",0,0,0,0,1
+"125","MLI","Mali",1,0,0,0,0
+"126","MLT","Malta",0,0,0,0,1
+"127","MMR","Myanmar (Burma)",0,0,0,1,0
+"128","MNE","Montenegro",0,0,0,0,1
+"129","MNG","Mongolia",0,0,0,1,0
+"130","MOZ","Mozambique",1,0,0,0,0
+"131","MRT","Mauritania",1,0,0,0,0
+"132","MUS","Mauritius",1,0,0,0,0
+"133","MWI","Malawi",1,0,0,0,0
+"134","MYS","Malaysia",0,0,0,1,0
+"135","NAM","Namibia",1,0,0,0,0
+"136","NER","Niger",1,0,0,0,0
+"137","NGA","Nigeria",1,0,0,0,0
+"138","NIC","Nicaragua",0,0,1,0,0
+"139","NIU","Niue",0,0,0,1,0
+"140","NLD","Netherlands",0,0,0,0,1
+"141","NOR","Norway",0,0,0,0,1
+"142","NPL","Nepal",0,0,0,1,0
+"143","NRU","Nauru",0,0,0,1,0
+"144","NZL","New Zealand",0,0,0,1,0
+"145","OMN","Oman",0,1,0,0,0
+"146","PAK","Pakistan",0,0,0,1,0
+"147","PAN","Panama",0,0,1,0,0
+"148","PER","Peru",0,0,1,0,0
+"149","PHL","Philippines",0,0,0,1,0
+"150","PLW","Palau",0,0,0,1,0
+"151","PNG","Papua New Guinea",0,0,0,1,0
+"152","POL","Poland",0,0,0,0,1
+"153","PRK","North Korea",0,0,0,1,0
+"154","PRT","Portugal",0,0,0,0,1
+"155","PRY","Paraguay",0,0,1,0,0
+"156","PSE","Palestinian Territories",0,1,0,0,0
+"157","QAT","Qatar",0,1,0,0,0
+"158","ROU","Romania",0,0,0,0,1
+"159","RUS","Russia",0,0,0,0,1
+"160","RVN","South Vietnam",0,0,0,1,0
+"161","RWA","Rwanda",1,0,0,0,0
+"162","SAU","Saudi Arabia",0,1,0,0,0
+"163","SDN","Sudan",1,0,0,0,0
+"164","SEN","Senegal",1,0,0,0,0
+"165","SGP","Singapore",0,0,0,1,0
+"166","SLB","Solomon Islands",0,0,0,1,0
+"167","SLE","Sierra Leone",1,0,0,0,0
+"168","SLV","El Salvador",0,0,1,0,0
+"169","SMR","San Marino",0,0,0,0,1
+"170","SOM","Somalia",1,0,0,0,0
+"171","SOV","North Vietnam",0,0,0,0,1
+"172","SRB","Serbia",0,0,0,0,1
+"173","STP","São Tomé & Príncipe",1,0,0,0,0
+"174","SUR","Suriname",0,0,1,0,0
+"175","SVK","Slovakia",0,0,0,0,1
+"176","SVN","Slovenia",0,0,0,0,1
+"177","SWE","Sweden",0,0,0,0,1
+"178","SWZ","Eswatini",1,0,0,0,0
+"179","SYC","Seychelles",1,0,0,0,0
+"180","SYR","Syria",0,1,0,0,0
+"181","TCD","Chad",1,0,0,0,0
+"182","TGO","Togo",1,0,0,0,0
+"183","THA","Thailand",0,0,0,1,0
+"184","TJK","Tajikistan",0,0,0,1,0
+"185","TKL","Tokelau",0,0,0,1,0
+"186","TKM","Turkmenistan",0,0,0,1,0
+"187","TLS","Timor-Leste",0,0,0,1,0
+"188","TON","Tonga",0,0,0,1,0
+"189","TTO","Trinidad & Tobago",0,0,1,0,0
+"190","TUN","Tunisia",0,1,0,0,0
+"191","TUR","Turkey",0,1,0,0,0
+"192","TUV","Tuvalu",0,0,0,1,0
+"193","TWN","Taiwan",0,0,0,1,0
+"194","TZA","Tanzania",1,0,0,0,0
+"195","UGA","Uganda",1,0,0,0,0
+"196","UKR","Ukraine",0,0,0,0,1
+"197","URY","Uruguay",0,0,1,0,0
+"198","USA","United States",0,0,1,0,0
+"199","UZB","Uzbekistan",0,0,0,1,0
+"200","VAT","Vatican City",0,0,0,0,1
+"201","VCT","St. Vincent & Grenadines",0,0,1,0,0
+"202","VEN","Venezuela",0,0,1,0,0
+"203","VNM","Vietnam",0,0,0,1,0
+"204","VUT","Vanuatu",0,0,0,1,0
+"205","WSM","Samoa",0,0,0,1,0
+"206","YAR","Yemen North",0,1,0,0,0
+"207","YEM","Yemen",0,1,0,0,0
+"208","YPR","Yemen South",0,1,0,0,0
+"209","YUG","Yugoslavia",0,0,0,0,1
+"210","ZAF","South Africa",1,0,0,0,0
+"211","ZMB","Zambia",1,0,0,0,0
+"212","ZWE","Zimbabwe",1,0,0,0,0
