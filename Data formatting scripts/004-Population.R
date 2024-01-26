@@ -64,202 +64,192 @@ pd <- pd %>%
 # SRB includes KSV, 6 YUG republics have component populations individually
 
 # load COW populations to determine ratio of pop between YPR and YAR / DDR and BRD / VNM and RVN / SRB and KSV
-cow.pop <- read.csv("Data files/Raw data files/NMC_5_0.csv")
-
-cow.pop <- cow.pop %>%
+cow.pop <- read.csv("Data files/Raw data files/NMC_5_0.csv") %>%
   as.data.frame() %>%
   dplyr::select(stateabb,year,tpop)
 
 #### Yemen ----------------------------------------------------------------------
 cow.pop.yem <- cow.pop %>%
+  # select North Yemen, South Yemen, and unified Yemen
   dplyr::filter(stateabb %in% c("YAR","YPR","YEM")) %>%
+  # convert each country to having a column, with each year being a row
   tidyr::pivot_wider(names_from = "stateabb", values_from = "tpop") %>%
+  # calculate a combined North and South Yemen population and the proportion of the population in each country
   dplyr::mutate(total = YAR + YPR,
                 yar.p = YAR / total,
                 ypr.p = YPR / total)
 
+# pull Yemen population data from the UN data source
 yem <- pd %>%
-  dplyr::filter(iso3c == "YEM") 
-yem$year <- as.numeric(yem$year)
-
-yem <- yem %>%
+  dplyr::filter(iso3c == "YEM") %>%
+  dplyr::mutate(year = as.numeric(year)) %>%
+  # merge UN and COW population data
   dplyr::full_join(cow.pop.yem,by="year")
 
-yem$yar.p[is.na(yem$yar.p)&yem$year<1990] <- 0.7783003
-yem$ypr.p[is.na(yem$ypr.p)&yem$year<1990] <- 0.2216997
+# use proportions for first year of data available (1967; the year South Yemen gained independence) for both North
+# and South Yemen for prior years missing data
+yem$yar.p[is.na(yem$yar.p)&yem$year<1990] <- 4634/5954
+yem$ypr.p[is.na(yem$ypr.p)&yem$year<1990] <- 1320/5954
 
+# calculate estimates for 1950 - 1966 based on UN population data and 1967 proportions of populations between
+# North and South Yemen
 yem <- yem %>%
   dplyr::mutate(yar.e = value * yar.p,
                 ypr.e = value * ypr.p)
 
+# create dataframe for South Yemen
 ypr <- yem %>%
-  dplyr::select(iso3c,year,ypr.e,value) %>%
-  dplyr::filter(year >= 1950)
-
-for(i in 1:nrow(ypr)){
-  if(is.na(ypr$ypr.e[i])){
-    ypr$ypr.e[i] <- ypr$value[i]
-  }
-}
-
-# unified YEM value for 1990
-ypr$ypr.e[ypr$year==1990] <- 12057000
-
-ypr <- ypr %>%
   dplyr::select(iso3c,year,ypr.e) %>%
-  dplyr::mutate(iso3c = "YPR") %>%
-  dplyr::rename(value = ypr.e) %>%
-  dplyr::filter(year < 1991)
+  # no data available from either source before 1950
+  dplyr::filter(year >= 1950,
+                # North and South Yemen unified starting in 1991 for purposes of this dataset
+                year < 1991) %>%
+  dplyr::mutate(iso3c = "YPR",
+                country = "South Yemen") %>%
+  dplyr::rename(value = ypr.e)
 
+# use unified YEM population value for 1990
+ypr$value[ypr$year==1990] <- 12057000
+
+# creates dataframe for North Yemen
 yar <- yem %>%
-  dplyr::select(iso3c,year,yar.e,value) %>%
-  dplyr::filter(year >= 1950)
-
-for(i in 1:nrow(yar)){
-  if(is.na(yar$yar.e[i])){
-    yar$yar.e[i] <- yar$value[i]
-  }
-}
-
-# unified YEM value for 1990
-yar$yar.e[yar$year==1990] <- 12057000
-
-yar <- yar %>%
   dplyr::select(iso3c,year,yar.e) %>%
-  dplyr::mutate(iso3c = "YAR") %>%
-  dplyr::rename(value = yar.e) %>%
-  dplyr::filter(year < 1991)
+  # no data available from either source before 1950
+  dplyr::filter(year >= 1950,
+                # North and South Yemen unified starting in 1991 for purposes of this dataset
+                year < 1991) %>%
+  dplyr::mutate(iso3c = "YAR",
+                country = "North Yemen") %>%
+  dplyr::rename(value = yar.e)
 
+# use unified YEM population value for 1990
+yar$value[yar$year==1990] <- 12057000
+
+# creates dataframe for unified Yemen
 yem <- yem %>%
   dplyr::select(iso3c,year,value) %>%
+  # removes years prior to unification
   dplyr::filter(year > 1990) %>%
+  dplyr::mutate(country = "Yemen") %>%
+  # merges YPR and YAR dataframes
   rbind(yar,ypr)
 
+# removes Yemen from the main population dataframe and joins Yemen dataframe
 pd <- pd %>%
   dplyr::filter(iso3c != "YEM") %>%
   rbind(yem)
 
-# unified YEM value for 1990
-pd$value[pd$iso3c=="YEM"&pd$year==1990] <- 12057000
-
 #### Germany ----------------------------------------------------------------------
 cow.pop.deu <- cow.pop %>%
-  dplyr::filter(stateabb %in% c("GDR","GFR","GMY")) %>%
+  # select East Germany, West Germany, and unified Germany
+  dplyr::filter(stateabb %in% c("GDR","GFR","GMY"),
+                year > 1945) %>%
+  # convert each country to having a column, with each year being a row
   tidyr::pivot_wider(names_from = "stateabb", values_from = "tpop") %>%
+  # calculate a combined East and West Germany population and the proportion of the population in each country
   dplyr::mutate(total = GDR + GFR,
                 gfr.p = GFR / total,
                 gdr.p = GDR / total)
 
+# pull Germany population data from the UN data source
 deu <- pd %>%
-  dplyr::filter(iso3c == "DEU") 
-deu$year <- as.numeric(deu$year)
-
-deu <- deu %>%
+  dplyr::filter(iso3c == "DEU") %>%
+  dplyr::mutate(year = as.numeric(year)) %>%
+  # merge UN and COW population data
   dplyr::full_join(cow.pop.deu,by="year")
 
-deu$gdr.p[is.na(deu$gdr.p)&deu$year<1990] <- 0.2552199
-deu$gfr.p[is.na(deu$gfr.p)&deu$year<1990] <- 0.7447801
+# use proportions for first year of data available (1955; the year Allied forces ended the occupation of West Germany) for both East
+# and West Germany for prior years missing data
+deu$gdr.p[is.na(deu$gdr.p)&deu$year<1990] <- 17944/70308
+deu$gfr.p[is.na(deu$gfr.p)&deu$year<1990] <- 52364/70308
 
+# calculate estimates for 1950 - 1954 based on UN population data and 1955 proportions of populations between
+# East and West Germany
 deu <- deu %>%
   dplyr::mutate(gfr.e = value * gfr.p,
                 gdr.e = value * gdr.p)
 
+# create dataframe for West Germany
 gfr <- deu %>%
-  dplyr::select(iso3c,year,gfr.e,value) %>%
-  dplyr::filter(year >= 1950)
-
-for(i in 1:nrow(gfr)){
-  if(is.na(gfr$gfr.e[i])){
-    gfr$gfr.e[i] <- gfr$value[i]
-  }
-}
-
-gdr <- deu %>%
-  dplyr::select(iso3c,year,gdr.e,value) %>%
-  dplyr::filter(year >= 1950)
-
-for(i in 1:nrow(gdr)){
-  if(is.na(gdr$gdr.e[i])){
-    gdr$gdr.e[i] <- gdr$value[i]
-  }
-}
-
-gdr <- gdr %>%
-  dplyr::select(iso3c,year,gdr.e) %>%
-  dplyr::mutate(iso3c = "DDR") %>%
-  dplyr::rename(value = gdr.e)
-
-gfr <- deu %>%
-  dplyr::select(iso3c,year,gfr.e,value) %>%
-  dplyr::filter(year >= 1950)
-
-for(i in 1:nrow(gfr)){
-  if(is.na(gfr$gfr.e[i])){
-    gfr$gfr.e[i] <- gfr$value[i]
-  }
-}
-
-gfr <- gfr %>%
   dplyr::select(iso3c,year,gfr.e) %>%
-  dplyr::mutate(iso3c = "BRD") %>%
+  # East and West Germany unified starting in 1990 for purposes of this dataset
+  dplyr::filter(year < 1990) %>%
+  dplyr::mutate(iso3c = "BRD",
+                country = "West Germany") %>%
   dplyr::rename(value = gfr.e)
 
+# create dataframe for East Germany
+gdr <- deu %>%
+  dplyr::select(iso3c,year,gdr.e) %>%
+  # East and West Germany unified starting in 1990 for purposes of this dataset
+  dplyr::filter(year < 1990) %>%
+  dplyr::mutate(iso3c = "DDR",
+                country = "East Germany") %>%
+  dplyr::rename(value = gdr.e)
+
+# creates dataframe for unified Germany
 deu <- deu %>%
   dplyr::select(iso3c,year,value) %>%
-  dplyr::filter(iso3c >= 1990) %>%
-  rbind(gdr,gfr)
+  # removes years prior to unification
+  dplyr::filter(year > 1989) %>%
+  dplyr::mutate(country = "Germany") %>%
+  # merges GFR and GDR dataframes
+  rbind(gfr,gdr)
 
+# removes Germany from the main population dataframe and joins Germany dataframe
 pd <- pd %>%
   dplyr::filter(iso3c != "DEU") %>%
   rbind(deu)
 
 #### Vietnam ----------------------------------------------------------------------
 cow.pop.vnm <- cow.pop %>%
+  # select North Vietnam (1954-2012) and South Vietnam (1954-1975); Vietnamese War ended in 1975
+  # and reunification happened in 1976
   dplyr::filter(stateabb %in% c("DRV","RVN")) %>%
+  # convert both countries to having a column, with each year being a row
   tidyr::pivot_wider(names_from = "stateabb", values_from = "tpop") %>%
+  # calculate a combined North and South Vietnam population and the proportion of the population in each country
   dplyr::mutate(total = DRV + RVN,
                 vnm.p = DRV / total,
                 rvn.p = RVN / total)
 
+# pull Vietnam population data from the UN data source
 vnm <- pd %>%
-  dplyr::filter(iso3c == "VNM") 
-vnm$year <- as.numeric(vnm$year)
-
-vnm <- vnm %>%
+  dplyr::filter(iso3c == "VNM") %>%
+  dplyr::mutate(year = as.numeric(year)) %>%
+  # merge UN and COW population data
   dplyr::full_join(cow.pop.vnm,by="year") %>%
+  # uses the COW proportions on the UN data for 1954 - 1975
   dplyr::mutate(vnm.e = value * vnm.p,
                 rvn.e = value * rvn.p)
 
+# create dataframe for Vietnam (including North Vietnam)
 vnm2 <- vnm %>%
-  dplyr::select(iso3c,year,vnm.e,value)
-
-for(i in 1:nrow(vnm2)){
-  if(is.na(vnm2$vnm.e[i])){
-    vnm2$vnm.e[i] <- vnm2$value[i]
-  }
-}
-
-vnm2 <- vnm2 %>%
-  dplyr::select(iso3c,year,vnm.e) %>%
-  dplyr::mutate(iso3c = "VNM") %>%
+  dplyr::select(iso3c,year,vnm.e,value) %>%
+  # Vietnam gained independence from France in 1954
+  dplyr::filter(year >= 1954) %>%
+  dplyr::mutate(vnm.e = dplyr::coalesce(vnm.e,value),
+                iso3c = "VNM",
+                country = "Viet Nam") %>%
+  dplyr::select(-value) %>%
   dplyr::rename(value = vnm.e)
 
+# create dataframe for South Vietnam
 rvn <- vnm %>%
-  dplyr::select(iso3c,year,rvn.e,value)
-
-for(i in 1:nrow(rvn)){
-  if(is.na(rvn$rvn.e[i])){
-    rvn$rvn.e[i] <- rvn$value[i]
-  }
-}
-
-rvn <- rvn %>%
   dplyr::select(iso3c,year,rvn.e) %>%
-  dplyr::mutate(iso3c = "RVN") %>%
+  # Vietnam gained independence from France in 1954
+  dplyr::filter(year >= 1954,
+                # Vietnam reunified starting in 1976
+                year <= 1975) %>%
+  dplyr::mutate(iso3c = "RVN",
+                country = "South Vietnam") %>%
   dplyr::rename(value = rvn.e)
 
-vnm <- rbind(vnm2,rvn)
+# merges VNM and RVN dataframes
+vnm <- vnm %>%
+  rbind(rvn)
 
+# removes Vietnam from the main population dataframe and joins Vietnam dataframe
 pd <- pd %>%
   dplyr::filter(iso3c != "VNM") %>%
   rbind(vnm)
@@ -387,7 +377,7 @@ pd <- pd %>%
 
 pd$iso3c[pd$iso3c=="RUS" & pd$year<= 1991] <- "SOV"
 
-#### Czeckoslovakia ----------------------------------------------------------------------
+#### Czechoslovakia ----------------------------------------------------------------------
 cs <- pd %>%
   dplyr::filter(iso3c %in% c("CZE","SVK")) %>%
   tidyr::pivot_wider(names_from = iso3c, values_from = pop.pd) %>%
