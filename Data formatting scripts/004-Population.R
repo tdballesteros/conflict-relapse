@@ -246,7 +246,7 @@ rvn <- vnm %>%
   dplyr::rename(value = rvn.e)
 
 # merges VNM and RVN dataframes
-vnm <- vnm %>%
+vnm <- vnm2 %>%
   rbind(rvn)
 
 # removes Vietnam from the main population dataframe and joins Vietnam dataframe
@@ -284,120 +284,110 @@ yug <- pd %>%
   dplyr::summarise(value = sum(value)) %>%
   dplyr::ungroup() %>%
   dplyr::mutate(iso3c = "YUG",
-                country = "Yugoslavia")
-
-
-
-yug <- pd %>%
-  dplyr::select(-country) %>%
-  # select the 6 fully recognized successor states
-  dplyr::filter(iso3c %in% c("SVN","HRV","MKD","BIH","SRB","MNE")) %>%
-  tidyr::pivot_wider(names_from = iso3c, values_from = value) %>%
-  dplyr::mutate(yug = SVN + HRV + MKD + BIH + SRB + MNE,
-                smn = SRB + MNE) %>%
-  dplyr::select(year,yug,smn) %>%
-  dplyr::mutate(iso3c = "YUG",
-                value = NA)
-
-yug$value[yug$year<=1991] <- yug$yug[yug$year<=1991]
-yug$value[yug$year<=2006&yug$year>1991] <- yug$smn[yug$year<=2006&yug$year>1991]
-
-yug <- yug %>%
-  dplyr::select(iso3c,year,value) %>%
-  dplyr::filter(year <= 2006)
-
-srb <- yug %>%
-  dplyr::filter(year <= 2006,
-                year > 1991) %>%
-  dplyr::mutate(iso3c = "SRB")
-
-yug <- yug %>%
+                country = "Yugoslavia") %>%
+  # Yugoslavia broke apart starting in 1992 for purposes of this dataset
   dplyr::filter(year <= 1991)
 
+# filter out the 6 fully recognized successor states during the period of Yugoslavia
 pd <- pd %>%
-  dplyr::filter(iso3c != "SRB" | year > 2006) %>%
-  dplyr::filter(iso3c != "SVN" | year >= 1992) %>%
-  dplyr::filter(iso3c != "HRV" | year >= 1992) %>%
-  dplyr::filter(iso3c != "MKD" | year >= 1992) %>%
-  dplyr::filter(iso3c != "BIH" | year >= 1992) %>%
-  dplyr::filter(iso3c != "MNE") %>%
-  rbind(yug,srb)
+  dplyr::filter(iso3c %!in% c("SVN","HRV","MKD","BIH","SRB","MNE") | year >= 1992) %>%
+  # merge Yugoslavia dataset
+  rbind(yug)
+
+#### Serbia and Montenegro ----------------------------------------------------------------------
+# coded as SRB / Serbia, but includes Montenegro's population 1992 - 2005, with Montenegro
+# being a separate country in this dataset beginning in 2006
+srb_mne <- pd %>%
+  dplyr::select(-country) %>%
+  # select Serbia and Montenegro
+  dplyr::filter(iso3c %in% c("SRB","MNE")) %>%
+  dplyr::group_by(year) %>%
+  # sums the populations of Serbia and Montenegro
+  dplyr::summarise(value = sum(value,na.rm=TRUE)) %>%
+  dplyr::ungroup() %>%
+  # Montenegro regained independence starting in 2006 for purposes of this dataset
+  dplyr::filter(year < 2006) %>%
+  dplyr::mutate(iso3c = "SRB",
+                country = "Serbia and Montenegro")
+
+# filter out Serbia and Montenegro from the main dataset during their period of unification
+pd <- pd %>%
+  dplyr::filter(iso3c %!in% c("SRB","MNE") | year >= 2006) %>%
+  # merge Serbia and Montenegro dataset
+  rbind(srb_mne)
 
 #### Kosovo ----------------------------------------------------------------------
 cow.pop.srb <- cow.pop %>%
-  dplyr::filter(stateabb %in% c("KOS","YUG")) %>%
+  # select Yugoslavia (Serbia shares YUG as its coding) and Kosovo
+  dplyr::filter(stateabb %in% c("YUG","KOS"),
+                # Kosovo declared and gained (de facto) independence in 2008 for purposes of this dataset
+                year >= 2008) %>%
+  # convert both countries to having a column, with each year being a row
   tidyr::pivot_wider(names_from = "stateabb", values_from = "tpop") %>%
-  dplyr::mutate(total = KOS + YUG,
-                srb.p = YUG / total,
-                ksv.p = KOS / total)
+  # Serbia appears to include both Serbia and Kosovo, while Kosovo includes just Kosovo
+  # calculate a Serbia without Kosovo population and the proportion of the population in each part relative to the total population
+  dplyr::mutate(SRB = YUG - KOS,
+                srb.p = SRB / YUG,
+                ksv.p = KOS / YUG)
 
+# pull Serbia population data from the UN data source (Serbia + Kosovo)
 srb <- pd %>%
-  dplyr::filter(iso3c == "SRB") 
-srb$year <- as.numeric(srb$year)
-
-srb <- srb %>%
+  dplyr::select(-country) %>%
+  dplyr::filter(iso3c == "SRB",
+                # Kosovo declared and gained (de facto) independence in 2008 for purposes of this dataset
+                year >= 2008) %>%
+  dplyr::mutate(year = as.numeric(year)) %>%
+  # merge UN and COW population data
   dplyr::full_join(cow.pop.srb,by="year")
 
-srb$srb.p[srb$year>=2013] <- 0.8410812
-srb$ksv.p[srb$year>=2013] <- 0.1589188
-
+# use proportions for last year of data available (2012) for both Serbia and Kosovo for subsequent years missing data
+srb$srb.p[is.na(srb$srb.p)&srb$year>2012] <- 7748/9553
+srb$ksv.p[is.na(srb$ksv.p)&srb$year>2012] <- 1805/9553
+  
+# calculate estimates for 2013 - 2019 based on UN population data and 2012 proportions of populations between
+# Serbia and Kosovo
 srb <- srb %>%
   dplyr::mutate(srb.e = value * srb.p,
                 ksv.e = value * ksv.p)
 
+# create dataframe for Serbia (2013 - 2019)
 srb2 <- srb %>%
-  dplyr::select(iso3c,year,srb.e,value)
-
-for(i in 1:nrow(srb2)){
-  if(is.na(srb2$srb.e[i])){
-    srb2$srb.e[i] <- srb2$value[i]
-  }
-}
-
-srb2 <- srb2 %>%
   dplyr::select(iso3c,year,srb.e) %>%
-  dplyr::mutate(iso3c = "SRB") %>%
-  dplyr::rename(value = srb.e)
+  dplyr::rename(value = srb.e) %>%
+  dplyr::mutate(country = "Serbia")
 
+# create dataframe for Kosovo
 ksv <- srb %>%
-  dplyr::select(iso3c,year,ksv.e,value)
-
-for(i in 1:nrow(ksv)){
-  if(is.na(ksv$ksv.e[i])){
-    ksv$ksv.e[i] <- ksv$value[i]
-  }
-}
-
-ksv <- ksv %>%
   dplyr::select(iso3c,year,ksv.e) %>%
-  dplyr::mutate(iso3c = "KSV") %>%
-  dplyr::rename(value = ksv.e) %>%
-  dplyr::filter(year >= 2008)
+  dplyr::mutate(iso3c = "KSV",
+                country = "Kosovo") %>%
+  dplyr::rename(value = ksv.e)
 
-srb <- rbind(srb2,ksv)
-
+# removes Serbia (2013 - 2019) from the main population dataframe and joins the
+# new Serbia and Kosovo dataframes
 pd <- pd %>%
-  dplyr::filter(iso3c != "SRB") %>%
-  rbind(srb) %>%
-  dplyr::rename(pop.pd = value)
-
-pd$iso3c[pd$iso3c=="RUS" & pd$year<= 1991] <- "SOV"
+  dplyr::filter(iso3c != "SRB" | year < 2008) %>%
+  rbind(srb2) %>%
+  rbind(ksv)
 
 #### Czechoslovakia ----------------------------------------------------------------------
 cs <- pd %>%
+  # select Czechia and Slovakia
   dplyr::filter(iso3c %in% c("CZE","SVK")) %>%
-  tidyr::pivot_wider(names_from = iso3c, values_from = pop.pd) %>%
-  dplyr::mutate(cs = CZE + SVK) %>%
-  dplyr::filter(year <= 1992) %>%
-  dplyr::select(year, cs) %>%
-  dplyr::rename(pop.pd = cs) %>%
-  dplyr::mutate(iso3c = "CZE")
+  dplyr::group_by(year) %>%
+  # sums the populations Czechia and Slovakia
+  dplyr::summarise(value = sum(value)) %>%
+  dplyr::ungroup() %>%
+  dplyr::mutate(iso3c = "CZE",
+                country = "Czechoslovakia") %>%
+  # Czechoslovakia broke apart starting in 1993 for purposes of this dataset
+  dplyr::filter(year <= 1992)
 
+# filter out Czechia and Slovakia during the period of Czechoslovakia
 pd <- pd %>%
   dplyr::filter(iso3c %!in% c("CZE","SVK") | year >= 1993) %>%
+  # merge Czechoslovakia dataset
   rbind(cs)
-
-pd$year <- as.numeric(pd$year)
 
 ### add workbook estimates ----------------------------------------------------------------------
 # adds population estimates for countries in the 1940s (file notes sources of estimates)
