@@ -392,7 +392,17 @@ pd <- pd %>%
 ### add workbook estimates ----------------------------------------------------------------------
 # adds population estimates for countries in the 1940s (file notes sources of estimates)
 pop_40s <- readxl::read_excel("Data files/Workbooks/pop_estimates.xlsx", sheet = 1) %>%
-  dplyr::select(-method)
+  dplyr::select(-method) %>%
+  dplyr::rename(value = pop.pd) %>%
+  # using the countrycode package, add country name based on iso3c value
+  dplyr::mutate(country = countrycode::countrycode(iso3c,"iso3c","country.name"))
+
+# codes country name values missing from the countrycode package: BRD, DDR, SOV, YAR, YUG
+pop_40s$country[pop_40s$iso3c=="BRD"] <- "West Germany"
+pop_40s$country[pop_40s$iso3c=="DDR"] <- "East Germany"
+pop_40s$country[pop_40s$iso3c=="SOV"] <- "Soviet Union"
+pop_40s$country[pop_40s$iso3c=="YAR"] <- "North Yemen"
+pop_40s$country[pop_40s$iso3c=="YUG"] <- "Yugoslavia"
 
 pd <- pd %>%
   rbind(pop_40s)
