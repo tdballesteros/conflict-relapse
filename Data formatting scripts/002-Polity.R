@@ -134,4 +134,4 @@ polity <- polity %>%
 
 ### write data ----------------------------------------------------------------------
 # writes formatted dataframe as csv files
-write.csv(polity,"Data files/Formatted data files/polity.csv")
+write.csv(polity,"Data files/Formatted data files/polity.csv",row.names = FALSE)

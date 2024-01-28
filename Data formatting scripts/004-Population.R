@@ -405,8 +405,9 @@ pop_40s$country[pop_40s$iso3c=="YAR"] <- "North Yemen"
 pop_40s$country[pop_40s$iso3c=="YUG"] <- "Yugoslavia"
 
 pd <- pd %>%
-  rbind(pop_40s)
+  rbind(pop_40s) %>%
+  dplyr::rename(population = value)
 
 ### write data ----------------------------------------------------------------------
 # writes formatted dataframe as csv files
-write.csv(pd,"Data files/Formatted data files/population.csv")
+write.csv(pd,"Data files/Formatted data files/population.csv",row.names = FALSE)

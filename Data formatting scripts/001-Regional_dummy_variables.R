@@ -82,6 +82,6 @@ country_regions3 <- dplyr::full_join(country_regions3_1,country_regions3_2,by=c(
 
 ### write data ----------------------------------------------------------------------
 # writes formatted dataframes as csv files
-write.csv(country_regions1,"Data files/Formatted data files/country_regions1.csv")
-write.csv(country_regions2,"Data files/Formatted data files/country_regions2.csv")
-write.csv(country_regions3,"Data files/Formatted data files/country_regions3.csv")
+write.csv(country_regions1,"Data files/Formatted data files/country_regions1.csv",row.names = FALSE)
+write.csv(country_regions2,"Data files/Formatted data files/country_regions2.csv",row.names = FALSE)
+write.csv(country_regions3,"Data files/Formatted data files/country_regions3.csv",row.names = FALSE)

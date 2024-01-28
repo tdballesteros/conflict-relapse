@@ -74,10 +74,16 @@ gdpgl <- gdpgl %>%
 
 ### merge data ----------------------------------------------------------------------
 gdp <- full_join(pwt,gdpgl,by=c("iso3c","year")) %>%
-  dplyr::filter(iso3c %!in% c("ABW","AIA","ATG","BHS","BLZ","BMU","BRB","BRN","BTN","COM","CPV","CUW","DMA",
-                              "GRD","HKG","ISL","KNA","LCA","LUX","MAC","MDV","MLT","MSR","STP","SUR","SXM",
-                              "SYC","TCA","VCT","VGB","GUY","MCO","LIE","AND","ZAN","TBT","VUT","SLB","KIR",
-                              "NRU","TON","TUV","MHL","PLW","FSM","WSM",NA,"ABK","CYM"))
+  dplyr::filter(iso3c %!in% c("ABW","AIA","ATG","BMU","BRB","CUW","DMA","GRD","HKG","KNA","LCA",
+                              "MAC","MDV","MSR","SXM","SYC","TCA","VCT","VGB","MCO","LIE","AND",
+                              "ZAN","TBT","VUT","KIR","NRU","TON","TUV","MHL","PLW","FSM","WSM",
+                              NA,"ABK","CYM"))
+
+# gdp <- full_join(pwt,gdpgl,by=c("iso3c","year")) %>%
+#   dplyr::filter(iso3c %!in% c("ABW","AIA","ATG","BHS","BLZ","BMU","BRB","BRN","BTN","COM","CPV","CUW","DMA",
+#                               "GRD","HKG","ISL","KNA","LCA","LUX","MAC","MDV","MLT","MSR","STP","SUR","SXM",
+#                               "SYC","TCA","VCT","VGB","GUY","MCO","LIE","AND","ZAN","TBT","VUT","SLB","KIR",
+#                               "NRU","TON","TUV","MHL","PLW","FSM","WSM",NA,"ABK","CYM"))
 
 ### modify data ----------------------------------------------------------------------
 # modifications calculated on Excel workbook unless otherwise denoted
@@ -927,4 +933,4 @@ gdp <- gdp %>%
 
 ### write data ----------------------------------------------------------------------
 # writes formatted dataframe as csv files
-write.csv(gdp,"Data files/Formatted data files/gdp.csv")
+write.csv(gdp,"Data files/Formatted data files/gdp.csv",row.names = FALSE)

@@ -83,4 +83,4 @@ cyears2 <- cyears2 %>%
 
 ### write data ----------------------------------------------------------------------
 # writes formatted dataframe as csv files
-write.csv(cyears2,"Data files/Formatted data files/country_years.csv")
+write.csv(cyears2,"Data files/Formatted data files/country_years.csv",row.names = FALSE)

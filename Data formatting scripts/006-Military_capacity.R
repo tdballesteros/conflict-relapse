@@ -6,7 +6,7 @@
 #      Add PSE
 #      Issue with UKR 1991 (2x, v diff values)
 
-# load libraries
+### load libraries ----------------------------------------------------------------------
 library(readxl)
 library(countrycode)
 library(imputeTS)
@@ -15,7 +15,7 @@ library(mtsdi)
 library(dplyr)
 library(tidyr)
 
-# not in function
+### not in function ----------------------------------------------------------------------
 '%!in%' <- function(x,y)!('%in%'(x,y))
 
 #### countries without standardised iso3c codes
@@ -39,18 +39,20 @@ library(tidyr)
 # SOV -1991
 # post-Soviet 1992-
 
-#### upload COW files & updated data files ####
+### load data files ----------------------------------------------------------------------
 cow <- read_csv("Data files/Raw data files/NMC_5_0.csv")
 new.milper <- read_excel("Data files/Raw data files/iiss_milper.xlsx")
 new.milex <- read_excel("Data files/Raw data files/iiss_milex.xlsx")
 
-#### munge cow ####
+### format data ----------------------------------------------------------------------
+#### COW ----------------------------------------------------------------------
 cow <- cow %>%
   dplyr::filter(stateabb != "SRB" | year != 2012) %>%
-  dplyr::select(stateabb,year,milex,milper) %>%
   dplyr::filter(year >= 1946) %>%
+  # using the countrycode package, add iso3c based on country COW abbreviation
   dplyr::mutate(iso3c = countrycode::countrycode(stateabb,"cowc","iso3c"))
 
+# codes iso3c values missing from the countrycode package: RVN, YPR, YAR, ZAN, KSV, YUG, CZE, DDR, BRD
 cow$iso3c[cow$stateabb=="RVN"] <- "RVN"
 cow$iso3c[cow$stateabb=="YPR"] <- "YPR"
 cow$iso3c[cow$stateabb=="YAR"] <- "YAR"
@@ -62,44 +64,45 @@ cow$iso3c[cow$stateabb=="GDR"] <- "DDR"
 cow$iso3c[cow$stateabb=="GFR"] <- "BRD"
 
 cow <- cow %>%
-  dplyr::select(iso3c,year,milex,milper)
-
-cow$milex[cow$milex==-9] <- NA
-cow$milper[cow$milper==-9] <- NA
-
-cow <- cow %>%
-  dplyr::mutate(milexpgdp = NA,
-                milper = 1000 * milper,
+  dplyr::select(iso3c,year,milex,milper) %>%
+  # recodes -9 (missing) to NA for milex and milper variables
+  dplyr::mutate(milex = ifelse(milex==-9,NA,milex),
+                milper = ifelse(milper==-9,NA,milper),
+                # multiplies milex and milper to be full numbers
                 milex = 1000 * milex, # double check the multiplier
+                milper = 1000 * milper,
+                # creates blank variables for future calculations
+                milexpgdp = NA,
                 milexpc = NA)
 
-#### munge new files and add onto cow ####
-new.milper <- new.milper %>%
-  dplyr::mutate(milex = NA,
-                milexpc = NA,
-                milexpgdp = NA)
-
-new.milex <- new.milex %>%
-  dplyr::mutate(milper = NA) %>%
+#### IISS ----------------------------------------------------------------------
+new.mil <- dplyr::full_join(new.milper,new.milex,by=c("iso3c","year")) %>%
+  # removes a notes column
   dplyr::select(-`...6`)
 
+#### merge datasets ----------------------------------------------------------------------
 cow <- cow %>%
-  rbind(new.milper,new.milex)
+  rbind(new.mil)
 
-#### merge so country-year is on a single line ####
+#### format merged dataset ----------------------------------------------------------------------
+# reformat to long data
+# note that the 22 country-years with two entries have mutually exclusive data, so no duplicate
+# values will occur once in long format, only a real value and an NA value
 cow <- cow %>%
   tidyr::pivot_longer(3:6, names_to = "variable", values_to = "value") %>%
   dplyr::group_by(iso3c,year,variable) %>%
+  # takes the mean value ignoring NAs, though all entries are either one value or one
+  # value and one NA
   dplyr::summarise(value = mean(value,na.rm=T)) %>%
   dplyr::ungroup() %>%
-  tidyr::pivot_wider(names_from = "variable", values_from = "value")
+  # pivot back to having each column as its own variable
+  tidyr::pivot_wider(names_from = "variable", values_from = "value") %>%
+  # replace all NaNs with NAs
+  dplyr::mutate_all(~ifelse(is.nan(.), NA, .))
 
-cow$milex[is.nan(cow$milex)] <- NA
-cow$milexpc[is.nan(cow$milexpc)] <- NA
-cow$milexpgdp[is.nan(cow$milexpgdp)] <- NA
-cow$milper[is.nan(cow$milper)] <- NA
-
+### add estimates from workbook ----------------------------------------------------------------------
 #### estimates entered from US WMEAT data
+
 # ZWE
 # 2008 and 2011 value is same (in constant 2014$), so applying deflated 2011 value to 2008
 # same relationship between 2009 and 2010
@@ -575,630 +578,295 @@ cow$milex[cow$iso3c=="AFG"&cow$year==2003] <- 133300236
 
 cow$milper[cow$iso3c=="AFG"&cow$year==2001] <- 45000 # WMEAT 2007(?)
 
-# remove YUG values for 2012
+# remove YUG values for 2012 (SRB values for 2012 already in dataset)
 cow <- cow %>%
   filter(iso3c != "YUG" | year != 2012)
 
-#### ~inflation~ ####
+### inflation ----------------------------------------------------------------------
 # inflation from https://www.bls.gov/data/inflation_calculator.htm
 # July to July, converting to 2019 dollars
-for(i in 1:nrow(cow)){
-  if(cow$year[i]==1946){
-    cow$milex[i] = cow$milex[i]*(1+11.96)
-    cow$milexpc[i] = cow$milexpc[i]*(1+11.96)
-  }
-  else if(cow$year[i]==1947){
-    cow$milex[i] = cow$milex[i]*(1+10.56)
-    cow$milexpc[i] = cow$milexpc[i]*(1+10.56)
-  }
-  else if(cow$year[i]==1948){
-    cow$milex[i] = cow$milex[i]*(1+9.52)
-    cow$milexpc[i] = cow$milexpc[i]*(1+9.52)
-  }
-  else if(cow$year[i]==1949){
-    cow$milex[i] = cow$milex[i]*(1+9.83)
-    cow$milexpc[i] = cow$milexpc[i]*(1+9.83)
-  }
-  else if(cow$year[i]==1950){
-    cow$milex[i] = cow$milex[i]*(1+9.65)
-    cow$milexpc[i] = cow$milexpc[i]*(1+9.65)
-  }
-  else if(cow$year[i]==1951){
-    cow$milex[i] = cow$milex[i]*(1+8.91)
-    cow$milexpc[i] = cow$milexpc[i]*(1+8.91)
-  }
-  else if(cow$year[i]==1952){
-    cow$milex[i] = cow$milex[i]*(1+8.61)
-    cow$milexpc[i] = cow$milexpc[i]*(1+8.61)
-  }
-  else if(cow$year[i]==1953){
-    cow$milex[i] = cow$milex[i]*(1+8.57)
-    cow$milexpc[i] = cow$milexpc[i]*(1+8.57)
-  }
-  else if(cow$year[i]==1954){
-    cow$milex[i] = cow$milex[i]*(1+8.54)
-    cow$milexpc[i] = cow$milexpc[i]*(1+8.54)
-  }
-  else if(cow$year[i]==1955){
-    cow$milex[i] = cow$milex[i]*(1+8.57)
-    cow$milexpc[i] = cow$milexpc[i]*(1+8.57)
-  }
-  else if(cow$year[i]==1956){
-    cow$milex[i] = cow$milex[i]*(1+8.36)
-    cow$milexpc[i] = cow$milexpc[i]*(1+8.36)
-  }
-  else if(cow$year[i]==1957){
-    cow$milex[i] = cow$milex[i]*(1+8.07)
-    cow$milexpc[i] = cow$milexpc[i]*(1+8.07)
-  }
-  else if(cow$year[i]==1958){
-    cow$milex[i] = cow$milex[i]*(1+7.85)
-    cow$milexpc[i] = cow$milexpc[i]*(1+7.85)
-  }
-  else if(cow$year[i]==1959){
-    cow$milex[i] = cow$milex[i]*(1+7.79)
-    cow$milexpc[i] = cow$milexpc[i]*(1+7.79)
-  }
-  else if(cow$year[i]==1960){
-    cow$milex[i] = cow$milex[i]*(1+7.67)
-    cow$milexpc[i] = cow$milexpc[i]*(1+7.67)
-  }
-  else if(cow$year[i]==1961){
-    cow$milex[i] = cow$milex[i]*(1+7.55)
-    cow$milexpc[i] = cow$milexpc[i]*(1+7.55)
-  }
-  else if(cow$year[i]==1962){
-    cow$milex[i] = cow$milex[i]*(1+7.47)
-    cow$milexpc[i] = cow$milexpc[i]*(1+7.47)
-  }
-  else if(cow$year[i]==1963){
-    cow$milex[i] = cow$milex[i]*(1+7.36)
-    cow$milexpc[i] = cow$milexpc[i]*(1+7.36)
-  }
-  else if(cow$year[i]==1964){
-    cow$milex[i] = cow$milex[i]*(1+7.25)
-    cow$milexpc[i] = cow$milexpc[i]*(1+7.25)
-  }
-  else if(cow$year[i]==1965){
-    cow$milex[i] = cow$milex[i]*(1+7.12)
-    cow$milexpc[i] = cow$milexpc[i]*(1+7.12)
-  }
-  else if(cow$year[i]==1966){
-    cow$milex[i] = cow$milex[i]*(1+6.89)
-    cow$milexpc[i] = cow$milexpc[i]*(1+6.89)
-  }
-  else if(cow$year[i]==1967){
-    cow$milex[i] = cow$milex[i]*(1+6.68)
-    cow$milexpc[i] = cow$milexpc[i]*(1+6.68)
-  }
-  else if(cow$year[i]==1968){
-    cow$milex[i] = cow$milex[i]*(1+6.35)
-    cow$milexpc[i] = cow$milexpc[i]*(1+6.35)
-  }
-  else if(cow$year[i]==1969){
-    cow$milex[i] = cow$milex[i]*(1+5.97)
-    cow$milexpc[i] = cow$milexpc[i]*(1+5.97)
-  }
-  else if(cow$year[i]==1970){
-    cow$milex[i] = cow$milex[i]*(1+5.58)
-    cow$milexpc[i] = cow$milexpc[i]*(1+5.58)
-  }
-  else if(cow$year[i]==1971){
-    cow$milex[i] = cow$milex[i]*(1+5.30)
-    cow$milexpc[i] = cow$milexpc[i]*(1+5.30)
-  }
-  else if(cow$year[i]==1972){
-    cow$milex[i] = cow$milex[i]*(1+5.12)
-    cow$milexpc[i] = cow$milexpc[i]*(1+5.12)
-  }
-  else if(cow$year[i]==1973){
-    cow$milex[i] = cow$milex[i]*(1+4.79)
-    cow$milexpc[i] = cow$milexpc[i]*(1+4.79)
-  }
-  else if(cow$year[i]==1974){
-    cow$milex[i] = cow$milex[i]*(1+4.19)
-    cow$milexpc[i] = cow$milexpc[i]*(1+4.19)
-  }
-  else if(cow$year[i]==1975){
-    cow$milex[i] = cow$milex[i]*(1+3.73)
-    cow$milexpc[i] = cow$milexpc[i]*(1+3.73)
-  }
-  else if(cow$year[i]==1976){
-    cow$milex[i] = cow$milex[i]*(1+3.49)
-    cow$milexpc[i] = cow$milexpc[i]*(1+3.49)
-  }
-  else if(cow$year[i]==1977){
-    cow$milex[i] = cow$milex[i]*(1+3.21)
-    cow$milexpc[i] = cow$milexpc[i]*(1+3.21)
-  }
-  else if(cow$year[i]==1978){
-    cow$milex[i] = cow$milex[i]*(1+2.91)
-    cow$milexpc[i] = cow$milexpc[i]*(1+2.91)
-  }
-  else if(cow$year[i]==1979){
-    cow$milex[i] = cow$milex[i]*(1+2.51)
-    cow$milexpc[i] = cow$milexpc[i]*(1+2.51)
-  }
-  else if(cow$year[i]==1980){
-    cow$milex[i] = cow$milex[i]*(1+2.10)
-    cow$milexpc[i] = cow$milexpc[i]*(1+2.10)
-  }
-  else if(cow$year[i]==1981){
-    cow$milex[i] = cow$milex[i]*(1+1.80)
-    cow$milexpc[i] = cow$milexpc[i]*(1+1.80)
-  }
-  else if(cow$year[i]==1982){
-    cow$milex[i] = cow$milex[i]*(1+1.63)
-    cow$milexpc[i] = cow$milexpc[i]*(1+1.63)
-  }
-  else if(cow$year[i]==1983){
-    cow$milex[i] = cow$milex[i]*(1+1.57)
-    cow$milexpc[i] = cow$milexpc[i]*(1+1.57)
-  }
-  else if(cow$year[i]==1984){
-    cow$milex[i] = cow$milex[i]*(1+1.46)
-    cow$milexpc[i] = cow$milexpc[i]*(1+1.46)
-  }
-  else if(cow$year[i]==1985){
-    cow$milex[i] = cow$milex[i]*(1+1.38)
-    cow$milexpc[i] = cow$milexpc[i]*(1+1.38)
-  }
-  else if(cow$year[i]==1986){
-    cow$milex[i] = cow$milex[i]*(1+1.34)
-    cow$milexpc[i] = cow$milexpc[i]*(1+1.34)
-  }
-  else if(cow$year[i]==1987){
-    cow$milex[i] = cow$milex[i]*(1+1.25)
-    cow$milexpc[i] = cow$milexpc[i]*(1+1.25)
-  }
-  else if(cow$year[i]==1988){
-    cow$milex[i] = cow$milex[i]*(1+1.17)
-    cow$milexpc[i] = cow$milexpc[i]*(1+1.17)
-  }
-  else if(cow$year[i]==1989){
-    cow$milex[i] = cow$milex[i]*(1+1.06)
-    cow$milexpc[i] = cow$milexpc[i]*(1+1.06)
-  }
-  else if(cow$year[i]==1990){
-    cow$milex[i] = cow$milex[i]*(1+0.97)
-    cow$milexpc[i] = cow$milexpc[i]*(1+0.97)
-  }
-  else if(cow$year[i]==1991){
-    cow$milex[i] = cow$milex[i]*(1+0.88)
-    cow$milexpc[i] = cow$milexpc[i]*(1+0.88)
-  }
-  else if(cow$year[i]==1992){
-    cow$milex[i] = cow$milex[i]*(1+0.83)
-    cow$milexpc[i] = cow$milexpc[i]*(1+0.83)
-  }
-  else if(cow$year[i]==1993){
-    cow$milex[i] = cow$milex[i]*(1+0.78)
-    cow$milexpc[i] = cow$milexpc[i]*(1+0.78)
-  }
-  else if(cow$year[i]==1994){
-    cow$milex[i] = cow$milex[i]*(1+0.73)
-    cow$milexpc[i] = cow$milexpc[i]*(1+0.73)
-  }
-  else if(cow$year[i]==1995){
-    cow$milex[i] = cow$milex[i]*(1+0.68)
-    cow$milexpc[i] = cow$milexpc[i]*(1+0.68)
-  }
-  else if(cow$year[i]==1996){
-    cow$milex[i] = cow$milex[i]*(1+0.63)
-    cow$milexpc[i] = cow$milexpc[i]*(1+0.63)
-  }
-  else if(cow$year[i]==1997){
-    cow$milex[i] = cow$milex[i]*(1+0.60)
-    cow$milexpc[i] = cow$milexpc[i]*(1+0.60)
-  }
-  else if(cow$year[i]==1998){
-    cow$milex[i] = cow$milex[i]*(1+0.57)
-    cow$milexpc[i] = cow$milexpc[i]*(1+0.57)
-  }
-  else if(cow$year[i]==1999){
-    cow$milex[i] = cow$milex[i]*(1+0.54)
-    cow$milexpc[i] = cow$milexpc[i]*(1+0.54)
-  }
-  else if(cow$year[i]==2000){
-    cow$milex[i] = cow$milex[i]*(1+0.48)
-    cow$milexpc[i] = cow$milexpc[i]*(1+0.48)
-  }
-  else if(cow$year[i]==2001){
-    cow$milex[i] = cow$milex[i]*(1+0.45)
-    cow$milexpc[i] = cow$milexpc[i]*(1+0.45)
-  }
-  else if(cow$year[i]==2002){
-    cow$milex[i] = cow$milex[i]*(1+0.42)
-    cow$milexpc[i] = cow$milexpc[i]*(1+0.42)
-  }
-  else if(cow$year[i]==2003){
-    cow$milex[i] = cow$milex[i]*(1+0.40)
-    cow$milexpc[i] = cow$milexpc[i]*(1+0.40)
-  }
-  else if(cow$year[i]==2004){
-    cow$milex[i] = cow$milex[i]*(1+0.35)
-    cow$milexpc[i] = cow$milexpc[i]*(1+0.35)
-  }
-  else if(cow$year[i]==2005){
-    cow$milex[i] = cow$milex[i]*(1+0.31)
-    cow$milexpc[i] = cow$milexpc[i]*(1+0.31)
-  }
-  else if(cow$year[i]==2006){
-    cow$milex[i] = cow$milex[i]*(1+0.26)
-    cow$milexpc[i] = cow$milexpc[i]*(1+0.26)
-  }
-  else if(cow$year[i]==2007){
-    cow$milex[i] = cow$milex[i]*(1+0.23)
-    cow$milexpc[i] = cow$milexpc[i]*(1+0.23)
-  }
-  else if(cow$year[i]==2008){
-    cow$milex[i] = cow$milex[i]*(1+0.17)
-    cow$milexpc[i] = cow$milexpc[i]*(1+0.17)
-  }
-  else if(cow$year[i]==2009){
-    cow$milex[i] = cow$milex[i]*(1+0.19)
-    cow$milexpc[i] = cow$milexpc[i]*(1+0.19)
-  }
-  else if(cow$year[i]==2010){
-    cow$milex[i] = cow$milex[i]*(1+0.18)
-    cow$milexpc[i] = cow$milexpc[i]*(1+0.18)
-  }
-  else if(cow$year[i]==2011){
-    cow$milex[i] = cow$milex[i]*(1+0.14)
-    cow$milexpc[i] = cow$milexpc[i]*(1+0.14)
-  }
-  else if(cow$year[i]==2012){
-    cow$milex[i] = cow$milex[i]*(1+0.12)
-    cow$milexpc[i] = cow$milexpc[i]*(1+0.12)
-  }
-  else if(cow$year[i]==2013){
-    cow$milex[i] = cow$milex[i]*(1+0.10)
-    cow$milexpc[i] = cow$milexpc[i]*(1+0.10)
-  }
-  else if(cow$year[i]==2014){
-    cow$milex[i] = cow$milex[i]*(1+0.08)
-    cow$milexpc[i] = cow$milexpc[i]*(1+0.08)
-  }
-  else if(cow$year[i]==2015){
-    cow$milex[i] = cow$milex[i]*(1+0.08)
-    cow$milexpc[i] = cow$milexpc[i]*(1+0.08)
-  }
-  else if(cow$year[i]==2016){
-    cow$milex[i] = cow$milex[i]*(1+0.07)
-    cow$milexpc[i] = cow$milexpc[i]*(1+0.07)
-  }
-  else if(cow$year[i]==2017){
-    cow$milex[i] = cow$milex[i]*(1+0.05)
-    cow$milexpc[i] = cow$milexpc[i]*(1+0.05)
-  }
-  else if(cow$year[i]==2018){
-    cow$milex[i] = cow$milex[i]*(1+0.02)
-    cow$milexpc[i] = cow$milexpc[i]*(1+0.02)
-  }
-}
-
-srb2 <- cow %>%
-  dplyr::filter(iso3c == "YUG",year > 1991) %>%
-  dplyr::mutate(iso3c = "SRB")
+inflation_table <- data.frame(year = c(1946:2018),
+                              multiplier = c(1+11.96,1+10.56,1+9.52,1+9.83, #40s
+                                             1+9.65,1+8.91,1+8.61,1+8.57,1+8.54,1+8.57,1+8.36,1+8.07,1+7.85,1+7.79, #50s
+                                             1+7.67,1+7.55,1+7.47,1+7.36,1+7.25,1+7.12,1+6.89,1+6.68,1+6.35,1+5.97, #60s
+                                             1+5.58,1+5.30,1+5.12,1+4.79,1+4.19,1+3.73,1+3.49,1+3.21,1+2.91,1+2.51, #70s
+                                             1+2.10,1+1.80,1+1.63,1+1.57,1+1.46,1+1.38,1+1.34,1+1.25,1+1.17,1+1.06, #80s
+                                             1+0.97,1+0.88,1+0.83,1+0.78,1+0.73,1+0.68,1+0.63,1+0.60,1+0.57,1+0.54, #90s
+                                             1+0.48,1+0.45,1+0.42,1+0.40,1+0.35,1+0.31,1+0.26,1+0.23,1+0.17,1+0.19, #00s
+                                             1+0.18,1+0.14,1+0.12,1+0.10,1+0.08,1+0.08,1+0.07,1+0.05,1+0.02)) #10s
 
 cow <- cow %>%
-  dplyr::filter(iso3c != "YUG" | year <= 1991) %>%
-  rbind(srb2)
+  dplyr::left_join(inflation_table,by="year") %>%
+  # multiples dollar values in that year's dollar value to 2019 dollars
+  dplyr::mutate(milex = milex * multiplier,
+                milexpc = milexpc * multiplier) %>%
+  dplyr::select(-multiplier)
 
-#### Fixing merge/split countries ####
+### calculate unified/divided country data ----------------------------------------------------------------------
 cow <- cow %>%
-  dplyr::full_join(expand.grid(iso3c = unique(cow$iso3c), year = c(1946:2019)))
-
-cow$iso3c[cow$iso3c=="RUS"&cow$year<=1991] <- "SOV"
-
-cow <- cow %>%
-  dplyr::filter(iso3c != "YAR" | year <= 1989) %>%
-  dplyr::filter(iso3c != "YPR" | year <= 1989) %>%
-  dplyr::filter(iso3c != "YEM" | year >= 1990) %>%
-  dplyr::filter(iso3c != "BRD" | year <= 1990) %>%
-  dplyr::filter(iso3c != "DDR" | year <= 1990) %>%
-  dplyr::filter(iso3c != "DEU" | year >= 1991) %>%
-  dplyr::filter(iso3c %!in% c("ARM","AZE","BLR","EST","GEO","KAZ","KGZ","LTU","LVA","MDA",
-                              "RUS","TJK","TKM","UZB") | year >= 1992,
-                iso3c %!in% c("BIH","HRV","MKD","SRB","SVN") | year >= 1992,
-                iso3c != "KSV" | year >= 2008)
-
-#### linearly interpolate missing values ####
-cow <- cow %>%
-  dplyr::filter(iso3c %!in% c("BHS","BRB","DMA","GRD","LCA","VCT","ATG","KNA","BLZ","GUY","SUR","LUX",
-                              "MCO","LIE","AND","SMR","MLT","MNE","ISL","CPV","STP","ZAN","COM","SYC",
-                              "BTN","MDV","BRN","VUT","SLB","KIR","TUV","FJI","TON","NRU","MHL","PLW",
-                              "FSM","WSM","DJI"))
-
-cow.milex <- cow %>%
+  # expand dataframe to have all iso3c-year combos from 1946 - 2019
   dplyr::full_join(expand.grid(iso3c = unique(cow$iso3c), year = c(1946:2019))) %>%
-  dplyr::filter(iso3c != "PSE") %>%
-  dplyr::select(iso3c,year,milex) %>%
+  # change YUG coding to SRB for 1992 onward
+  dplyr::mutate(iso3c = ifelse(iso3c=="YUG"&year>1991,"SRB",iso3c),
+                # change RUS coding to SOV for 1991 and before
+                iso3c = ifelse(iso3c=="RUS"&year<=1991,"SOV",iso3c)) %>%
+  # filter out countries that merged together or split apart
+  dplyr::filter(iso3c %!in% c("YAR","YPR") | year <= 1989,
+                iso3c != "YEM" | year >= 1990,
+                iso3c %!in% c("BRD","DDR") | year <= 1990,
+                iso3c != "DEU" | year >= 1991,
+                iso3c %!in% c("ARM","AZE","BLR","EST","GEO","KAZ","KGZ","LTU","LVA","MDA",
+                              "RUS","TJK","TKM","UZB","BIH","HRV","MKD","SRB","SVN") | year >= 1992,
+                iso3c != "KSV" | year >= 2008,
+                # filter out Palestine for lack of data
+                iso3c != "PSE")
+
+### interpolate missing values ----------------------------------------------------------------------
+cow <- cow %>%
   dplyr::group_by(iso3c) %>%
   dplyr::arrange(year) %>%
-  dplyr::mutate(milex.approx = imputeTS::na_interpolation(milex, option = "linear")) %>%
+  dplyr::mutate(milex.approx = imputeTS::na_interpolation(milex, option = "linear"),
+                milper.approx = imputeTS::na_interpolation(milper, option = "linear")) %>%
   dplyr::ungroup() %>%
-  dplyr::select(iso3c,year,milex.approx) %>%
-  dplyr::rename(milex = milex.approx)
+  dplyr::select(-c(milex,milper))
 
-cow.milper <- cow %>%
-  dplyr::full_join(expand.grid(iso3c = unique(cow$iso3c), year = c(1946:2019))) %>%
-  dplyr::filter(iso3c != "PSE") %>%
-  dplyr::select(iso3c,year,milper) %>%
-  dplyr::group_by(iso3c) %>%
-  dplyr::arrange(year) %>%
-  dplyr::mutate(milper.approx = imputeTS::na_interpolation(milper, option = "linear")) %>%
-  dplyr::ungroup() %>%
-  dplyr::select(iso3c,year,milper.approx) %>%
-  dplyr::rename(milper = milper.approx)
+### merge population and GDP data ----------------------------------------------------------------------
+# load formatted data output by scripts 003-GDP and 004-Population
+gdp <- read.csv("Data files/Formatted data files/gdp.csv")
+population <- read.csv("Data files/Formatted data files/population.csv")
 
-cow <- cow %>%
-  dplyr::select(-c(milex,milper)) %>%
-  dplyr::full_join(cow.milex,by=c("iso3c","year")) %>%
-  dplyr::full_join(cow.milper,by=c("iso3c","year"))
-
-#### merge population and GDP data ####
+# merge files by iso3c and year
 cow <- cow %>%
   dplyr::left_join(gdp,by=c("iso3c","year")) %>%
-  dplyr::left_join(pd,by=c("iso3c","year")) %>%
-  dplyr::filter(year < 2020)
+  dplyr::left_join(population,by=c("iso3c","year")) %>%
+  # gdp and population data not available for 2020
+  dplyr::filter(year < 2020) %>%
+  dplyr::relocate(country,.after="iso3c") %>%
+  dplyr::mutate(milexpc_est = milex.approx / population,
+                milexpgdp_est = milex.approx / gdp,
+                milexpc_ratio = milexpc_est / milexpc,
+                milexpgdp_ratio = milexpgdp_est / milexpgdp)
 
-cow$milex[cow$iso3c=="ARE"&cow$year==2014] <- cow$milexpgdp[cow$iso3c=="ARE"&cow$year==2014] * 
+# ranges of milexpc estimate ratios (milex.approx / population vs. milexpc) range from 58% - 431% of milexpc
+# ranges of milexpgdp estimate ratios (milex.approx / gdp vs. milexpgdp) range from 0.34% - 218% of milexpgdp
+
+# replaces several calculations for specfic county-years
+cow$milex.approx[cow$iso3c=="ARE"&cow$year==2014] <- cow$milexpgdp[cow$iso3c=="ARE"&cow$year==2014] * 
   cow$gdp[cow$iso3c=="ARE"&cow$year==2014]
-cow$milex[cow$iso3c=="GIN"&cow$year==2014] <- cow$milexpgdp[cow$iso3c=="GIN"&cow$year==2014] * 
+cow$milex.approx[cow$iso3c=="GIN"&cow$year==2014] <- cow$milexpgdp[cow$iso3c=="GIN"&cow$year==2014] * 
   cow$gdp[cow$iso3c=="GIN"&cow$year==2014]
-cow$milex[cow$iso3c=="GNB"&cow$year==2014] <- cow$milexpgdp[cow$iso3c=="GNB"&cow$year==2014] * 
+cow$milex.approx[cow$iso3c=="GNB"&cow$year==2014] <- cow$milexpgdp[cow$iso3c=="GNB"&cow$year==2014] * 
   cow$gdp[cow$iso3c=="GNB"&cow$year==2014]
-cow$milex[cow$iso3c=="NER"&cow$year==2014] <- cow$milexpgdp[cow$iso3c=="NER"&cow$year==2014] * 
+cow$milex.approx[cow$iso3c=="NER"&cow$year==2014] <- cow$milexpgdp[cow$iso3c=="NER"&cow$year==2014] * 
   cow$gdp[cow$iso3c=="NER"&cow$year==2014]
-cow$milex[cow$iso3c=="SDN"&cow$year==2014] <- cow$milexpgdp[cow$iso3c=="SDN"&cow$year==2014] * 
+cow$milex.approx[cow$iso3c=="SDN"&cow$year==2014] <- cow$milexpgdp[cow$iso3c=="SDN"&cow$year==2014] * 
   cow$gdp[cow$iso3c=="SDN"&cow$year==2014]
 
 cow <- cow %>%
-  dplyr::mutate(milexpt = milex / milper,
-                miltppc = milper / pop.pd)
+  # calculates military expenditure per personnel (milexpt) and military personnel per capita (miltppc)
+  dplyr::mutate(milexpt = milex.approx / milper.approx,
+                miltppc = milper.approx / population,
+                # if estimates are not available for milexpgdp or milexpc, use milex.approx / gdp or population as estimates
+                milexpgdp = dplyr::coalesce(milexpgdp,milexpgdp_est),
+                milexpc = dplyr::coalesce(milexpc,milexpc_est)) %>%
+  dplyr::select(-c(gdp,population,milexpc_est,milexpgdp_est,milexpc_ratio,milexpgdp_ratio)) %>%
+  dplyr::rename(milex = milex.approx,
+                milper = milper.approx)
 
-for(i in 1:nrow(cow)){
-  if(is.na(cow$milexpgdp[i])){
-    cow$milexpgdp[i] = cow$milex[i] / cow$gdp[i]
-  }
-  if(is.na(cow$milexpc[i])){
-    cow$milexpc[i] = cow$milex[i] / cow$pop.pd[i]
-  }
-  if(is.na(cow$miltppc[i])){
-    cow$miltppc[i] = cow$milper[i] / cow$pop.pd[i]
-  }
-}
-
-#### remove small countries ####
-cow <- cow %>%
-  dplyr::filter(iso3c %!in% c("BHS","BRB","DMA","GRD","LCA","VCT","ATG","KNA","BLZ","GUY","SUR","LUX",
-                              "MCO","LIE","AND","SMR","MLT","MNE","ISL","CPV","STP","ZAN","COM","SYC",
-                              "BTN","MDV","BRN","VUT","SLB","KIR","TUV","FJI","TON","NRU","MHL","PLW",
-                              "FSM","WSM","DJI")) %>%
-  dplyr::select(c(iso3c,year,milexpgdp,milexpc,milexpt,miltppc))
-
-#### gather data ####
-cow <- cow %>%
-  tidyr::pivot_longer(3:6, names_to = "variable", values_to = "value")
-
+# calculate how many variables are present for each country (out of 6 total)
 cow.names <- cow %>%
+  tidyr::pivot_longer(4:9, names_to = "variable", values_to = "value") %>%
   na.omit() %>%
   dplyr::group_by(iso3c,variable) %>%
-  dplyr::summarise(n = n()) %>%
+  dplyr::tally() %>%
   dplyr::ungroup() %>%
   dplyr::group_by(iso3c) %>%
-  dplyr::summarise(n = n()) %>%
+  dplyr::tally() %>%
   dplyr::ungroup()
 
-#### linear interpolation for missing values ####
+countries_missing_variables <- cow.names %>%
+  dplyr::filter(n < 6) %>%
+  dplyr::pull(iso3c)
+
+### interpolate missing values again ----------------------------------------------------------------------
 cow <- cow %>%
-  dplyr::filter(iso3c %!in% c("PSE")) %>%
-  dplyr::group_by(iso3c,variable) %>%
+  dplyr::filter(iso3c %!in% c("BLZ","MDV","ZAN",countries_missing_variables)) %>%
+  dplyr::group_by(iso3c) %>%
   dplyr::arrange(year) %>%
-  dplyr::mutate(approx = imputeTS::na_interpolation(value), option = "linear") %>%
+  dplyr::mutate(milexpc = imputeTS::na_interpolation(milexpc, option = "linear"),
+                milexpgdp = imputeTS::na_interpolation(milexpgdp, option = "linear"),
+                milex = imputeTS::na_interpolation(milex, option = "linear"),
+                milper = imputeTS::na_interpolation(milper, option = "linear"),
+                milexpt = imputeTS::na_interpolation(milexpt, option = "linear"),
+                miltppc = imputeTS::na_interpolation(miltppc, option = "linear")) %>%
   dplyr::ungroup() %>%
-  dplyr::select(-c(value,option)) %>%
-  dplyr::rename(value = approx)
-
-cow$value[cow$value==Inf] <- 0
-cow$value[is.nan(cow$value)] <- 0
-
-cow.dup <- cow %>%
-  dplyr::group_by(iso3c,year,variable) %>%
-  dplyr::summarise(n = n()) %>%
-  dplyr::ungroup()
-
-cow <- cow %>%
-  unique()
-
-#### spread values ####
-cow <- cow %>%
-  as.data.frame() %>%
-  tidyr::pivot_wider(names_from = variable, values_from = value) %>%
+  # replace all Infs and NaNs with 0s
+  dplyr::mutate_all(~ifelse(is.infinite(.), 0, .),
+                    ~ifelse(is.nan(.), 0, .)) %>%
+  # calculate natural logs of milexpgdp, miltppc, milexpc, and milexpt
   dplyr::mutate(lnmilexpgdp = log(milexpgdp),
                 lntroops = log(miltppc * 1000000),
+                lntroops2 = log(miltppc),
                 lnmilexpc = log(milexpc),
-                lnmilexpt = log(milexpt))
+                lnmilexpt = log(milexpt)) %>%
+  # replace all Infs and NaNs with 0s
+  dplyr::mutate_all(~ifelse(is.infinite(.), 0, .),
+                    ~ifelse(is.nan(.), 0, .))
 
-cow$lnmilexpgdp[cow$lnmilexpgdp==-Inf] <- 0
-cow$lntroops[cow$lntroops==-Inf] <- 0
-cow$lnmilexpc[cow$lnmilexpc==-Inf] <- 0
-cow$lnmilexpt[cow$lnmilexpt==-Inf] <- 0
+### remove if countries did not exist that year ----------------------------------------------------------------------
+# load formatted data output by script 005-Country_years
+cyears <- read.csv("Data files/Formatted data files/country_years.csv")
 
+# merge datasets and filter out if the country-year is not included in the cyears dataset
 cow <- cow %>%
-  dplyr::left_join(cyears2,by=c("iso3c","year")) %>%
+  dplyr::left_join(cyears,by=c("iso3c","year")) %>%
   dplyr::filter(cn == 1) %>%
   dplyr::select(-cn)
 
+### principal component analysis ----------------------------------------------------------------------
+# PCA on lnmilexpgdp, lntroops, lnmilexpc, and lnmilexpt
+cow_pca <- stats::prcomp(~  lnmilexpgdp + lntroops + lnmilexpc + lnmilexpt,
+                         data = cow, retx = T, center = T, scale. = T)
+
 cow <- cow %>%
-  dplyr::mutate(countryyear = paste(iso3c,year)) %>%
-  as.data.frame()
+  # combines principal component scores with PCA dataset
+  cbind(cow_pca[["x"]]) %>%
+  # drops second, third, and fourth principal component scores
+  dplyr::select(-c(PC2,PC3,PC4)) %>%
+  # renames first principal component as mil.cap
+  dplyr::rename(mil.cap = PC1) %>%
+  # creates mil.cap.sq variable, the square of mil.cap
+  # this tests for extremes of military capacity - extremely strong/weak vs. average capacity
+  dplyr::mutate(mil.cap.sq = mil.cap^2)
 
-#cow <- cow %>%
-#  filter(year >= 1983)
-
-row.names(cow) <- cow$countryyear
-
-
-#### PCA ####
-cowpca <- prcomp(~  lnmilexpgdp + lntroops + lnmilexpc + lnmilexpt,
-                 data = cow, retx = T, center = T, scale. = T)
-
-cowpca[["rotation"]]
-
-
-cowpca1 <- cowpca$x[,1] %>%
-  as.data.frame()
-cowpca1 <- cowpca1 %>%
-  dplyr::mutate(countryyear = row.names(cowpca1))
-names(cowpca1) <- c("pca1","countryyear")
-
-cowpca1 <- cowpca1 %>%
-  dplyr::mutate(iso3c = str_sub(countryyear,start=1,end=3),
-                year = str_sub(countryyear,start=4,end=8))
-cowpca1$year <- as.numeric(cowpca1$year)
-
-cowpca1 <- cowpca1[,c("iso3c","year","pca1")] %>%
-  dplyr::rename(mil.cap = pca1)
-
-#cowpca.old <- cowpca1
-#names(cowpca.old) <- c("iso3c","year","mc.old")
-
-#cowcomp <- full_join(cowpca1,cowpca.old,by=c("iso3c","year"))
-#plot(cowcomp$mc.old,cowcomp$mil.cap)
-#cowcomp <- cowcomp %>%
-#  mutate(diff = mil.cap - mc.old)
-
-#### yearly avg ####
-plot(cowpca1$year,cowpca1$mil.cap)
-
-mc.year <- cowpca1 %>%
+### principal component analysis ----------------------------------------------------------------------
+# average unweighted military capacity by year
+mil_cap_yearly_avg <- cow %>%
   dplyr::group_by(year) %>%
   dplyr::summarise(avg = mean(mil.cap)) %>%
   dplyr::ungroup()
 
-plot(mc.year$year,mc.year$avg,type='l')
+plot(mil_cap_yearly_avg$year,mil_cap_yearly_avg$avg,type='l')
 
-#### ts for USSR/YUG/YEM/DEU/CZE/VNM ####
-# Soviet successor states
-arm.ts <- cowpca1 %>%
+### format data for countries that unified/dissolved ----------------------------------------------------------------------
+#### Soviet successor states ----------------------------------------------------------------------
+arm.ts <- cow %>%
   dplyr::filter(iso3c %in% c("ARM","SOV")) %>%
   dplyr::mutate(iso3c = "ARM")
 
-aze.ts <- cowpca1 %>%
+aze.ts <- cow %>%
   dplyr::filter(iso3c %in% c("AZE","SOV")) %>%
   dplyr::mutate(iso3c = "AZE")
 
-blr.ts <- cowpca1 %>%
+blr.ts <- cow %>%
   dplyr::filter(iso3c %in% c("BLR","SOV")) %>%
   dplyr::mutate(iso3c = "BLR")
 
-est.ts <- cowpca1 %>%
+est.ts <- cow %>%
   dplyr::filter(iso3c %in% c("EST","SOV")) %>%
   dplyr::mutate(iso3c = "EST")
 
-geo.ts <- cowpca1 %>%
+geo.ts <- cow %>%
   dplyr::filter(iso3c %in% c("GEO","SOV")) %>%
   dplyr::mutate(iso3c = "GEO")
 
-kaz.ts <- cowpca1 %>%
+kaz.ts <- cow %>%
   dplyr::filter(iso3c %in% c("KAZ","SOV")) %>%
   dplyr::mutate(iso3c = "KAZ")
 
-kgz.ts <- cowpca1 %>%
+kgz.ts <- cow %>%
   dplyr::filter(iso3c %in% c("KGZ","SOV")) %>%
   dplyr::mutate(iso3c = "KGZ")
 
-ltu.ts <- cowpca1 %>%
+ltu.ts <- cow %>%
   dplyr::filter(iso3c %in% c("LTU","SOV")) %>%
   dplyr::mutate(iso3c = "LTU")
 
-lva.ts <- cowpca1 %>%
+lva.ts <- cow %>%
   dplyr::filter(iso3c %in% c("LVA","SOV")) %>%
   dplyr::mutate(iso3c = "LVA")
 
-mda.ts <- cowpca1 %>%
+mda.ts <- cow %>%
   dplyr::filter(iso3c %in% c("MDA","SOV")) %>%
   dplyr::mutate(iso3c = "MDA")
 
-rus.ts <- cowpca1 %>%
+rus.ts <- cow %>%
   dplyr::filter(iso3c %in% c("RUS","SOV")) %>%
   dplyr::mutate(iso3c = "RUS")
 
-tjk.ts <- cowpca1 %>%
+tjk.ts <- cow %>%
   dplyr::filter(iso3c %in% c("TJK","SOV")) %>%
   dplyr::mutate(iso3c = "TJK")
 
-tkm.ts <- cowpca1 %>%
+tkm.ts <- cow %>%
   dplyr::filter(iso3c %in% c("TKM","SOV")) %>%
   dplyr::mutate(iso3c = "TKM")
 
-ukr.ts <- cowpca1 %>%
+ukr.ts <- cow %>%
   dplyr::filter(iso3c %in% c("UKR","SOV")) %>%
   dplyr::mutate(iso3c = "UKR")
 
-uzb.ts <- cowpca1 %>%
+uzb.ts <- cow %>%
   dplyr::filter(iso3c %in% c("UZB","SOV")) %>%
   dplyr::mutate(iso3c = "UZB")
 
-# Yugoslav successor states
-bih.ts <- cowpca1 %>%
+#### Yugoslav successor states ----------------------------------------------------------------------
+bih.ts <- cow %>%
   dplyr::filter(iso3c %in% c("BIH","YUG")) %>%
   dplyr::mutate(iso3c = "BIH")
 
-hrv.ts <- cowpca1 %>%
+hrv.ts <- cow %>%
   dplyr::filter(iso3c %in% c("HRV","YUG")) %>%
   dplyr::mutate(iso3c = "HRV")
 
-mkd.ts <- cowpca1 %>%
+mkd.ts <- cow %>%
   dplyr::filter(iso3c %in% c("MKD","YUG")) %>%
   dplyr::mutate(iso3c = "MKD")
 
-srb.ts <- cowpca1 %>%
+srb.ts <- cow %>%
   dplyr::filter(iso3c %in% c("SRB","YUG")) %>%
   dplyr::mutate(iso3c = "SRB")
 
-svn.ts <- cowpca1 %>%
+svn.ts <- cow %>%
   dplyr::filter(iso3c %in% c("SVN","YUG")) %>%
   dplyr::mutate(iso3c = "SVN")
 
-ksv.ts <- cowpca1 %>%
+ksv.ts <- cow %>%
   dplyr::filter(iso3c %in% c("KSV","SRB","YUG"),
                 iso3c != "SRB" | year %in% c(1992:2007)) %>%
   dplyr::mutate(iso3c = "KSV")
 
-# YEM
-yar.ts <- cowpca1 %>%
+#### Yemen ----------------------------------------------------------------------
+yar.ts <- cow %>%
   dplyr::filter(iso3c %in% c("YAR","YEM")) %>%
   dplyr::mutate(iso3c = "YAR")
 
-ypr.ts <- cowpca1 %>%
+ypr.ts <- cow %>%
   dplyr::filter(iso3c %in% c("YPR","YEM")) %>%
   dplyr::mutate(iso3c = "YPR")
 
-# DEU
-brd.ts <- cowpca1 %>%
+#### Germany ----------------------------------------------------------------------
+brd.ts <- cow %>%
   dplyr::filter(iso3c %in% c("BRD","DEU")) %>%
   dplyr::mutate(iso3c = "BRD")
 
-ddr.ts <- cowpca1 %>%
+ddr.ts <- cow %>%
   dplyr::filter(iso3c %in% c("DDR","DEU")) %>%
   dplyr::mutate(iso3c = "DDR")
 
-# CZE
-svk.ts <- cowpca1 %>%
+#### Czechoslovakia ----------------------------------------------------------------------
+svk.ts <- cow %>%
   dplyr::filter(iso3c %in% c("SVK","CZE"),
                 iso3c != "CZE" | year <= 1992) %>%
   dplyr::mutate(iso3c = "SVK")
 
-# VNM
-rvn.ts <- cowpca1 %>%
+#### Vietnam ----------------------------------------------------------------------
+rvn.ts <- cow %>%
   dplyr::filter(iso3c %in% c("RVN","VNM"),
                 iso3c != "VNM" | year >= 1976) %>%
   dplyr::mutate(iso3c = "RVN")
 
-cowpca1 <- cowpca1 %>%
+cow <- cow %>%
   dplyr::filter(iso3c %!in% c("ARM","AZE","BLR","EST","GEO","KAZ","KGZ","LTU","LVA","MDA",
                               "RUS","TJK","TKM","UKR","UZB","BIH","HRV","MKD","SRB","SVN",
                               "KSV","YAR","YPR","BRD","DDR","SVK","RVN")) %>%
@@ -1206,14 +874,20 @@ cowpca1 <- cowpca1 %>%
         tkm.ts,ukr.ts,uzb.ts,bih.ts,hrv.ts,mkd.ts,srb.ts,svn.ts,ksv.ts,yar.ts,ypr.ts,brd.ts,
         ddr.ts,svk.ts,rvn.ts)
 
-#### plot mc country ####
+#### plot military capacity function ----------------------------------------------------------------------
+# function that plots the military capacity of a single country by its iso3c code
 plot.mc <- function(iso = "USA"){
-  tmp <- cowpca1 %>%
+  tmp <- cow %>%
     dplyr::filter(iso3c == iso) %>%
     dplyr::arrange(year)
   
   plot(tmp$year,tmp$mil.cap,type='l')
 }
+
+### write data ----------------------------------------------------------------------
+# writes formatted dataframe as csv files
+write.csv(cow,"Data files/Formatted data files/military_capacity.csv",row.names = FALSE)
+
 
 # #### logistf against conflict by component ####
 # miltest <- ucdp4 %>%
@@ -1231,6 +905,3 @@ plot.mc <- function(iso = "USA"){
 # 
 # milglm4 <- logistf(conflict ~ lnmilexpt, data = miltest, pl = T)
 # summary(milglm4)
-
-# writes formatted dataframe as csv files
-write.csv(cowpca1,"Data files/Formatted data files/military_capacity.csv")
