@@ -21,21 +21,23 @@ tax.ictd <- readxl::read_excel("~/Downloads/ICTDWIDERGRD_2020.xlsx", sheet = 2)
 
 ### format datasets ----------------------------------------------------------------------
 # format World Bank (wb) data
-tax.wb <- tax.wb %>%
+tax.wb2 <- tax.wb %>%
   dplyr::select(-c(Indicator.Name,Indicator.Code,X)) %>%
   tidyr::pivot_longer(3:62, names_to = "year", values_to = "value") %>%
   dplyr::mutate(year = as.numeric(str_sub(year,start=2,end=5))) %>%
-  dplyr::filter(Country.Code %!in% c("ABW","AND","ARB","ASM","ATG","BHS","BMU","BRB","BRN","BTN","CEB",
-                                     "CHI","COM","CPV","CSS","CUB","CUW","CYM","DJI","DMA","EAP","EAR",
-                                     "EAS","ECA","ECS","EMU","ERI","EUU","FCS","FRO","FSM","GIB","GRD",
-                                     "GRL","GUM","GUY","HIC","HKG","HPC","HTI","IBD","IBT","IDA","IDB",
-                                     "IDX","IMN","INX","KIR","KNA","LAC","LBY","LCA","LCN","LDC","LIC",
-                                     "LIE","LMC","LMY","LTE","MAC","MAF","MEA","MHL","MIC","MNA","MNE",
-                                     "MNP","NAC","NCL","NRU","OED","OMN","OSS","PLW","PRE","PRI","PRK",
-                                     "PSS","PST","PYF","QAT","SAS","SLB","SLE","SMR","SSA","SSD","SSF",
-                                     "SST","STP","SUR","SWZ","SXM","SYR","TCA","TCD","TEA","TEC","TKM",
-                                     "TLA","TMN","TON","TSA","TSS","TUV","UMC","VCT","VEN","VGB","VIR",
-                                     "VNM","VUT","WLD","WSM","XKX","YEM")) %>%
+  # filter out groups of countries
+  dplyr::filter(Country.Code %!in% c("ARB","CSS","CEB","EAR","EAP","EAS","LDC","MEA","MNA","TEA","TMN",
+                                     "ECA","ECS","EMU","EUU","FCS","HIC","HPC","IBD","IDA","IDX","INX",
+                                     "LAC","LCN","LMC","LMY","LTE","MIC","NAC","OED","OSS","PRE","PSS",
+                                     "PST","SAS","SSA","SSF","SST","TEC","TLA","TSA","TSS","UMC","WLD",
+                                     "IDB"),
+                # filter out territories / non-sovereign entities
+                Country.Code %!in% c("ABW","ASM","BMU","CHI","CUW","CYM","FRO","GIB","GRL","GUM","HKG",
+                                     "IMN","MAC","MAF","MNP","NCL","PYF","SXM","TCA","VGB","VIR","PRI"),
+                # filter out countries with no data in the dataset
+                Country.Code %!in% c("AND","ATG","BRN","COM","CUB","DJI","DMA","ERI","GRD","GUY","HTI",
+                                     "LBY","LIC","LIE","MNE","OMN","PRK","QAT","SLE","SSD","STP","SUR",
+                                     "SWZ","SYR","TCD","TKM","TUV","VEN","VNM","XKX","YEM")) %>%
   dplyr::select(-Country.Name) %>%
   dplyr::rename(iso3c = Country.Code,
                 wb.value = value)
@@ -47,6 +49,7 @@ tax.imf2 <- tax.imf2 %>%
   dplyr::filter(country != "NA" & country != "Scale: Units") %>%
   dplyr::rename(imf2.value = value) %>%
   dplyr::mutate(year = as.numeric(year),
+                # using the countrycode package, add iso3c based on country name
                 iso3c = countrycode::countrycode(country, "country.name", "iso3c"))
 
 tax.imf2$iso3c[tax.imf2$country=="Kosovo, Rep. of"] <- "KSV"
@@ -57,8 +60,9 @@ tax.imf2 <- tax.imf2 %>%
 # format OECD data
 tax.oecd <- tax.oecd %>%
   dplyr::select(COU,Country,Year,Value) %>%
+  # using the countrycode package, add iso3c based on country name
   dplyr::mutate(iso3c = countrycode::countrycode(Country, "country.name","iso3c")) %>%
-  dplyr::filter(iso3c %!in% c("BHS","BRB","CPV","NA","COK","WSM","TKL","SLB","VUT","LIE","LCA")) %>%
+  dplyr::filter(iso3c %!in% c(419,"AFRIC","COK","OAVG","TKL")) %>%
   dplyr::select(iso3c,Year,Value) %>%
   dplyr::rename(year = Year,
                 oecd.value = Value)
@@ -68,6 +72,7 @@ tax.imf <- tax.imf[,-seq(3,57,2)] %>%
   tidyr::pivot_longer(2:29, names_to = "year", values_to = "imf.value") %>%
   dplyr::rename(country = 1) %>%
   dplyr::mutate(year = as.numeric(year),
+                # using the countrycode package, add iso3c based on country name
                 iso3c = countrycode::countrycode(country,"country.name","iso3c")) %>%
   dplyr::select(iso3c,year,imf.value)
 
@@ -78,15 +83,15 @@ tax.ictd <- tax.ictd[-c(1:2),] %>%
   dplyr::rename(ictd.value = 4) %>%
   dplyr::mutate(year = as.numeric(year),
                 ictd.value = as.numeric(ictd.value),
+                # using the countrycode package, add iso3c based on country name
                 iso3c = countrycode::countrycode(country,"country.name","iso3c"))
 
 tax.ictd$iso3c[tax.ictd$country=="Kosovo"] <- "KSV"
 
 tax.ictd <- tax.ictd %>%
   dplyr::select(iso3c,year,ictd.value) %>%
-  dplyr::filter(iso3c %!in% c("ABW","AIA","ATG","BHS","BRB","BRN","BTN","DMA","FSM","GRD",
-                              "HKG","KIR","KNA","LCA","MAC","MHL","MNE","MSR","NRU","PLW",
-                              "SLB","SMR","TON","TUV","VCT","VUT","WSM"))
+  # filter out territories / non-sovereign entities
+  dplyr::filter(iso3c %!in% c("ABW","AIA","HKG","MAC","MSR"))
 
 ### merge datasets ----------------------------------------------------------------------
 taxrev <- dplyr::full_join(tax.ictd,tax.oecd,by=c("iso3c","year")) %>%
@@ -94,7 +99,7 @@ taxrev <- dplyr::full_join(tax.ictd,tax.oecd,by=c("iso3c","year")) %>%
   dplyr::full_join(tax.wb,by=c("iso3c","year")) %>%
   dplyr::full_join(tax.imf2,by=c("iso3c","year")) %>%
   dplyr::mutate(ictd.value = 100*ictd.value) %>%
-  dplyr::filter(iso3c %!in% c("BHS","BTN",NA)) %>%
+  dplyr::filter(is.na(iso3c)) %>%
   dplyr::rowwise() %>%
   dplyr::mutate(max = max(ictd.value,oecd.value,imf.value,wb.value,na.rm=TRUE),
                 min = min(ictd.value,oecd.value,imf.value,wb.value,na.rm=TRUE))

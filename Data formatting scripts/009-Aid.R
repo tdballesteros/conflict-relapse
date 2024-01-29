@@ -1,0 +1,133 @@
+# This script creates an aid estimate variable.
+
+### load libraries ----------------------------------------------------------------------
+library(countrycode)
+library(dplyr)
+
+### load data file ----------------------------------------------------------------------
+# aid from aiddata.org through Quality of Government dataset
+qog <- read.csv("~/Downloads/qog_std_ts_jan20.csv")
+
+### data formatting ----------------------------------------------------------------------
+aid2 <- qog %>%
+  dplyr::select(cname,year,aid_crsc,aid_crsio) %>%
+  # replace all Nas with 0s
+  dplyr::mutate_all(~ifelse(is.na(.), 0, .)) %>%
+  dplyr::mutate(aid2 = aid_crsc + aid_crsio,
+                # using the countrycode package, add iso3c based on country name
+                iso3c = countrycode(cname,"country.name","iso3c"))
+
+# manually add country codes to missing country names: Czechoslovakia; Germany, East; Germany, West; Micronesia;
+# Yemen, South; Yemen, North; Yugoslavia; Serbia and Montenegro; Tibet; and Vietnam, South
+aid2$iso3c[aid2$cname=="Czechoslovakia"] <- "CZE"
+aid2$iso3c[aid2$cname=="Germany, East"] <- "DDR"
+aid2$iso3c[aid2$cname=="Germany, West"] <- "BRD"
+aid2$iso3c[aid2$cname=="Micronesia"] <- "FSM"
+aid2$iso3c[aid2$cname=="Yemen, South"] <- "YPR"
+aid2$iso3c[aid2$cname=="Yemen, North"] <- "YAR"
+aid2$iso3c[aid2$cname=="Yugoslavia"] <- "YUG"
+aid2$iso3c[aid2$cname=="Serbia and Montenegro"] <- "SRB"
+aid2$iso3c[aid2$cname=="Tibet"] <- "TBT"
+aid2$iso3c[aid2$cname=="Vietnam, South"] <- "RVN"
+
+aid2 <- aid2 %>%
+  # filter countries with limited or no aid data
+  dplyr::filter(iso3c %!in% c("AND","LIE","LUX","MCO","SMR","TBT"),
+                # Cyprus is split into Cyprus (-1974) and Cyprus (1975-) but contains all years for both
+                cname != "Cyprus (1975-)" | year >= 1975,
+                cname != "Cyprus (-1974)" | year <= 1974,
+                # Czechoslovakia and Czechia have entries for all years
+                cname != "Czech Republic" | year >= 1993,
+                cname != "Czechoslovakia" | year <= 1992,
+                # Ethiopia is split into Ethiopia (-1992) and Ethiopia (1993-) but contains all years for both
+                cname != "Ethiopia (1993-)" | year >= 1993,
+                cname != "Ethiopia (-1992)" | year <= 1992,
+                # France is split into France (-1962) and France (1963-) but contains all years for both
+                cname != "France (1963-)" | year >= 1963,
+                cname != "France (-1962)" | year <= 1962,
+                # Malaysia is split into Malaysia (-1965) and Malaysia (1966-) but contains all years for both
+                cname != "Malaysia (1966-)" | year >= 1966,
+                cname != "Malaysia (-1965)" | year <= 1965,
+                # Pakistan is split into Pakistan (-1970) and Pakistan (1971-) but contains all years for both
+                cname != "Pakistan (1971-)" | year >= 1971,
+                cname != "Pakistan (-1970)" | year <= 1970,
+                # Russia and the Soviet Union have entries for all years
+                cname != "Russia" | year >= 1992,
+                cname != "USSR" | year <= 1991,
+                # Sudan is split into Sudan (-2011) and Sudan (2012-) but contains all years for both
+                cname != "Sudan (2012-)" | year >= 2012,
+                cname != "Sudan (-2011)" | year <= 2011,
+                # Serbia and Serbia and Montenegro have entries for all years
+                cname != "Serbia" | year >= 2006,
+                cname != "Serbia and Montenegro" | year <= 2005,
+                # Vietnam and Vietnam, North have entries for all years (Vietnam, South coded separately as well)
+                # Vietnam, North data goes through 1976 and Vietnam data begins 1977
+                cname != "Vietnam" | year >= 1977,
+                cname != "Vietnam, North" | year <= 1976,
+                # filter Vietnam, South to only include through 1975, as that is when the country-years datasets
+                # codes it as existing through
+                cname != "Vietnam, South" | year <= 1975) %>%
+  # recode iso3c for RUS 1946-1991 as SOV
+  dplyr::mutate(iso3c = ifelse(iso3c=="RUS"&year<=1991,"SOV",iso3c)) %>%
+  dplyr::select(iso3c,year,aid2) %>%
+  # dataset does not include any data beyond 2013 - filter out 2014 - 2019 entries
+  dplyr::filter(year < 2014)
+
+# duplicate 2013 aid data and code as same amount of aid for 2014 - 2019
+aid.2014 <- aid2 %>%
+  dplyr::filter(year == 2013) %>%
+  dplyr::mutate(year = 2014)
+
+aid.2015 <- aid2 %>%
+  dplyr::filter(year == 2013) %>%
+  dplyr::mutate(year = 2015)
+
+aid.2016 <- aid2 %>%
+  dplyr::filter(year == 2013) %>%
+  dplyr::mutate(year = 2016)
+
+aid.2017 <- aid2 %>%
+  dplyr::filter(year == 2013) %>%
+  dplyr::mutate(year = 2017)
+
+aid.2018 <- aid2 %>%
+  dplyr::filter(year == 2013) %>%
+  dplyr::mutate(year = 2018)
+
+aid.2019 <- aid2 %>%
+  dplyr::filter(year == 2013) %>%
+  dplyr::mutate(year = 2019)
+
+# merge 2014 - 2019 datasets into main dataset
+aid2 <- aid2 %>%
+  rbind(aid.2014,aid.2015,aid.2016,aid.2017,aid.2018,aid.2019)
+
+### merge GDP data ----------------------------------------------------------------------
+# load formatted data output by script 003-GDP
+gdp <- read.csv("Data files/Formatted data files/gdp.csv")
+
+# merges GDP dataset to calculate aid as % of GDP
+aid2 <- aid2 %>%
+  dplyr::full_join(gdp,by=c("iso3c","year")) %>%
+  dplyr::mutate(aidgdp = aid2 / gdp) %>%
+  # filter out countries missing gdp information
+  dplyr::filter(iso3c %!in% c("GUY","SYC","TON","KSV","PSE"))
+
+
+aid2$aidgdp[aid2$year > 2013] <- NA
+
+aid2$aidgdp[aid2$iso3c=="SOV"] <- 0
+
+aid2test <- aid2 %>%
+  select(iso3c,year,aidgdp) %>%
+  na.omit() %>%
+  group_by(iso3c) %>%
+  summarise(n = n()) %>%
+  ungroup()
+
+aid2 <- aid2 %>%
+  group_by(iso3c) %>%
+  arrange(year) %>%
+  mutate(aid2gdp = na.interpolation(aidgdp), option = "spline") %>%
+  ungroup() %>%
+  select(-c(aidgdp,option))
