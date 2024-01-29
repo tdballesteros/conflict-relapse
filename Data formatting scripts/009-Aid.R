@@ -113,21 +113,36 @@ aid2 <- aid2 %>%
   # filter out countries missing gdp information
   dplyr::filter(iso3c %!in% c("GUY","SYC","TON","KSV","PSE"))
 
-
-aid2$aidgdp[aid2$year > 2013] <- NA
-
-aid2$aidgdp[aid2$iso3c=="SOV"] <- 0
-
-aid2test <- aid2 %>%
-  select(iso3c,year,aidgdp) %>%
+# check how many years each country has data for
+aid2.num.years <- aid2 %>%
   na.omit() %>%
-  group_by(iso3c) %>%
-  summarise(n = n()) %>%
-  ungroup()
+  dplyr::group_by(iso3c) %>%
+  dplyr::tally() %>%
+  dplyr::ungroup()
 
+# list countries with data for no years
+aid2.no.years <- unique(aid2$iso3c)[unique(aid2$iso3c) %!in% aid2.num.years$iso3c]
+
+### interpolate missing data ----------------------------------------------------------------------
 aid2 <- aid2 %>%
-  group_by(iso3c) %>%
-  arrange(year) %>%
-  mutate(aid2gdp = na.interpolation(aidgdp), option = "spline") %>%
-  ungroup() %>%
-  select(-c(aidgdp,option))
+  # filter out countries with no data
+  dplyr::filter(iso3c %!in% aid2.no.years) %>%
+  dplyr::group_by(iso3c) %>%
+  dplyr::arrange(year) %>%
+  # interpolate missing values
+  dplyr::mutate(aidgdp = imputeTS::na_interpolation(aidgdp, option = "spline")) %>%
+  dplyr::ungroup()
+
+### remove if countries did not exist that year ----------------------------------------------------------------------
+# load formatted data output by script 005-Country_years
+cyears <- read.csv("Data files/Formatted data files/country_years.csv")
+
+# merge datasets and filter out if the country-year is not included in the cyears dataset
+aid2 <- aid2 %>%
+  dplyr::left_join(cyears,by=c("iso3c","year")) %>%
+  dplyr::filter(cn == 1) %>%
+  dplyr::select(-c(cn,gdp))
+
+### write data ----------------------------------------------------------------------
+# writes formatted dataframe as csv files
+write.csv(aid2,"Data files/Formatted data files/aid.csv",row.names = FALSE)
