@@ -12,7 +12,9 @@ cyears <- cyears %>%
   # using the countrycode package, add iso3c based on country COW abbreviation
   dplyr::mutate(iso3c = countrycode::countrycode(stateabb,"cowc","iso3c")) %>%
   # rearrange variables
-  dplyr::relocate(iso3c,.before=stateabb)
+  dplyr::relocate(iso3c,.before=stateabb) %>%
+  # filter countries who ceased existing before 1946
+  dplyr::filter(endyear > 1946)
 
 # codes iso3c values missing from the countrycode package: RVN, YPR, YAR, ZAN, KSV, CZE, DDR, BRD
 cyears$iso3c[cyears$stateabb=="RVN"] <- "RVN"
@@ -31,7 +33,7 @@ cyears2 <- data.frame(iso3c = NA, year = NA, cn = NA)
 
 for(i in 1:nrow(cyears)){
   # creates a dataframe for the ith country with years starting with the country's first
-  # year of existance to its last (or 2016, if the country currently exists)
+  # year of existence to its last (or 2016, if the country currently exists)
   years_tmp <- c(cyears$styear[i]:cyears$endyear[i]) %>%
     as.data.frame() %>%
     dplyr::rename(year = 1) %>%
@@ -74,7 +76,22 @@ cyears2 <- cyears2 %>%
                 iso3c = ifelse(iso3c=="RUS"&year %in% c(1922:1991),"SOV",iso3c)) %>%
   # expands the dataset to include all iso3c codes for 1946 - 2019, if not present already
   dplyr::full_join(expand.grid(iso3c = unique(cyears2$iso3c), year = c(1946:2019))) %>%
-  dplyr::mutate(cn = ifelse(is.na(cn),0,cn))
+  dplyr::mutate(cn = ifelse(is.na(cn),0,cn),
+                # using the countrycode package, add country name based on iso3c code
+                country = countrycode::countrycode(iso3c,"iso3c","country.name")) %>%
+  # rearrange variables
+  dplyr::relocate(country,.after=iso3c)
+
+# codes country names values missing from the countrycode package: BRD, DDR, KSV, RVN, SOV, YAR, YPR, YUG, ZAN
+cyears2$country[cyears2$iso3c=="BRD"] <- "West Germany"
+cyears2$country[cyears2$iso3c=="DDR"] <- "East Germany"
+cyears2$country[cyears2$iso3c=="KSV"] <- "Kosovo"
+cyears2$country[cyears2$iso3c=="RVN"] <- "South Vietnam"
+cyears2$country[cyears2$iso3c=="SOV"] <- "Soviet Union"
+cyears2$country[cyears2$iso3c=="YAR"] <- "North Yemen"
+cyears2$country[cyears2$iso3c=="YPR"] <- "South Yemen"
+cyears2$country[cyears2$iso3c=="YUG"] <- "Yugoslavia"
+cyears2$country[cyears2$iso3c=="ZAN"] <- "Zanzibar"
 
 # JPN, BRD, DDR, AUT are not in system during their occupation after WWII
 
