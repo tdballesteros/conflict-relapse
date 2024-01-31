@@ -141,7 +141,19 @@ cyears <- read.csv("Data files/Formatted data files/country_years.csv")
 aid2 <- aid2 %>%
   dplyr::left_join(cyears,by=c("iso3c","year")) %>%
   dplyr::filter(cn == 1) %>%
-  dplyr::select(-c(cn,gdp))
+  dplyr::select(-c(cn,gdp)) %>%
+  # using the countrycode package, add country name based on iso3c
+  dplyr::mutate(country = countrycode::countrycode(iso3c,"iso3c","country.name")) %>%
+  dplyr::relocate(country,.after=iso3c)
+
+# adds country names for iso3c codes not in the countrycode package: BRD, DDR, RVN, SOV, YAR, YPR, YUG
+aid2$country[aid2$iso3c=="BRD"] <- "West Germany"
+aid2$country[aid2$iso3c=="DDR"] <- "East Germany"
+aid2$country[aid2$iso3c=="RVN"] <- "South Vietnam"
+aid2$country[aid2$iso3c=="SOV"] <- "Soviet Union"
+aid2$country[aid2$iso3c=="YAR"] <- "North Yemen"
+aid2$country[aid2$iso3c=="YPR"] <- "South Yemen"
+aid2$country[aid2$iso3c=="YUG"] <- "Yugoslavia"
 
 ### write data ----------------------------------------------------------------------
 # writes formatted dataframe as csv files

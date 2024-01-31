@@ -11,7 +11,7 @@ tax_revenue <- read.csv("Data files/Formatted data files/tax_revenue.csv") %>%
   dplyr::select(-country)
 
 # load formatted data output by script 008-Relative_capacity
-relative_capacity <- read.csv("Data files/Formatted data files/country_years.csv") %>%
+relative_capacity <- read.csv("Data files/Formatted data files/relative_capacity.csv") %>%
   dplyr::select(-country)
 
 # load formatted data output by script 009-Aid
