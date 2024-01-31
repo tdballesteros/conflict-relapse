@@ -7,38 +7,50 @@ library(dplyr)
 
 ### load data files ----------------------------------------------------------------------
 # load formatted data output by script 007-Tax_revenue
-tax_revenue <- read.csv("Data files/Formatted data files/tax_revenue.csv")
+tax_revenue <- read.csv("Data files/Formatted data files/tax_revenue.csv") %>%
+  dplyr::select(-country)
 
 # load formatted data output by script 008-Relative_capacity
-relative_capacity <- read.csv("Data files/Formatted data files/country_years.csv")
+relative_capacity <- read.csv("Data files/Formatted data files/country_years.csv") %>%
+  dplyr::select(-country)
 
+# load formatted data output by script 009-Aid
+aid <- read.csv("Data files/Formatted data files/aid.csv") %>%
+  dplyr::select(-country)
 
+# load formatted data output by script 005-Country_years
+cyears <- read.csv("Data files/Formatted data files/country_years.csv") %>%
+  dplyr::select(-country)
 
+# load formatted data output by script 004-Population
+population <- read.csv("Data files/Formatted data files/population.csv") %>%
+  dplyr::select(-country)
 
-#### joining ####
-fiscap <- full_join(rpc2,taxrev4,by=c("iso3c","year")) %>%
-  full_join(aid2,by=c("iso3c","year")) %>%
-  full_join(cyears2,by=c("iso3c","year")) %>%
-  full_join(pd,by=c("iso3c","year")) %>%
-  filter(cn == 1 | year > 2016) %>%
-  select(-cn) %>%
-  filter(iso3c %!in% c("CPV","LUX","MLT","FSM","VUT","BHS","ATG","BRB","DMA","GRD","LCA","VCT","KNA","MCO","LIE",
-                       "AND",NA,"VAT","SMR","MNE","ZAN","COM","BTN","MDV","BRN","SLB","KIR","TUV","TON","NRU",
-                       "MHL","PLW","WSM","DJI","BLZ","FJI")) %>%
-  mutate(gdppc = gdp / pop.pd) %>%
-  mutate(lngdppc = log(gdppc)) %>%
-  mutate(aid2pc = aid2 / pop.pd) %>%
-  mutate(lnaid2pc = log(aid2pc)) %>%
-  mutate(lnaid2gdp = log(aid2gdp)) %>%
-  mutate(lntaxgdp = log(taxgdp))
+### format datasets ----------------------------------------------------------------------
+# join datasets
+fiscap <- dplyr::full_join(tax_revenue,relative_capacity,by=c("iso3c","year")) %>%
+  dplyr::full_join(aid,by=c("iso3c","year")) %>%
+  dplyr::left_join(cyears,by=c("iso3c","year")) %>%
+  dplyr::left_join(population,by=c("iso3c","year")) %>%
+  dplyr::filter(cn == 1) %>%
+  dplyr::select(-cn) %>%
+  #dplyr::filter(iso3c %!in% c("CPV","LUX","MLT","FSM","VUT","BHS","ATG","BRB","DMA","GRD","LCA","VCT",
+  #                            "KNA","MCO","LIE","AND",NA,"VAT","SMR","MNE","ZAN","COM","BTN","MDV",
+  #                            "BRN","SLB","KIR","TUV","TON","NRU","MHL","PLW","WSM","DJI","BLZ","FJI")) %>%
+  dplyr::mutate(gdppc = gdp / population, # gdp per capita
+                lngdppc = log(gdppc), # natural log of gdp per capita
+                aid2pc = aid2 / population, # aid per capita
+                lnaid2pc = log(aid2pc), # natural log of aid per capita
+                lnaid2gdp = log(aid2gdp), # natural log of aid as a proportion of gdp
+                lntaxgdp = log(taxgdp)) %>% # natural log of tax as a proportion of gdp
+  # replace NaNs and Infs with 0s
+  dplyr::mutate_all(~ifelse(is.infinite(.), 0, .),
+                    ~ifelse(is.nan(.), 0, .))
 
-fiscap$aid2[is.na(fiscap$aid2)] <- 0
-fiscap$aid2[is.na(fiscap$aid2pc)] <- 0
-fiscap$aid2[is.na(fiscap$aid2gdp)] <- 0
-fiscap$lnaid2pc[fiscap$lnaid2pc==-Inf] <- 0
-fiscap$lnaid2gdp[fiscap$lnaid2gdp==-Inf] <- 0
-fiscap$lntaxgdp[fiscap$lntaxgdp==-Inf] <- 0
+### Principal component analysis ----------------------------------------------------------------------
+cor(fiscap %>% dplyr::select(c(rpc,taxgdp,aid2gdp,lntaxgdp,lnaid2gdp,aid2pc,lnaid2pc,gdppc,lngdppc)))
 
+########
 fc.pre <- fiscap
 
 fc <- fiscap %>%

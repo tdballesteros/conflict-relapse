@@ -26,7 +26,7 @@ rpc <- rpc %>%
   dplyr::filter(iso3c %!in% c("ASM","DMA","KIR","LCA","LIE","MCO","NRU","PRK","ABW","AIA",
                               "BRN","CYM","HKG","MAC","PYF","GRL","GUM","MSR","NCL","BMU",
                               "CUB","TKM"),
-                # remove non-sogereign entities that are missing from the countrycode dataset
+                # remove non-sovereign entities that are missing from the countrycode dataset
                 country %!in% c("Faeore Islands","Netherlands Antilles"))
 
 ### approximate missing countries ----------------------------------------------------------------------

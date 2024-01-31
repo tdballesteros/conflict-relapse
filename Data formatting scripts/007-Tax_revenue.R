@@ -10,18 +10,22 @@ library(tidyr)
 ### load datasets ----------------------------------------------------------------------
 # World Bank - Tax Revenue (% of GDP) - GC.TAX.TOTL.GD.ZS
 tax.wb <- read.csv("Data files/Raw data files/API_GC.TAX.TOTL.GD.ZS_DS2_en_csv_v2_1124880.csv",skip=4)
+
 # IMF - General_government_Percent_of_GDP [imf2]
 tax.imf2 <- readxl::read_excel("Data files/Raw data files/General_government_Percent_of_GDP_T.xlsx", sheet = 2)
+
 # OECD - Total Tax Revenue (TOTALTAX) - Tax revenue as % of GDP (TAXGDP)
 tax.oecd <- read.csv("Data files/Raw data files/RS_GBL_29062020081531984.csv")
+
 # IMF World Revenue Longitudinal Data (WoRLD)
 tax.imf <- readxl::read_excel("Data files/Raw data files/Tax_Revenue_in_Percent_of_GDP.xlsx", sheet = 1, skip = 1)
+
 # ICTD / UNU-WIDER
 tax.ictd <- readxl::read_excel("~/Downloads/ICTDWIDERGRD_2020.xlsx", sheet = 2)
 
 ### format datasets ----------------------------------------------------------------------
 # format World Bank (wb) data
-tax.wb2 <- tax.wb %>%
+tax.wb <- tax.wb %>%
   dplyr::select(-c(Indicator.Name,Indicator.Code,X)) %>%
   tidyr::pivot_longer(3:62, names_to = "year", values_to = "value") %>%
   dplyr::mutate(year = as.numeric(str_sub(year,start=2,end=5))) %>%
@@ -59,10 +63,10 @@ tax.imf2 <- tax.imf2 %>%
 
 # format OECD data
 tax.oecd <- tax.oecd %>%
-  dplyr::select(COU,Country,Year,Value) %>%
   # using the countrycode package, add iso3c based on country name
   dplyr::mutate(iso3c = countrycode::countrycode(Country, "country.name","iso3c")) %>%
-  dplyr::filter(iso3c %!in% c(419,"AFRIC","COK","OAVG","TKL")) %>%
+  dplyr::filter(iso3c %!in% c(419,"AFRIC","COK","OAVG","TKL"),
+                Country %!in% c("Latin America and the Caribbean","OECD - Average","Africa")) %>%
   dplyr::select(iso3c,Year,Value) %>%
   dplyr::rename(year = Year,
                 oecd.value = Value)
@@ -99,13 +103,12 @@ taxrev <- dplyr::full_join(tax.ictd,tax.oecd,by=c("iso3c","year")) %>%
   dplyr::full_join(tax.wb,by=c("iso3c","year")) %>%
   dplyr::full_join(tax.imf2,by=c("iso3c","year")) %>%
   dplyr::mutate(ictd.value = 100*ictd.value) %>%
-  dplyr::filter(is.na(iso3c)) %>%
   dplyr::rowwise() %>%
   dplyr::mutate(max = max(ictd.value,oecd.value,imf.value,wb.value,na.rm=TRUE),
-                min = min(ictd.value,oecd.value,imf.value,wb.value,na.rm=TRUE))
-
-taxrev$max[taxrev$max==-Inf] <- NA
-taxrev$min[taxrev$min==Inf] <- NA
+                min = min(ictd.value,oecd.value,imf.value,wb.value,na.rm=TRUE),
+                diff = max - min) %>%
+  # replace Infs with NAs
+  dplyr::mutate_all(~ifelse(is.infinite(.), NA, .))
 
 for(i in 1:nrow(taxrev)){
   taxrev$points[i] <- sum(!is.na(taxrev$ictd.value[i]),!is.na(taxrev$oecd.value[i]),!is.na(taxrev$imf.value[i]),
@@ -113,8 +116,7 @@ for(i in 1:nrow(taxrev)){
 }
 
 taxrev <- taxrev %>%
-  dplyr::filter(points > 0) %>%
-  dplyr::mutate(diff = max - min) #%>%
+  dplyr::filter(points > 0) #%>%
 # dplyr::filter(diff > 5)
 
 hist(taxrev$diff,breaks=100)
@@ -154,6 +156,7 @@ tax.ak <- readxl::read_excel("Data files/Raw data files/RPC2015_components.xlsx"
 
 tax.ak <- tax.ak %>%
   dplyr::select(country,year,tax) %>%
+  # using the countrycode package, add iso3c based on country name
   dplyr::mutate(iso3c = countrycode::countrycode(country,"country.name","iso3c")) %>%
   dplyr::filter(country %!in% c("Faeore Islands","Netherlands Antilles"),
                 iso3c %!in% c("ASM","AIA","ATG","ABW","BHS","BRB","BMU","BTN","BRN","CYM","HKG",
@@ -187,25 +190,36 @@ use.imf <- c("BDI","BRA","COL","DJI","DZA","GHA","IDN","IND","ISL","ISR","JOR","
 # with WB estimates
 use.wb <- c("ARM","AZE","BIH","COG","CRI","MKD","MMR","NIC","PSE","SVK","TTO","TUR")
 
+taxrev3 <- taxrev2 %>%
+  dplyr::mutate(est = ifelse(iso3c %in% c("CUB","TKM"),ictd.value,
+                             ifelse(year >= 2012&iso3c %in% use.ictd,ictd.value,
+                                    ifelse(year >= 2012&iso3c %in% use.oecd,oecd.value,
+                                           ifelse(year >= 2012&iso3c %in% use.imf,imf.value,
+                                                  ifelse(year >= 2012&iso3c %in% use.wb,wb.value,
+                                                         ifelse(year < 1995&iso3c == "ALB",ictd.value,
+                                                                ifelse(year < 1997&iso3c == "GEO",ictd.value,
+                                                                       ifelse(year > 1974&year <= 1997&iso3c == "KHM",ictd.value,est)))))))),
+                est = ifelse(is.na(est),ak.value,est))
+
 for(i in 1:nrow(taxrev2)){
-  if(taxrev2$iso3c[i] == "CUB" | taxrev2$iso3c[i] == "TKM"){
+  if(taxrev2$iso3c[i] %in% c("CUB","TKM")){
     taxrev2$est[i] <- taxrev2$ictd.value[i]
   }
-  else if(taxrev2$year[i] >= 2012){
+  if(taxrev2$year[i] >= 2012){
     if(taxrev2$iso3c[i] %in% use.ictd){
       taxrev2$est[i] <- taxrev2$ictd.value[i]
-    }
-    else if(taxrev2$iso3c[i] %in% use.oecd){
+      }
+    if(taxrev2$iso3c[i] %in% use.oecd){
       taxrev2$est[i] <- taxrev2$oecd.value[i]
-    }
-    else if(taxrev2$iso3c[i] %in% use.imf){
+      }
+    if(taxrev2$iso3c[i] %in% use.imf){
       taxrev2$est[i] <- taxrev2$imf.value[i]
-    }
-    else if(taxrev2$iso3c[i] %in% use.wb){
+      }
+    if(taxrev2$iso3c[i] %in% use.wb){
       taxrev2$est[i] <- taxrev2$wb.value[i]
+      }
     }
-  }
-  else if(taxrev2$year[i] <= 2011){
+  if(taxrev2$year[i] <= 2011){
     if(taxrev2$year[i] < 1995 & taxrev2$iso3c[i] == "ALB"){
       taxrev2$est[i] <- taxrev2$ictd.value[i]
     }
@@ -528,9 +542,19 @@ taxrev2$est[taxrev2$iso3c=="ZWE"&taxrev2$year==2015] <- 27.43892828
 taxrev2$est[taxrev2$iso3c=="ZWE"&taxrev2$year==2016] <- 24.01947098
 taxrev2$est[taxrev2$iso3c=="ZWE"&taxrev2$year==2017] <- 20.4138143
 
+taxrev_missing <- taxrev2 %>%
+  dplyr::group_by(iso3c,is.na(est)) %>%
+  dplyr::tally() %>%
+  dplyr::ungroup() %>%
+  tidyr::pivot_wider(names_from = `is.na(est)`, values_from = n) %>%
+  dplyr::rowwise() %>%
+  dplyr::mutate(perc.missing = `TRUE` / sum(`FALSE`,`TRUE`,na.rm=TRUE)) %>%
+  dplyr::filter(perc.missing == 1) %>%
+  dplyr::pull(iso3c)
+
 # linear interpolation
 taxrev2 <- taxrev2 %>%
-  dplyr::filter(iso3c %!in% c("MDV","CPF","COM","LUX","MLT")) %>%
+  dplyr::filter(iso3c %!in% taxrev_missing) %>%
   dplyr::select(iso3c,year,est)
 
 taxrev2 <- taxrev2 %>%
@@ -541,10 +565,11 @@ taxrev2 <- taxrev2 %>%
   dplyr::arrange(year) %>%
   dplyr::mutate(taxgdp = imputeTS::na_interpolation(est), option = "spline") %>%
   dplyr::ungroup() %>%
-  dplyr::select(-c(est,option))
+  dplyr::select(-c(est,option)) %>%
+  # using the countrycode package, add country name based on iso3c
+  dplyr::mutate(country = countrycode::countrycode(iso3c,"iso3c","country.name"))
 
 # writes formatted dataframe as csv files
 write.csv(taxrev2,"Data files/Formatted data files/tax_revenue.csv")
 
 # Need to fill in missing data for BIH,KHM,CUB,ERI,ETH,GEO,LAO,ROU,SRB,TJK,TLS,TKM,VNM
-## ???
