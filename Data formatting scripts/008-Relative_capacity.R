@@ -79,7 +79,6 @@ rpc <- rpc %>%
 # writes formatted dataframe as csv files
 write.csv(rpc,"Data files/Formatted data files/relative_capacity.csv",row.names = FALSE)
 
-
 # rpc.cor <- rpc %>%
 #   dplyr::full_join(p5all,by=c("iso3c","year")) %>%
 #   dplyr::full_join(pol,by=c("iso3c","year")) %>%

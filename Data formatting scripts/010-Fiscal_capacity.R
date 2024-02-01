@@ -26,12 +26,17 @@ cyears <- read.csv("Data files/Formatted data files/country_years.csv") %>%
 population <- read.csv("Data files/Formatted data files/population.csv") %>%
   dplyr::select(-country)
 
+# load formatted data output by script 003-GDP
+population <- read.csv("Data files/Formatted data files/gdp.csv") %>%
+  dplyr::select(-country)
+
 ### format datasets ----------------------------------------------------------------------
 # join datasets
 fiscap <- dplyr::full_join(tax_revenue,relative_capacity,by=c("iso3c","year")) %>%
   dplyr::full_join(aid,by=c("iso3c","year")) %>%
   dplyr::left_join(cyears,by=c("iso3c","year")) %>%
   dplyr::left_join(population,by=c("iso3c","year")) %>%
+  dplyr::left_join(gdp,by=c("iso3c","year")) %>%
   dplyr::filter(cn == 1) %>%
   dplyr::select(-cn) %>%
   #dplyr::filter(iso3c %!in% c("CPV","LUX","MLT","FSM","VUT","BHS","ATG","BRB","DMA","GRD","LCA","VCT",
@@ -39,16 +44,39 @@ fiscap <- dplyr::full_join(tax_revenue,relative_capacity,by=c("iso3c","year")) %
   #                            "BRN","SLB","KIR","TUV","TON","NRU","MHL","PLW","WSM","DJI","BLZ","FJI")) %>%
   dplyr::mutate(gdppc = gdp / population, # gdp per capita
                 lngdppc = log(gdppc), # natural log of gdp per capita
-                aid2pc = aid2 / population, # aid per capita
-                lnaid2pc = log(aid2pc), # natural log of aid per capita
-                lnaid2gdp = log(aid2gdp), # natural log of aid as a proportion of gdp
+                aidpc = aid2 / population, # aid per capita
+                lnaidpc = log(aidpc), # natural log of aid per capita
+                lnaidgdp = log(aidgdp), # natural log of aid as a proportion of gdp
                 lntaxgdp = log(taxgdp)) %>% # natural log of tax as a proportion of gdp
   # replace NaNs and Infs with 0s
   dplyr::mutate_all(~ifelse(is.infinite(.), 0, .),
                     ~ifelse(is.nan(.), 0, .))
 
 ### Principal component analysis ----------------------------------------------------------------------
-cor(fiscap %>% dplyr::select(c(rpc,taxgdp,aid2gdp,lntaxgdp,lnaid2gdp,aid2pc,lnaid2pc,gdppc,lngdppc)))
+# correlation matrix using complete pairwise observations
+cor(fiscap %>% dplyr::select(c(rpe_gdp,taxgdp,aidgdp,lntaxgdp,lnaidgdp,aidpc,lnaidpc,gdppc,lngdppc)),use="pairwise.complete.obs")
+
+# creates dataset of only iso3c, year, and the component metrics
+fiscap_pca_df <- fiscap %>%
+  dplyr::select(iso3c,year,rpe_gdp,taxgdp,aidgdp,lntaxgdp,lnaidgdp,aidpc,lnaidpc,gdppc,lngdppc) %>%
+  # omits country-years with missing component metric values
+  na.omit()
+
+# computes PCA
+fiscap_pca <- stats::prcomp(~ rpe_gdp + taxgdp + aidgdp, data = fiscap_pca_df, retx = T, center = T, scale. = T)
+
+# correlations between each of the three components
+cor(fiscap %>% dplyr::select(c(rpe_gdp,taxgdp,aidgdp)),use="pairwise.complete.obs")
+
+fiscap_pca_df <- fiscap_pca_df %>%
+  # combines principal component scores with PCA dataset
+  cbind(fiscap_pca[["x"]]) %>%
+  # drops second and third principal component scores as well as the component metrics
+  dplyr::select(iso3c,year,PC1) %>%
+  # renames first principal component as polity.pca
+  dplyr::rename(fiscap.pca = PC1) %>%
+  # creates polity.pca.sq variable, the square of polity.pca
+  dplyr::mutate(fiscap.pca.sq = fiscap.pca^2)
 
 ########
 fc.pre <- fiscap

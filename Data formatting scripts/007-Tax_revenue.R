@@ -570,6 +570,6 @@ taxrev2 <- taxrev2 %>%
   dplyr::mutate(country = countrycode::countrycode(iso3c,"iso3c","country.name"))
 
 # writes formatted dataframe as csv files
-write.csv(taxrev2,"Data files/Formatted data files/tax_revenue.csv")
+write.csv(taxrev2,"Data files/Formatted data files/tax_revenue.csv",row.names = FALSE)
 
 # Need to fill in missing data for BIH,KHM,CUB,ERI,ETH,GEO,LAO,ROU,SRB,TJK,TLS,TKM,VNM
