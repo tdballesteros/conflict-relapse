@@ -739,7 +739,6 @@ cow <- cow %>%
   # this tests for extremes of military capacity - extremely strong/weak vs. average capacity
   dplyr::mutate(mil.cap.sq = mil.cap^2)
 
-### principal component analysis ----------------------------------------------------------------------
 # average unweighted military capacity by year
 mil_cap_yearly_avg <- cow %>%
   dplyr::group_by(year) %>%

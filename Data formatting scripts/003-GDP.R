@@ -916,20 +916,18 @@ gdp <- gdp %>%
 gdp.add <- readxl::read_excel("Data files/Workbooks/gdp_add.xlsx") %>%
   dplyr::select(iso3c,year,gdp)
 
-gdp <- gdp %>%
-  rbind(gdp.add)
-
-gdp$iso3c[gdp$iso3c=="RUS"&gdp$year<= 1991] <- "SOV"
-
-gdp <- gdp %>%
-  na.omit()
-
 # adds gdp estimates for countries in the 1940s (file notes sources of estimates)
 gdp_40s <- readxl::read_excel("Data files/Workbooks/gdp_estimates_40s.xlsx", sheet = 1) %>%
   dplyr::select(-method)
 
 gdp <- gdp %>%
-  rbind(gdp_40s)
+  rbind(gdp.add,gdp_40s) %>%
+  na.omit() %>%
+  # using the countrycode package, add country name based on iso3c code
+  dplyr::mutate(country = countrycode::countrycode(iso3c,"iso3c","country.name"))  %>%
+  dplyr::relocate(country,.after = iso3c)
+
+gdp$iso3c[gdp$iso3c=="RUS"&gdp$year<= 1991] <- "SOV"
 
 ### write data ----------------------------------------------------------------------
 # writes formatted dataframe as csv files

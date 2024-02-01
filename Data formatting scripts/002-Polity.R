@@ -12,7 +12,7 @@ library(stats)
 library(countrycode)
 library(dplyr)
 
-### load data files ----------------------------------------------------------------------
+### load data file ----------------------------------------------------------------------
 polity <- readxl::read_excel("Data files/Raw data files/p5v2018.xls")
 
 ### data formatting ----------------------------------------------------------------------
