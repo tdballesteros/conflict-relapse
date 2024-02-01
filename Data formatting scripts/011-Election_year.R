@@ -7,7 +7,7 @@ library(readxl)
 library(countrycode)
 library(dplyr)
 
-### load data files ----------------------------------------------------------------------
+### load data file ----------------------------------------------------------------------
 elec <- readxl::read_excel("~/Downloads/idea_export_40_5f18dedb47ec1.xls")
 
 ### data formatting ----------------------------------------------------------------------
@@ -20,7 +20,7 @@ elec <- elec %>%
   dplyr::relocate(iso3c,.before = Country) %>%
   dplyr::rename_with(tolower)
 
-# manually add country codes to missing country names: Kosovo; Netherlands Antilles;
+# manually add iso3c codes to missing country names: Kosovo; Netherlands Antilles;
 # Yugoslavia, FR/Union of Serbia and Montenegro; Yugoslavia, SFR (1943-1992)
 elec$iso3c[elec$country=="Kosovo"] <- "KSV"
 elec$iso3c[elec$country=="Netherlands Antilles"] <- "ANT"
@@ -52,6 +52,7 @@ elec_next <- elec %>%
 elec_last <- elec %>%
   dplyr::mutate(year = year + 1) %>%
   dplyr::rename(natelec.l = natelec)
+
 # join next and prior year election variables with main dataset
 elec <- elec %>%
   dplyr::full_join(elec_next,by=c("iso3c","country","year")) %>%
