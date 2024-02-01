@@ -51,17 +51,16 @@ elec_next <- elec %>%
 
 elec_last <- elec %>%
   dplyr::mutate(year = year + 1) %>%
-  dplyr::rename(natelec.l = natelec) %>%
-  # remove 2021 - the future
-  dplyr::filter(year < 2021)
-
+  dplyr::rename(natelec.l = natelec)
 # join next and prior year election variables with main dataset
 elec <- elec %>%
   dplyr::full_join(elec_next,by=c("iso3c","country","year")) %>%
   dplyr::full_join(elec_last,by=c("iso3c","country","year")) %>%
   dplyr::mutate(natelec.n = ifelse(is.na(natelec.n),0,natelec.n),
                 natelec.l = ifelse(is.na(natelec.l),0,natelec.l)) %>%
-  dplyr::filter(year >= 1946)
+  dplyr::filter(year >= 1946,
+                # remove 2020 and 2021 - the future
+                year < 2020)
                 
 ### write data ----------------------------------------------------------------------
 # writes formatted dataframe as csv files
