@@ -180,7 +180,8 @@ plot(fcpca1$year,fcpca1$fis.cap)
 # milandfis <- full_join(cowpca1,fcpca1,by=c("iso3c","year"))
 # cor(milandfis$mil.cap,milandfis$fis.cap, use = "complete.obs")
 
-# plot(milandfis$mil.cap,milandfis$fis.cap)
+# 
+plot(milandfis$mil.cap,milandfis$fis.cap)
 
 #### fiscap and gdppc ####
 fvg <- fcpca1 %>%

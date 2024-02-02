@@ -17,7 +17,7 @@ polity <- readxl::read_excel("Data files/Raw data files/p5v2018.xls")
 
 ### data formatting ----------------------------------------------------------------------
 polity <- polity %>%
-  dplyr::select(country,year,democ,autoc,polity2,parcomp,parreg,xconst,xrcomp,xropen) %>%
+  dplyr::select(country,year,polity2,parcomp,parreg,xconst,xrcomp,xropen) %>%
   dplyr::filter(year >= 1946) %>%
   # using the countrycode package, add country name based on iso3c value
   dplyr::mutate(iso3c = countrycode::countrycode(country,"country.name","iso3c")) %>%
@@ -36,8 +36,6 @@ polity$iso3c[polity$country=="Yemen South"] <- "YPR"
 polity$iso3c[polity$country=="Yugoslavia"] <- "YUG"
 
 # recode missing values (-66, -77, -88) as NA
-polity$democ[polity$democ %in% c(-66,-77,-88)] <- NA
-polity$autoc[polity$autoc %in% c(-66,-77,-88)] <- NA
 polity$polity2[polity$polity2 %in% c(-66,-77,-88)] <- NA
 polity$parcomp[polity$parcomp %in% c(-66,-77,-88)] <- NA
 polity$parreg[polity$parreg %in% c(-66,-77,-88)] <- NA
@@ -135,3 +133,4 @@ polity <- polity %>%
 ### write data ----------------------------------------------------------------------
 # writes formatted dataframe as csv files
 write.csv(polity,"Data files/Formatted data files/polity.csv",row.names = FALSE)
+
