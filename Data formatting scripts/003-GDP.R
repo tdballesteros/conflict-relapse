@@ -4,6 +4,7 @@
 library(readxl)
 library(utils)
 library(countrycode)
+library(tibble)
 library(dplyr)
 
 ### not in function ----------------------------------------------------------------------
@@ -18,9 +19,16 @@ pwt <- readxl::read_excel("Data files/Raw data files/pwt91.xlsx", sheet = 3) %>%
   # convert real gdp to 2019$
   dplyr::mutate(rgdpna = rgdpna * 1000000 * (1 + 0.14),
                 # using the countrycode package, add iso3c based on country name
-                iso3c = countrycode::countrycode(country,"country.name","iso3c"))  %>%
+                iso3c = countrycode::countrycode(country,"country.name","iso3c"),
+                # using the countrycode package, add iso3c based on country name
+                country = countrycode::countrycode(iso3c,"iso3c","country.name"))  %>%
   # move iso3c variable first
-  dplyr::relocate(iso3c, .before = country)
+  dplyr::relocate(iso3c, .before = country) %>%
+  # filter non-sovereign entities
+  dplyr::filter(iso3c %!in% c("ABW","AIA","BMU","CUW","CYM","HKG","MAC","MSR","SXM","SYC","TCA","VGB")) %>%
+  dplyr::rename(gdp.pwt = rgdpna)
+
+# Note: PSE and ISR are coded separately in this dataset
 
 #### Gleditsch ----------------------------------------------------------------------
 # realgdp	- total real GDP, 2005 
@@ -28,7 +36,7 @@ gdpgl <- utils::read.delim("Data files/Raw data files/gdpv6.txt") %>%
   # using the countrycode package, add iso3c based on country name
   dplyr::mutate(iso3c = countrycode::countrycode(stateid,"gwc","iso3c")) %>%
   # move iso3c variable first
-  dplyr::relocate(iso3c, .before = stateid)
+  dplyr::relocate(iso3c, .before = statenum)
 
 # codes iso3c values missing from the countrycode package
 gdpgl$iso3c[gdpgl$stateid=="AAB"] <- "ATG"
@@ -51,7 +59,7 @@ gdpgl$iso3c[gdpgl$stateid=="SEY"] <- "SYC"
 gdpgl$iso3c[gdpgl$stateid=="SKN"] <- "KNA"
 gdpgl$iso3c[gdpgl$stateid=="SLU"] <- "LCA"
 gdpgl$iso3c[gdpgl$stateid=="SMN"] <- "SLB"
-gdpgl$iso3c[gdpgl$stateid=="SOT"] <- "SOT" # South Osseita?
+gdpgl$iso3c[gdpgl$stateid=="SOT"] <- "SOT" # South Osseita
 gdpgl$iso3c[gdpgl$stateid=="STP"] <- "STP"
 gdpgl$iso3c[gdpgl$stateid=="SVG"] <- "VCT"
 gdpgl$iso3c[gdpgl$stateid=="TBT"] <- "TBT" # Tibet
@@ -64,487 +72,1148 @@ gdpgl$iso3c[gdpgl$stateid=="YPR"] <- "YPR"
 gdpgl$iso3c[gdpgl$stateid=="YUG"] <- "YUG"
 gdpgl$iso3c[gdpgl$stateid=="ZAN"] <- "ZAN"
 gdpgl$iso3c[gdpgl$stateid=="RVN"] <- "RVN"
-gdpgl$iso3c[gdpgl$stateid=="DEU"&gdpgl$year<1991] <- "BRD" # recodes Germany before 1991 as West Germany
+gdpgl$iso3c[gdpgl$stateid=="SNM"] <- "SMR"
+
+gdpgl$iso3c[gdpgl$iso3c=="DEU"&gdpgl$year<1991] <- "BRD" # recodes Germany before 1991 as West Germany
+gdpgl$iso3c[gdpgl$iso3c=="YEM"&gdpgl$year<1991] <- "YAR" # recodes Yemen before 1991 as North Yemen
 
 gdpgl <- gdpgl %>%
-  dplyr::select(iso3c,year,realgdp) %>%
+  # using the countrycode package, add country name based on iso3c value
+  dplyr::mutate(country = countrycode::countrycode(iso3c,"iso3c","country.name")) %>%
+  dplyr::select(iso3c,country,year,realgdp) %>%
   # convert real gdp to 2019$
   dplyr::mutate(realgdp = realgdp * (1 + 0.31) * 1000000) %>%
-  dplyr::rename(gdp = realgdp)
+  dplyr::rename(gdp.gl = realgdp) %>%
+  # filter non-sovereign entities
+  dplyr::filter(iso3c %!in% c("ABK","SOT","TBT"))
+
+# codes country name values missing from the countrycode package
+gdpgl$country[gdpgl$iso3c=="BRD"] <- "West Germany"
+gdpgl$country[gdpgl$iso3c=="DDR"] <- "East Germany"
+gdpgl$country[gdpgl$iso3c=="KSV"] <- "Kosovo"
+gdpgl$country[gdpgl$iso3c=="YUG"] <- "Yugoslavia"
+gdpgl$country[gdpgl$iso3c=="YAR"] <- "North Yemen"
+gdpgl$country[gdpgl$iso3c=="YPR"] <- "South Yemen"
+gdpgl$country[gdpgl$iso3c=="RVN"] <- "South Vietnam"
+
+# gdpgl$country[gdpgl$iso3c=="CZE"&gdpgl$year<1993] <- "Czechoslovakia" # recodes Czechia before 1993 as Czechoslovakia
 
 ### merge data ----------------------------------------------------------------------
-gdp <- full_join(pwt,gdpgl,by=c("iso3c","year")) %>%
-  dplyr::filter(iso3c %!in% c("ABW","AIA","ATG","BMU","BRB","CUW","DMA","GRD","HKG","KNA","LCA",
-                              "MAC","MDV","MSR","SXM","SYC","TCA","VCT","VGB","MCO","LIE","AND",
-                              "ZAN","TBT","VUT","KIR","NRU","TON","TUV","MHL","PLW","FSM","WSM",
-                              NA,"ABK","CYM"))
+gdp <- dplyr::full_join(pwt,gdpgl,by=c("iso3c","country","year")) %>%
+  # use pwt estimates as a baseline for the estimated gdp.pwt.est variable, adjusted below
+  dplyr::mutate(gdp.pwt.est = gdp.pwt,
+                # use gl estimates as a baseline for the estimated gdp.gl.est variable, adjusted below
+                gdp.gl.est = gdp.gl)
 
-# gdp <- full_join(pwt,gdpgl,by=c("iso3c","year")) %>%
-#   dplyr::filter(iso3c %!in% c("ABW","AIA","ATG","BHS","BLZ","BMU","BRB","BRN","BTN","COM","CPV","CUW","DMA",
-#                               "GRD","HKG","ISL","KNA","LCA","LUX","MAC","MDV","MLT","MSR","STP","SUR","SXM",
-#                               "SYC","TCA","VCT","VGB","GUY","MCO","LIE","AND","ZAN","TBT","VUT","SLB","KIR",
-#                               "NRU","TON","TUV","MHL","PLW","FSM","WSM",NA,"ABK","CYM"))
+### gdp growth estimator functions ----------------------------------------------------------------------
+# this function is used to estimate pwt gdp data based on the relative difference in the size of the economy
+# between two years within the gl gdp data and applying the proportion to the pwt gdp data
+gdp_growth_estimator_pwt_func <- function(df = gdp, iso, yr){
+  
+  # the gdp.gl baseline to estimate the proportions from
+  baseline <- df$gdp.gl[df$iso3c==iso&df$year==yr]
+  
+  # the gdp.pwt relative gdp to apply the proportions to
+  relative <- df$gdp.pwt[df$iso3c==iso&df$year==yr]
+  
+  df <- df %>%
+    dplyr::mutate(prop = relative * gdp.gl / baseline,
+                  gdp.pwt.est = ifelse(iso3c==iso&is.na(gdp.pwt.est),prop,gdp.pwt.est)) %>%
+    dplyr::select(-prop)
+  
+  return(df)
+  
+}
 
-### modify data ----------------------------------------------------------------------
+# this function is used to estimate gl gdp data based on the relative difference in the size of the economy
+# between two years within the pwt gdp data and applying the proportion to the gl gdp data
+gdp_growth_estimator_gl_func <- function(df = gdp, iso, yr){
+  
+  # the gdp.pwt baseline to estimate the proportions from
+  baseline <- df$gdp.pwt[df$iso3c==iso&df$year==yr]
+  
+  # the gdp.gl relative gdp to apply the proportions to
+  relative <- df$gdp.gl[df$iso3c==iso&df$year==yr]
+  
+  df <- df %>%
+    dplyr::mutate(prop = relative * gdp.pwt / baseline,
+                  gdp.gl.est = ifelse(iso3c==iso&is.na(gdp.gl.est),prop,gdp.gl.est)) %>%
+    dplyr::select(-prop)
+  
+  return(df)
+  
+}
+
+### calculate estimates ----------------------------------------------------------------------
 # modifications calculated on Excel workbook unless otherwise denoted
 
-# AFG
-# No pwt data, use gl data
-gdp$rgdpna[gdp$iso3c=="AFG"] <- gdp$gdp[gdp$iso3c=="AFG"]
+#### AFG(x) ----------------------------------------------------------------------
+# no gdp.pwt data, so use gdp.gl data as an estimate
+gdp$gdp.pwt.est[gdp$iso3c=="AFG"] <- gdp$gdp.gl[gdp$iso3c=="AFG"]
 
-# ALB
-# 1950-69
-# apply proportion of year to 1970 gl gdp, calculate based on 1970 pwt gdp
-gdp$rgdpna[gdp$iso3c=="ALB"&gdp$year==1950] <- 9917750625*0.2104304
-gdp$rgdpna[gdp$iso3c=="ALB"&gdp$year==1951] <- 9917750625*0.2245623
-gdp$rgdpna[gdp$iso3c=="ALB"&gdp$year==1952] <- 9917750625*0.2298448
-gdp$rgdpna[gdp$iso3c=="ALB"&gdp$year==1953] <- 9917750625*0.2453233
-gdp$rgdpna[gdp$iso3c=="ALB"&gdp$year==1954] <- 9917750625*0.2596703
-gdp$rgdpna[gdp$iso3c=="ALB"&gdp$year==1955] <- 9917750625*0.2817816
-gdp$rgdpna[gdp$iso3c=="ALB"&gdp$year==1956] <- 9917750625*0.2931079
-gdp$rgdpna[gdp$iso3c=="ALB"&gdp$year==1957] <- 9917750625*0.3210018
-gdp$rgdpna[gdp$iso3c=="ALB"&gdp$year==1958] <- 9917750625*0.3457449
-gdp$rgdpna[gdp$iso3c=="ALB"&gdp$year==1959] <- 9917750625*0.3717933
-gdp$rgdpna[gdp$iso3c=="ALB"&gdp$year==1960] <- 9917750625*0.404447
-gdp$rgdpna[gdp$iso3c=="ALB"&gdp$year==1961] <- 9917750625*0.4201956
-gdp$rgdpna[gdp$iso3c=="ALB"&gdp$year==1962] <- 9917750625*0.4475768
-gdp$rgdpna[gdp$iso3c=="ALB"&gdp$year==1963] <- 9917750625*0.4770423
-gdp$rgdpna[gdp$iso3c=="ALB"&gdp$year==1964] <- 9917750625*0.5080368
-gdp$rgdpna[gdp$iso3c=="ALB"&gdp$year==1965] <- 9917750625*0.5419445
-gdp$rgdpna[gdp$iso3c=="ALB"&gdp$year==1966] <- 9917750625*0.5782666
-gdp$rgdpna[gdp$iso3c=="ALB"&gdp$year==1967] <- 9917750625*0.6133358
-gdp$rgdpna[gdp$iso3c=="ALB"&gdp$year==1968] <- 9917750625*0.6528973
-gdp$rgdpna[gdp$iso3c=="ALB"&gdp$year==1969] <- 9917750625*0.6952957
+# calculate the average differences (absolute differences and % differences) between
+# pwt and gl data for countries most comparable to AFG: PAK, IRN, TJK, TKM, KGZ, UZB
+gdp_afg_compare <- gdp %>%
+  dplyr::filter(iso3c %in% c("PAK","IRN","TJK","TKM","KGZ","UZB","BGD")) %>%
+  # only comparing original data (after converting to 2019$), not estimates
+  dplyr::select(-c(gdp.pwt.est,gdp.gl.est)) %>%
+  # for purposes of this comparison, recode BGD 1950-1970 as PAK for pwt estimates, as
+  # gl estimates for PAK include BGD before BGD independence, while pwt estimates do not
+  dplyr::mutate(gdp.gl = ifelse(iso3c=="BGD",NA,gdp.gl),
+                iso3c = ifelse(iso3c=="BGD"&year<1971,"PAK",iso3c)) %>%
+  dplyr::group_by(iso3c,year) %>%
+  dplyr::summarise(gdp.pwt = sum(gdp.pwt,na.rm=TRUE),
+                  gdp.gl = sum(gdp.gl,na.rm=TRUE)) %>%
+  dplyr::ungroup() %>%
+  dplyr::filter(iso3c != "BGD") %>%
+  # converts gdp values of 0 back into NAs and calculate comparison metrics
+  dplyr::mutate(gdp.pwt = ifelse(gdp.pwt==0,NA,gdp.pwt),
+                gdp.gl = ifelse(gdp.gl==0,NA,gdp.gl),
+                # BGD pwt estimates start in 1959, so prior years' estimates are omitting East Pakistan;
+                # replace estimates with NA
+                gdp.pwt = ifelse(iso3c=="PAK"&year<1959,NA,gdp.pwt),
+                pwt.minus.gl = gdp.pwt - gdp.gl,
+                pwt.perc.gl = gdp.pwt/gdp.gl)
 
-# BGR
-# 1950-69
-# apply proportion of year to 1970 gl gdp, calculate based on 1970 pwt gdp
-gdp$rgdpna[gdp$iso3c=="BGR"&gdp$year==1950] <- 39972737344*0.644406
-gdp$rgdpna[gdp$iso3c=="BGR"&gdp$year==1951] <- 39972737344*0.7770812
-gdp$rgdpna[gdp$iso3c=="BGR"&gdp$year==1952] <- 39972737344*0.7413073
-gdp$rgdpna[gdp$iso3c=="BGR"&gdp$year==1953] <- 39972737344*0.8244637
-gdp$rgdpna[gdp$iso3c=="BGR"&gdp$year==1954] <- 39972737344*0.8091314
-gdp$rgdpna[gdp$iso3c=="BGR"&gdp$year==1955] <- 39972737344*0.8670661
-gdp$rgdpna[gdp$iso3c=="BGR"&gdp$year==1956] <- 39972737344*0.867813
-gdp$rgdpna[gdp$iso3c=="BGR"&gdp$year==1957] <- 39972737344*0.9595969
-gdp$rgdpna[gdp$iso3c=="BGR"&gdp$year==1958] <- 39972737344*1.0433
-gdp$rgdpna[gdp$iso3c=="BGR"&gdp$year==1959] <- 39972737344*1.126628
-gdp$rgdpna[gdp$iso3c=="BGR"&gdp$year==1960] <- 39972737344*1.233148
-gdp$rgdpna[gdp$iso3c=="BGR"&gdp$year==1961] <- 39972737344*1.313471
-gdp$rgdpna[gdp$iso3c=="BGR"&gdp$year==1962] <- 39972737344*1.421233
-gdp$rgdpna[gdp$iso3c=="BGR"&gdp$year==1963] <- 39972737344*1.486245
-gdp$rgdpna[gdp$iso3c=="BGR"&gdp$year==1964] <- 39972737344*1.603162
-gdp$rgdpna[gdp$iso3c=="BGR"&gdp$year==1965] <- 39972737344*1.699582
-gdp$rgdpna[gdp$iso3c=="BGR"&gdp$year==1966] <- 39972737344*1.833637
-gdp$rgdpna[gdp$iso3c=="BGR"&gdp$year==1967] <- 39972737344*1.93241
-gdp$rgdpna[gdp$iso3c=="BGR"&gdp$year==1968] <- 39972737344*1.967989
-gdp$rgdpna[gdp$iso3c=="BGR"&gdp$year==1969] <- 39972737344*2.063848
+# average differences by year (collapse countries)
+gdp_afg_compare_year <- gdp_afg_compare %>%
+  dplyr::select(iso3c,year,pwt.minus.gl,pwt.perc.gl) %>%
+  na.omit() %>%
+  dplyr::group_by(year) %>%
+  dplyr::summarise(pwt.minus.gl.avg = mean(pwt.minus.gl,na.rm=TRUE),
+                   pwt.perc.gl.avg = mean(pwt.perc.gl,na.rm=TRUE),
+                   n = n()) %>%
+  dplyr::ungroup()
 
-# CHN
-# 1950-51
-# apply proportion of year to 1952 gl gdp, calculate based on 1952 pwt gdp
-gdp$rgdpna[gdp$iso3c=="CHN"&gdp$year==1950] <- 512758100000*1.021341
-gdp$rgdpna[gdp$iso3c=="CHN"&gdp$year==1951] <- 512758100000*1.129943
+# average differences by country (collapse years)
+gdp_afg_compare_country <- gdp_afg_compare %>%
+  dplyr::select(iso3c,year,pwt.minus.gl,pwt.perc.gl) %>%
+  na.omit() %>%
+  dplyr::group_by(iso3c) %>%
+  dplyr::summarise(pwt.minus.gl.avg = mean(pwt.minus.gl,na.rm=TRUE),
+                   pwt.perc.gl.avg = mean(pwt.perc.gl,na.rm=TRUE),
+                   n = n()) %>%
+  dplyr::ungroup()
+# 5/6 countries (PAK, TJK, TKM, KGZ, UZB) match closesly between pwt and gl metrics, while
+# IRN is slightly over twice as large in the pwt estimates versus the gl estimates.
 
-# CUB
-# No pwt data, use gl data
-# 2012- using ratios from WB data
-gdp$rgdpna[gdp$iso3c=="CUB"] <- gdp$gdp[gdp$iso3c=="CUB"]
 
-# CZE
-# 1950-89
-# apply proportion of year to 1990 gl gdp, calculate based on 1990 pwt gdp
-gdp$rgdpna[gdp$iso3c=="CZE"&gdp$year==1950] <- 222166600000*0.5767603
-gdp$rgdpna[gdp$iso3c=="CZE"&gdp$year==1951] <- 222166600000*0.5872503
-gdp$rgdpna[gdp$iso3c=="CZE"&gdp$year==1952] <- 222166600000*0.6068063
-gdp$rgdpna[gdp$iso3c=="CZE"&gdp$year==1953] <- 222166600000*0.6041555
-gdp$rgdpna[gdp$iso3c=="CZE"&gdp$year==1954] <- 222166600000*0.6289767
-gdp$rgdpna[gdp$iso3c=="CZE"&gdp$year==1955] <- 222166600000*0.6828317
-gdp$rgdpna[gdp$iso3c=="CZE"&gdp$year==1956] <- 222166600000*0.7229959
-gdp$rgdpna[gdp$iso3c=="CZE"&gdp$year==1957] <- 222166600000*0.7673477
-gdp$rgdpna[gdp$iso3c=="CZE"&gdp$year==1958] <- 222166600000*0.8259704
-gdp$rgdpna[gdp$iso3c=="CZE"&gdp$year==1959] <- 222166600000*0.8622132
-gdp$rgdpna[gdp$iso3c=="CZE"&gdp$year==1960] <- 222166600000*0.3412654
-gdp$rgdpna[gdp$iso3c=="CZE"&gdp$year==1961] <- 222166600000*0.3670866
-gdp$rgdpna[gdp$iso3c=="CZE"&gdp$year==1962] <- 222166600000*0.3796636
-gdp$rgdpna[gdp$iso3c=="CZE"&gdp$year==1963] <- 222166600000*0.3710668
-gdp$rgdpna[gdp$iso3c=="CZE"&gdp$year==1964] <- 222166600000*0.3613048
-gdp$rgdpna[gdp$iso3c=="CZE"&gdp$year==1965] <- 222166600000*0.3958626
-gdp$rgdpna[gdp$iso3c=="CZE"&gdp$year==1966] <- 222166600000*0.469701
-gdp$rgdpna[gdp$iso3c=="CZE"&gdp$year==1967] <- 222166600000*0.4712054
-gdp$rgdpna[gdp$iso3c=="CZE"&gdp$year==1968] <- 222166600000*0.5037783
-gdp$rgdpna[gdp$iso3c=="CZE"&gdp$year==1969] <- 222166600000*0.5384801
-gdp$rgdpna[gdp$iso3c=="CZE"&gdp$year==1970] <- 222166600000*0.5632054
-gdp$rgdpna[gdp$iso3c=="CZE"&gdp$year==1971] <- 222166600000*0.5898618
-gdp$rgdpna[gdp$iso3c=="CZE"&gdp$year==1972] <- 222166600000*0.6204515
-gdp$rgdpna[gdp$iso3c=="CZE"&gdp$year==1973] <- 222166600000*0.6597143
-gdp$rgdpna[gdp$iso3c=="CZE"&gdp$year==1974] <- 222166600000*0.7098459
-gdp$rgdpna[gdp$iso3c=="CZE"&gdp$year==1975] <- 222166600000*0.7509946
-gdp$rgdpna[gdp$iso3c=="CZE"&gdp$year==1976] <- 222166600000*0.7794422
-gdp$rgdpna[gdp$iso3c=="CZE"&gdp$year==1977] <- 222166600000*0.8069075
-gdp$rgdpna[gdp$iso3c=="CZE"&gdp$year==1978] <- 222166600000*0.8492363
-gdp$rgdpna[gdp$iso3c=="CZE"&gdp$year==1979] <- 222166600000*0.869459
-gdp$rgdpna[gdp$iso3c=="CZE"&gdp$year==1980] <- 222166600000*0.8878418
-gdp$rgdpna[gdp$iso3c=="CZE"&gdp$year==1981] <- 222166600000*0.8825097
-gdp$rgdpna[gdp$iso3c=="CZE"&gdp$year==1982] <- 222166600000*0.8907772
-gdp$rgdpna[gdp$iso3c=="CZE"&gdp$year==1983] <- 222166600000*0.9145281
-gdp$rgdpna[gdp$iso3c=="CZE"&gdp$year==1984] <- 222166600000*0.9311186
-gdp$rgdpna[gdp$iso3c=="CZE"&gdp$year==1985] <- 222166600000*0.9473635
-gdp$rgdpna[gdp$iso3c=="CZE"&gdp$year==1986] <- 222166600000*0.9690602
-gdp$rgdpna[gdp$iso3c=="CZE"&gdp$year==1987] <- 222166600000*0.9753781
-gdp$rgdpna[gdp$iso3c=="CZE"&gdp$year==1988] <- 222166600000*1.000138
-gdp$rgdpna[gdp$iso3c=="CZE"&gdp$year==1989] <- 222166600000*1.021631
+#### AGO ----------------------------------------------------------------------
+# 1970-1974: AGO coded as gaining independence in 1975
 
-# DOM
-# 1950
-# apply proportion of year to 1951 gl gdp, calculate based on 1951 pwt gdp
-gdp$rgdpna[gdp$iso3c=="DOM"&gdp$year==1950] <- 5882531924*0.7140365
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "AGO", 2011)
 
-# ERI
-# No pwt data, use gl data
-gdp$rgdpna[gdp$iso3c=="ERI"] <- gdp$gdp[gdp$iso3c=="ERI"]
+#### ALB ----------------------------------------------------------------------
+# 1950-69: apply gdp.gl proportion to 1970 gdp.gl estimate and use that ratio
+# on gdp.pwt estimate
+gdp <- gdp_growth_estimator_pwt_func(gdp, "ALB", 1970)
 
-# GIN
-# 1958
-# apply proportion of year to 1959 gl gdp, calculate based on 1959 pwt gdp
-gdp$rgdpna[gdp$iso3c=="GIN"&gdp$year==1959] <- 5350714131*0.2627502
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "ALB", 2011)
 
-# GRC
-# 1950
-# apply proportion of year to 1950 gl gdp, calculate based on 1950 pwt gdp
-gdp$rgdpna[gdp$iso3c=="GRC"&gdp$year==1950] <- 38260101094*0.7977532
+#### AND(x) ----------------------------------------------------------------------
+# no gdp.pwt data, so use gdp.gl data as an estimate
+gdp$gdp.pwt.est[gdp$iso3c=="AND"] <- gdp$gdp.gl[gdp$iso3c=="AND"]
 
-# HTI
-# 1950-59
-# apply proportion of year to 1960 gl gdp, calculate based on 1960 pwt gdp
-gdp$rgdpna[gdp$iso3c=="HTI"&gdp$year==1950] <- 10961301504*0.778916
-gdp$rgdpna[gdp$iso3c=="HTI"&gdp$year==1951] <- 10961301504*0.7912403
-gdp$rgdpna[gdp$iso3c=="HTI"&gdp$year==1952] <- 10961301504*0.8354519
-gdp$rgdpna[gdp$iso3c=="HTI"&gdp$year==1953] <- 10961301504*0.8083114
-gdp$rgdpna[gdp$iso3c=="HTI"&gdp$year==1954] <- 10961301504*0.8731443
-gdp$rgdpna[gdp$iso3c=="HTI"&gdp$year==1955] <- 10961301504*0.8363287
-gdp$rgdpna[gdp$iso3c=="HTI"&gdp$year==1956] <- 10961301504*0.9074318
-gdp$rgdpna[gdp$iso3c=="HTI"&gdp$year==1957] <- 10961301504*0.8511691
-gdp$rgdpna[gdp$iso3c=="HTI"&gdp$year==1958] <- 10961301504*0.9149073
-gdp$rgdpna[gdp$iso3c=="HTI"&gdp$year==1959] <- 10961301504*0.8683456
+#### ARE ----------------------------------------------------------------------
+# 1970: ARE coded as gaining independence in 1971
 
-# HUN
-# 1950-69
-# apply proportion of year to 1970 gl gdp, calculate based on 1970 pwt gdp
-gdp$rgdpna[gdp$iso3c=="HUN"&gdp$year==1950] <- 106103451563*0.6078862
-gdp$rgdpna[gdp$iso3c=="HUN"&gdp$year==1951] <- 106103451563*0.6667386
-gdp$rgdpna[gdp$iso3c=="HUN"&gdp$year==1952] <- 106103451563*0.6893299
-gdp$rgdpna[gdp$iso3c=="HUN"&gdp$year==1953] <- 106103451563*0.7021187
-gdp$rgdpna[gdp$iso3c=="HUN"&gdp$year==1954] <- 106103451563*0.7266986
-gdp$rgdpna[gdp$iso3c=="HUN"&gdp$year==1955] <- 106103451563*0.791495
-gdp$rgdpna[gdp$iso3c=="HUN"&gdp$year==1956] <- 106103451563*0.7557711
-gdp$rgdpna[gdp$iso3c=="HUN"&gdp$year==1957] <- 106103451563*0.8182661
-gdp$rgdpna[gdp$iso3c=="HUN"&gdp$year==1958] <- 106103451563*0.8731024
-gdp$rgdpna[gdp$iso3c=="HUN"&gdp$year==1959] <- 106103451563*0.9084702
-gdp$rgdpna[gdp$iso3c=="HUN"&gdp$year==1960] <- 106103451563*0.9559951
-gdp$rgdpna[gdp$iso3c=="HUN"&gdp$year==1961] <- 106103451563*1.004253
-gdp$rgdpna[gdp$iso3c=="HUN"&gdp$year==1962] <- 106103451563*1.046211
-gdp$rgdpna[gdp$iso3c=="HUN"&gdp$year==1963] <- 106103451563*1.10367
-gdp$rgdpna[gdp$iso3c=="HUN"&gdp$year==1964] <- 106103451563*1.165725
-gdp$rgdpna[gdp$iso3c=="HUN"&gdp$year==1965] <- 106103451563*1.174925
-gdp$rgdpna[gdp$iso3c=="HUN"&gdp$year==1966] <- 106103451563*1.241702
-gdp$rgdpna[gdp$iso3c=="HUN"&gdp$year==1967] <- 106103451563*1.312863
-gdp$rgdpna[gdp$iso3c=="HUN"&gdp$year==1968] <- 106103451563*1.328902
-gdp$rgdpna[gdp$iso3c=="HUN"&gdp$year==1969] <- 106103451563*1.368558
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "ARE", 2011)
 
-# IDN
-# 1950-59
-# apply proportion of year to 1960 gl gdp, calculate based on 1960 pwt gdp
-gdp$rgdpna[gdp$iso3c=="IDN"&gdp$year==1950] <- 176168000000*0.6034447
-gdp$rgdpna[gdp$iso3c=="IDN"&gdp$year==1951] <- 176168000000*0.6473939
-gdp$rgdpna[gdp$iso3c=="IDN"&gdp$year==1952] <- 176168000000*0.6857607
-gdp$rgdpna[gdp$iso3c=="IDN"&gdp$year==1953] <- 176168000000*0.706772
-gdp$rgdpna[gdp$iso3c=="IDN"&gdp$year==1954] <- 176168000000*0.7583901
-gdp$rgdpna[gdp$iso3c=="IDN"&gdp$year==1955] <- 176168000000*0.7619492
-gdp$rgdpna[gdp$iso3c=="IDN"&gdp$year==1956] <- 176168000000*0.7833078
-gdp$rgdpna[gdp$iso3c=="IDN"&gdp$year==1957] <- 176168000000*0.818346
-gdp$rgdpna[gdp$iso3c=="IDN"&gdp$year==1958] <- 176168000000*0.8103749
-gdp$rgdpna[gdp$iso3c=="IDN"&gdp$year==1959] <- 176168000000*0.8629899
+#### ARG ----------------------------------------------------------------------
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "ARG", 2011)
 
-# IRN
-# 1950-54
-# apply proportion of year to 1955 gl gdp, calculate based on 1955 pwt gdp
-gdp$rgdpna[gdp$iso3c=="IRN"&gdp$year==1950] <- 204256400000*0.4427302
-gdp$rgdpna[gdp$iso3c=="IRN"&gdp$year==1951] <- 204256400000*0.4412411
-gdp$rgdpna[gdp$iso3c=="IRN"&gdp$year==1952] <- 204256400000*0.4396846
-gdp$rgdpna[gdp$iso3c=="IRN"&gdp$year==1953] <- 204256400000*0.4388899
-gdp$rgdpna[gdp$iso3c=="IRN"&gdp$year==1954] <- 204256400000*0.4375508
+#### ARM ----------------------------------------------------------------------
+# 1990: ARM coded as gaining independence in 1991
 
-# IRQ
-# 1950-69
-# apply proportion of year to 1970 gl gdp, calculate based on 1970 pwt gdp
-gdp$rgdpna[gdp$iso3c=="IRQ"&gdp$year==1950] <- 77700250000*0.2858802
-gdp$rgdpna[gdp$iso3c=="IRQ"&gdp$year==1951] <- 77700250000*0.311014
-gdp$rgdpna[gdp$iso3c=="IRQ"&gdp$year==1952] <- 77700250000*0.3442234
-gdp$rgdpna[gdp$iso3c=="IRQ"&gdp$year==1953] <- 77700250000*0.6965029
-gdp$rgdpna[gdp$iso3c=="IRQ"&gdp$year==1954] <- 77700250000*0.8311367
-gdp$rgdpna[gdp$iso3c=="IRQ"&gdp$year==1955] <- 77700250000*0.7886484
-gdp$rgdpna[gdp$iso3c=="IRQ"&gdp$year==1956] <- 77700250000*0.8210938
-gdp$rgdpna[gdp$iso3c=="IRQ"&gdp$year==1957] <- 77700250000*0.8245818
-gdp$rgdpna[gdp$iso3c=="IRQ"&gdp$year==1958] <- 77700250000*0.9070875
-gdp$rgdpna[gdp$iso3c=="IRQ"&gdp$year==1959] <- 77700250000*0.9260505
-gdp$rgdpna[gdp$iso3c=="IRQ"&gdp$year==1960] <- 77700250000*1.109379
-gdp$rgdpna[gdp$iso3c=="IRQ"&gdp$year==1961] <- 77700250000*1.215816
-gdp$rgdpna[gdp$iso3c=="IRQ"&gdp$year==1962] <- 77700250000*1.276934
-gdp$rgdpna[gdp$iso3c=="IRQ"&gdp$year==1963] <- 77700250000*1.251306
-gdp$rgdpna[gdp$iso3c=="IRQ"&gdp$year==1964] <- 77700250000*1.470672
-gdp$rgdpna[gdp$iso3c=="IRQ"&gdp$year==1965] <- 77700250000*1.663742
-gdp$rgdpna[gdp$iso3c=="IRQ"&gdp$year==1966] <- 77700250000*1.732173
-gdp$rgdpna[gdp$iso3c=="IRQ"&gdp$year==1967] <- 77700250000*1.574491
-gdp$rgdpna[gdp$iso3c=="IRQ"&gdp$year==1968] <- 77700250000*1.868587
-gdp$rgdpna[gdp$iso3c=="IRQ"&gdp$year==1969] <- 77700250000*1.920694
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "ARM", 2011)
 
-# JOR
-# 1950-53
-# apply proportion of year to 1954 gl gdp, calculate based on 1954 pwt gdp
-gdp$rgdpna[gdp$iso3c=="JOR"&gdp$year==1950] <- 4314272666*1.843644
-gdp$rgdpna[gdp$iso3c=="JOR"&gdp$year==1951] <- 4314272666*1.942918
-gdp$rgdpna[gdp$iso3c=="JOR"&gdp$year==1952] <- 4314272666*2.041876
-gdp$rgdpna[gdp$iso3c=="JOR"&gdp$year==1953] <- 4314272666*2.141532
+#### ATG ----------------------------------------------------------------------
+# 1970-1980: ATG coded as gaining independence in 1981
 
-# KHM
-# 1953-1969
-# apply proportion of year to 1970 gl gdp, calculate based on 1970 pwt gdp
-gdp$rgdpna[gdp$iso3c=="KHM"&gdp$year==1953] <- 11489818418*0.3282207
-gdp$rgdpna[gdp$iso3c=="KHM"&gdp$year==1954] <- 11489818418*0.3650988
-gdp$rgdpna[gdp$iso3c=="KHM"&gdp$year==1955] <- 11489818418*0.3561436
-gdp$rgdpna[gdp$iso3c=="KHM"&gdp$year==1956] <- 11489818418*0.4018013
-gdp$rgdpna[gdp$iso3c=="KHM"&gdp$year==1957] <- 11489818418*0.4267904
-gdp$rgdpna[gdp$iso3c=="KHM"&gdp$year==1958] <- 11489818418*0.4472999
-gdp$rgdpna[gdp$iso3c=="KHM"&gdp$year==1959] <- 11489818418*0.4897406
-gdp$rgdpna[gdp$iso3c=="KHM"&gdp$year==1960] <- 11489818418*0.7482947
-gdp$rgdpna[gdp$iso3c=="KHM"&gdp$year==1961] <- 11489818418*0.7719022
-gdp$rgdpna[gdp$iso3c=="KHM"&gdp$year==1962] <- 11489818418*0.7778169
-gdp$rgdpna[gdp$iso3c=="KHM"&gdp$year==1963] <- 11489818418*0.8180711
-gdp$rgdpna[gdp$iso3c=="KHM"&gdp$year==1964] <- 11489818418*0.8480101
-gdp$rgdpna[gdp$iso3c=="KHM"&gdp$year==1965] <- 11489818418*0.8952199
-gdp$rgdpna[gdp$iso3c=="KHM"&gdp$year==1966] <- 11489818418*0.9298109
-gdp$rgdpna[gdp$iso3c=="KHM"&gdp$year==1967] <- 11489818418*0.8494523
-gdp$rgdpna[gdp$iso3c=="KHM"&gdp$year==1968] <- 11489818418*0.8918663
-gdp$rgdpna[gdp$iso3c=="KHM"&gdp$year==1969] <- 11489818418*0.9521496
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "ATG", 2011)
 
-# KOR
-# 1950-52
-# apply proportion of year to 1953 gl gdp, calculate based on 1953 pwt gdp
-gdp$rgdpna[gdp$iso3c=="KOR"&gdp$year==1950] <- 33755490000*1.221218
-gdp$rgdpna[gdp$iso3c=="KOR"&gdp$year==1951] <- 33755490000*1.118221
-gdp$rgdpna[gdp$iso3c=="KOR"&gdp$year==1952] <- 33755490000*1.190059
+#### AUS ----------------------------------------------------------------------
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "AUS", 2011)
 
-# KWT
-# 1961-69
-# apply proportion of year to 1970 gl gdp, calculate based on 1970 pwt gdp
-gdp$rgdpna[gdp$iso3c=="KWT"&gdp$year==1961] <- 152089800000*0.02466352
-gdp$rgdpna[gdp$iso3c=="KWT"&gdp$year==1962] <- 152089800000*0.02743534
-gdp$rgdpna[gdp$iso3c=="KWT"&gdp$year==1963] <- 152089800000*0.02893185
-gdp$rgdpna[gdp$iso3c=="KWT"&gdp$year==1964] <- 152089800000*0.03176783
-gdp$rgdpna[gdp$iso3c=="KWT"&gdp$year==1965] <- 152089800000*0.03248645
-gdp$rgdpna[gdp$iso3c=="KWT"&gdp$year==1966] <- 152089800000*0.03634545
-gdp$rgdpna[gdp$iso3c=="KWT"&gdp$year==1967] <- 152089800000*0.03712179
-gdp$rgdpna[gdp$iso3c=="KWT"&gdp$year==1968] <- 152089800000*0.04050572
-gdp$rgdpna[gdp$iso3c=="KWT"&gdp$year==1969] <- 152089800000*0.0417326
+#### AUT ----------------------------------------------------------------------
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "AUT", 2011)
 
-# LAO
-# 1954-69
-# apply proportion of year to 1970 gl gdp, calculate based on 1970 pwt gdp
-gdp$rgdpna[gdp$iso3c=="LAO"&gdp$year==1954] <- 3489446206*0.9100848
-gdp$rgdpna[gdp$iso3c=="LAO"&gdp$year==1955] <- 3489446206*0.9403258
-gdp$rgdpna[gdp$iso3c=="LAO"&gdp$year==1956] <- 3489446206*1.021758
-gdp$rgdpna[gdp$iso3c=="LAO"&gdp$year==1957] <- 3489446206*1.002047
-gdp$rgdpna[gdp$iso3c=="LAO"&gdp$year==1958] <- 3489446206*1.103611
-gdp$rgdpna[gdp$iso3c=="LAO"&gdp$year==1959] <- 3489446206*1.144634
-gdp$rgdpna[gdp$iso3c=="LAO"&gdp$year==1960] <- 3489446206*1.182674
-gdp$rgdpna[gdp$iso3c=="LAO"&gdp$year==1961] <- 3489446206*1.223498
-gdp$rgdpna[gdp$iso3c=="LAO"&gdp$year==1962] <- 3489446206*1.263595
-gdp$rgdpna[gdp$iso3c=="LAO"&gdp$year==1963] <- 3489446206*1.305248
-gdp$rgdpna[gdp$iso3c=="LAO"&gdp$year==1964] <- 3489446206*1.349864
-gdp$rgdpna[gdp$iso3c=="LAO"&gdp$year==1965] <- 3489446206*1.396165
-gdp$rgdpna[gdp$iso3c=="LAO"&gdp$year==1966] <- 3489446206*1.443652
-gdp$rgdpna[gdp$iso3c=="LAO"&gdp$year==1967] <- 3489446206*1.492883
-gdp$rgdpna[gdp$iso3c=="LAO"&gdp$year==1968] <- 3489446206*1.543331
-gdp$rgdpna[gdp$iso3c=="LAO"&gdp$year==1969] <- 3489446206*1.595573
+#### AZE ----------------------------------------------------------------------
+# 1990: AZE coded as gaining independence in 1991
 
-# LBN
-# 1950-69
-# apply proportion of year to 1970 gl gdp, calculate based on 1970 pwt gdp
-gdp$rgdpna[gdp$iso3c=="LBN"&gdp$year==1950] <- 40751477578*0.3085933
-gdp$rgdpna[gdp$iso3c=="LBN"&gdp$year==1951] <- 40751477578*0.274505
-gdp$rgdpna[gdp$iso3c=="LBN"&gdp$year==1952] <- 40751477578*0.2898091
-gdp$rgdpna[gdp$iso3c=="LBN"&gdp$year==1953] <- 40751477578*0.3320524
-gdp$rgdpna[gdp$iso3c=="LBN"&gdp$year==1954] <- 40751477578*0.3801578
-gdp$rgdpna[gdp$iso3c=="LBN"&gdp$year==1955] <- 40751477578*0.4098486
-gdp$rgdpna[gdp$iso3c=="LBN"&gdp$year==1956] <- 40751477578*0.4003124
-gdp$rgdpna[gdp$iso3c=="LBN"&gdp$year==1957] <- 40751477578*0.4073775
-gdp$rgdpna[gdp$iso3c=="LBN"&gdp$year==1958] <- 40751477578*0.3499949
-gdp$rgdpna[gdp$iso3c=="LBN"&gdp$year==1959] <- 40751477578*0.3803951
-gdp$rgdpna[gdp$iso3c=="LBN"&gdp$year==1960] <- 40751477578*0.3912438
-gdp$rgdpna[gdp$iso3c=="LBN"&gdp$year==1961] <- 40751477578*0.4180322
-gdp$rgdpna[gdp$iso3c=="LBN"&gdp$year==1962] <- 40751477578*0.4348238
-gdp$rgdpna[gdp$iso3c=="LBN"&gdp$year==1963] <- 40751477578*0.4392715
-gdp$rgdpna[gdp$iso3c=="LBN"&gdp$year==1964] <- 40751477578*0.4662788
-gdp$rgdpna[gdp$iso3c=="LBN"&gdp$year==1965] <- 40751477578*0.5124609
-gdp$rgdpna[gdp$iso3c=="LBN"&gdp$year==1966] <- 40751477578*0.5463265
-gdp$rgdpna[gdp$iso3c=="LBN"&gdp$year==1967] <- 40751477578*0.5191697
-gdp$rgdpna[gdp$iso3c=="LBN"&gdp$year==1968] <- 40751477578*0.582494
-gdp$rgdpna[gdp$iso3c=="LBN"&gdp$year==1969] <- 40751477578*0.5942537
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "AZE", 2011)
 
-# LBR
-# 1950-63
-# apply proportion of year to 1964 gl gdp, calculate based on 1964 pwt gdp
-gdp$rgdpna[gdp$iso3c=="LBR"&gdp$year==1950] <- 1871580249*1.113692
-gdp$rgdpna[gdp$iso3c=="LBR"&gdp$year==1951] <- 1871580249*1.171589
-gdp$rgdpna[gdp$iso3c=="LBR"&gdp$year==1952] <- 1871580249*1.202999
-gdp$rgdpna[gdp$iso3c=="LBR"&gdp$year==1953] <- 1871580249*1.246214
-gdp$rgdpna[gdp$iso3c=="LBR"&gdp$year==1954] <- 1871580249*1.312201
-gdp$rgdpna[gdp$iso3c=="LBR"&gdp$year==1955] <- 1871580249*1.353601
-gdp$rgdpna[gdp$iso3c=="LBR"&gdp$year==1956] <- 1871580249*1.404462
-gdp$rgdpna[gdp$iso3c=="LBR"&gdp$year==1957] <- 1871580249*1.454925
-gdp$rgdpna[gdp$iso3c=="LBR"&gdp$year==1958] <- 1871580249*1.497862
-gdp$rgdpna[gdp$iso3c=="LBR"&gdp$year==1959] <- 1871580249*1.585595
-gdp$rgdpna[gdp$iso3c=="LBR"&gdp$year==1960] <- 1871580249*1.130902
-gdp$rgdpna[gdp$iso3c=="LBR"&gdp$year==1961] <- 1871580249*1.198306
-gdp$rgdpna[gdp$iso3c=="LBR"&gdp$year==1962] <- 1871580249*1.22057
-gdp$rgdpna[gdp$iso3c=="LBR"&gdp$year==1963] <- 1871580249*1.374912
+#### BDI ----------------------------------------------------------------------
+# 1960-1961: BDI coded as gaining independence in 1962
 
-# LBY
-# No pwt data, use gl data
-gdp$rgdpna[gdp$iso3c=="LBY"] <- gdp$gdp[gdp$iso3c=="LBY"]
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "BDI", 2011)
 
-# MMR
-# 1950-61
-# apply proportion of year to 1962 gl gdp, calculate based on 1962 pwt gdp
-gdp$rgdpna[gdp$iso3c=="MMR"&gdp$year==1950] <- 15433540430*0.4941486
-gdp$rgdpna[gdp$iso3c=="MMR"&gdp$year==1951] <- 15433540430*0.5170026
-gdp$rgdpna[gdp$iso3c=="MMR"&gdp$year==1952] <- 15433540430*0.5718837
-gdp$rgdpna[gdp$iso3c=="MMR"&gdp$year==1953] <- 15433540430*0.5894567
-gdp$rgdpna[gdp$iso3c=="MMR"&gdp$year==1954] <- 15433540430*0.5885971
-gdp$rgdpna[gdp$iso3c=="MMR"&gdp$year==1955] <- 15433540430*0.6063387
-gdp$rgdpna[gdp$iso3c=="MMR"&gdp$year==1956] <- 15433540430*0.5849287
-gdp$rgdpna[gdp$iso3c=="MMR"&gdp$year==1957] <- 15433540430*0.668622
-gdp$rgdpna[gdp$iso3c=="MMR"&gdp$year==1958] <- 15433540430*0.6566431
-gdp$rgdpna[gdp$iso3c=="MMR"&gdp$year==1959] <- 15433540430*0.7570025
-gdp$rgdpna[gdp$iso3c=="MMR"&gdp$year==1960] <- 15433540430*0.8115624
-gdp$rgdpna[gdp$iso3c=="MMR"&gdp$year==1961] <- 15433540430*0.8213154
+#### BEL ----------------------------------------------------------------------
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "BEL", 2011)
 
-# MNG
-# 1950-69
-# apply proportion of year to 1970 gl gdp, calculate based on 1970 pwt gdp
-gdp$rgdpna[gdp$iso3c=="MNG"&gdp$year==1950] <- 4659460547*0.3719799
-gdp$rgdpna[gdp$iso3c=="MNG"&gdp$year==1951] <- 4659460547*0.3887352
-gdp$rgdpna[gdp$iso3c=="MNG"&gdp$year==1952] <- 4659460547*0.4089996
-gdp$rgdpna[gdp$iso3c=="MNG"&gdp$year==1953] <- 4659460547*0.4288284
-gdp$rgdpna[gdp$iso3c=="MNG"&gdp$year==1954] <- 4659460547*0.4485524
-gdp$rgdpna[gdp$iso3c=="MNG"&gdp$year==1955] <- 4659460547*0.4713095
-gdp$rgdpna[gdp$iso3c=="MNG"&gdp$year==1956] <- 4659460547*0.4957527
-gdp$rgdpna[gdp$iso3c=="MNG"&gdp$year==1957] <- 4659460547*0.522374
-gdp$rgdpna[gdp$iso3c=="MNG"&gdp$year==1958] <- 4659460547*0.5527626
-gdp$rgdpna[gdp$iso3c=="MNG"&gdp$year==1959] <- 4659460547*0.5862973
-gdp$rgdpna[gdp$iso3c=="MNG"&gdp$year==1960] <- 4659460547*0.6227846
-gdp$rgdpna[gdp$iso3c=="MNG"&gdp$year==1961] <- 4659460547*0.6617243
-gdp$rgdpna[gdp$iso3c=="MNG"&gdp$year==1962] <- 4659460547*0.6988085
-gdp$rgdpna[gdp$iso3c=="MNG"&gdp$year==1963] <- 4659460547*0.7366188
-gdp$rgdpna[gdp$iso3c=="MNG"&gdp$year==1964] <- 4659460547*0.78056
-gdp$rgdpna[gdp$iso3c=="MNG"&gdp$year==1965] <- 4659460547*0.8262276
-gdp$rgdpna[gdp$iso3c=="MNG"&gdp$year==1966] <- 4659460547*0.873194
-gdp$rgdpna[gdp$iso3c=="MNG"&gdp$year==1967] <- 4659460547*0.9235405
-gdp$rgdpna[gdp$iso3c=="MNG"&gdp$year==1968] <- 4659460547*0.9782674
-gdp$rgdpna[gdp$iso3c=="MNG"&gdp$year==1969] <- 4659460547*1.035422
+#### BEN ----------------------------------------------------------------------
+# 1959: BEN coded as gaining independence in 1960
 
-# NPL
-# 1950-59
-# apply proportion of year to 1960 gl gdp, calculate based on 1960 pwt gdp
-gdp$rgdpna[gdp$iso3c=="NPL"&gdp$year==1950] <- 10863631113*0.767245
-gdp$rgdpna[gdp$iso3c=="NPL"&gdp$year==1951] <- 10863631113*0.7915004
-gdp$rgdpna[gdp$iso3c=="NPL"&gdp$year==1952] <- 10863631113*0.8220059
-gdp$rgdpna[gdp$iso3c=="NPL"&gdp$year==1953] <- 10863631113*0.8766985
-gdp$rgdpna[gdp$iso3c=="NPL"&gdp$year==1954] <- 10863631113*0.9006439
-gdp$rgdpna[gdp$iso3c=="NPL"&gdp$year==1955] <- 10863631113*0.9239979
-gdp$rgdpna[gdp$iso3c=="NPL"&gdp$year==1956] <- 10863631113*0.9704514
-gdp$rgdpna[gdp$iso3c=="NPL"&gdp$year==1957] <- 10863631113*0.9769759
-gdp$rgdpna[gdp$iso3c=="NPL"&gdp$year==1958] <- 10863631113*1.040141
-gdp$rgdpna[gdp$iso3c=="NPL"&gdp$year==1959] <- 10863631113*1.075229
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "BEN", 2011)
 
-# OMN
-# 1950-69
-# apply proportion of year to 1970 gl gdp, calculate based on 1970 pwt gdp
-gdp$rgdpna[gdp$iso3c=="OMN"&gdp$year==1950] <- 12137187012*0.01692675
-gdp$rgdpna[gdp$iso3c=="OMN"&gdp$year==1951] <- 12137187012*0.01800256
-gdp$rgdpna[gdp$iso3c=="OMN"&gdp$year==1952] <- 12137187012*0.01910689
-gdp$rgdpna[gdp$iso3c=="OMN"&gdp$year==1953] <- 12137187012*0.02032532
-gdp$rgdpna[gdp$iso3c=="OMN"&gdp$year==1954] <- 12137187012*0.02159509
-gdp$rgdpna[gdp$iso3c=="OMN"&gdp$year==1955] <- 12137187012*0.02292856
-gdp$rgdpna[gdp$iso3c=="OMN"&gdp$year==1956] <- 12137187012*0.02438943
-gdp$rgdpna[gdp$iso3c=="OMN"&gdp$year==1957] <- 12137187012*0.02591306
-gdp$rgdpna[gdp$iso3c=="OMN"&gdp$year==1958] <- 12137187012*0.0275175
-gdp$rgdpna[gdp$iso3c=="OMN"&gdp$year==1959] <- 12137187012*0.02924887
-gdp$rgdpna[gdp$iso3c=="OMN"&gdp$year==1960] <- 12137187012*0.03106296
-gdp$rgdpna[gdp$iso3c=="OMN"&gdp$year==1961] <- 12137187012*0.03139288
-gdp$rgdpna[gdp$iso3c=="OMN"&gdp$year==1962] <- 12137187012*0.03772461
-gdp$rgdpna[gdp$iso3c=="OMN"&gdp$year==1963] <- 12137187012*0.03940179
-gdp$rgdpna[gdp$iso3c=="OMN"&gdp$year==1964] <- 12137187012*0.0393918
-gdp$rgdpna[gdp$iso3c=="OMN"&gdp$year==1965] <- 12137187012*0.03955534
-gdp$rgdpna[gdp$iso3c=="OMN"&gdp$year==1966] <- 12137187012*0.04163517
-gdp$rgdpna[gdp$iso3c=="OMN"&gdp$year==1967] <- 12137187012*0.08210659
-gdp$rgdpna[gdp$iso3c=="OMN"&gdp$year==1968] <- 12137187012*0.2458258
-gdp$rgdpna[gdp$iso3c=="OMN"&gdp$year==1969] <- 12137187012*0.3122574
+#### BFA ----------------------------------------------------------------------
+# 1959: BFA coded as gaining independence in 1960
 
-# PNG
-# No pwt data, use gl data
-gdp$rgdpna[gdp$iso3c=="PNG"] <- gdp$gdp[gdp$iso3c=="PNG"]
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "BFA", 2011)
 
-# POL
-# 1950-69
-# apply proportion of year to 1970 gl gdp, calculate based on 1970 pwt gdp
-gdp$rgdpna[gdp$iso3c=="POL"&gdp$year==1950] <- 287641700000*0.546325
-gdp$rgdpna[gdp$iso3c=="POL"&gdp$year==1951] <- 287641700000*0.5704815
-gdp$rgdpna[gdp$iso3c=="POL"&gdp$year==1952] <- 287641700000*0.5839102
-gdp$rgdpna[gdp$iso3c=="POL"&gdp$year==1953] <- 287641700000*0.6181972
-gdp$rgdpna[gdp$iso3c=="POL"&gdp$year==1954] <- 287641700000*0.6534578
-gdp$rgdpna[gdp$iso3c=="POL"&gdp$year==1955] <- 287641700000*0.6855388
-gdp$rgdpna[gdp$iso3c=="POL"&gdp$year==1956] <- 287641700000*0.7164691
-gdp$rgdpna[gdp$iso3c=="POL"&gdp$year==1957] <- 287641700000*0.7541718
-gdp$rgdpna[gdp$iso3c=="POL"&gdp$year==1958] <- 287641700000*0.7910077
-gdp$rgdpna[gdp$iso3c=="POL"&gdp$year==1959] <- 287641700000*0.8141861
-gdp$rgdpna[gdp$iso3c=="POL"&gdp$year==1960] <- 287641700000*0.8547625
-gdp$rgdpna[gdp$iso3c=="POL"&gdp$year==1961] <- 287641700000*0.9233089
-gdp$rgdpna[gdp$iso3c=="POL"&gdp$year==1962] <- 287641700000*0.9111888
-gdp$rgdpna[gdp$iso3c=="POL"&gdp$year==1963] <- 287641700000*0.9666574
-gdp$rgdpna[gdp$iso3c=="POL"&gdp$year==1964] <- 287641700000*1.015092
-gdp$rgdpna[gdp$iso3c=="POL"&gdp$year==1965] <- 287641700000*1.072744
-gdp$rgdpna[gdp$iso3c=="POL"&gdp$year==1966] <- 287641700000*1.137782
-gdp$rgdpna[gdp$iso3c=="POL"&gdp$year==1967] <- 287641700000*1.178789
-gdp$rgdpna[gdp$iso3c=="POL"&gdp$year==1968] <- 287641700000*1.254288
-gdp$rgdpna[gdp$iso3c=="POL"&gdp$year==1969] <- 287641700000*1.241742
+#### BGD(x) ----------------------------------------------------------------------
+# pwt codes PAK and BGD separate prior to 1971; gl codes PAK as unified until 1971,
+# with PAK not including East Pakistan/Bangladesh starting that year
 
-# PRK
-# No pwt data, use gl data
-gdp$rgdpna[gdp$iso3c=="PRK"] <- gdp$gdp[gdp$iso3c=="PRK"]
+# BGD coded as gaining independence in 1971
 
-# PRY
-# 1950
-# apply proportion of year to 1951 gl gdp, calculate based on 1951 pwt gdp
-gdp$rgdpna[gdp$iso3c=="PRY"&gdp$year==1950] <- 4348922988*1.147959
+#### BGR ----------------------------------------------------------------------
+# 1950-69: apply gdp.gl proportion to 1970 gdp.gl estimate and use that ratio
+# on gdp.pwt estimate
+gdp <- gdp_growth_estimator_pwt_func(gdp, "BGR", 1970)
 
-# ROU
-# 1950-59
-# apply proportion of year to 1960 gl gdp, calculate based on 1960 pwt gdp
-# gl proportion is 1, looks interpolated out
-gdp$rgdpna[gdp$iso3c=="ROU"&gdp$year==1950] <- 48098296641
-gdp$rgdpna[gdp$iso3c=="ROU"&gdp$year==1951] <- 48098296641
-gdp$rgdpna[gdp$iso3c=="ROU"&gdp$year==1952] <- 48098296641
-gdp$rgdpna[gdp$iso3c=="ROU"&gdp$year==1953] <- 48098296641
-gdp$rgdpna[gdp$iso3c=="ROU"&gdp$year==1954] <- 48098296641
-gdp$rgdpna[gdp$iso3c=="ROU"&gdp$year==1955] <- 48098296641
-gdp$rgdpna[gdp$iso3c=="ROU"&gdp$year==1956] <- 48098296641
-gdp$rgdpna[gdp$iso3c=="ROU"&gdp$year==1957] <- 48098296641
-gdp$rgdpna[gdp$iso3c=="ROU"&gdp$year==1958] <- 48098296641
-gdp$rgdpna[gdp$iso3c=="ROU"&gdp$year==1959] <- 48098296641
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "BGR", 2011)
 
-# RUS
+#### BHR ----------------------------------------------------------------------
+# 1970: BHR coded as gaining independence in 1971
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "BHR", 2011)
+
+#### BHS ----------------------------------------------------------------------
+# 1970-1972: BHS coded as gaining independence in 1973
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "BHS", 2011)
+
+#### BIH ----------------------------------------------------------------------
+# 1990-1991: BIH coded as gaining independence in 1992
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "BIH", 2011)
+
+#### BLR ----------------------------------------------------------------------
+# 1990: BLR coded as gaining independence in 1991
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "BLR", 2011)
+
+#### BLZ ----------------------------------------------------------------------
+# 1970-1980: BLZ coded as gaining independence in 1981
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "BLZ", 2011)
+
+#### BOL ----------------------------------------------------------------------
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "BOL", 2011)
+
+#### BRA ----------------------------------------------------------------------
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "BRA", 2011)
+
+#### BRB ----------------------------------------------------------------------
+# 1960-1965: BRB coded as gaining independence in 1966
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "BRB", 2011)
+
+#### BRN ----------------------------------------------------------------------
+# 1970-1983: BRB coded as gaining independence in 1984
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "BRN", 2011)
+
+#### BTN ----------------------------------------------------------------------
+# 1950-1969: BTN coded as gaining independence in 1971 (both pwt and gl already have
+# values for 1970)
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "BTN", 2011)
+
+#### BWA ----------------------------------------------------------------------
+# 1960-1965: BRB coded as gaining independence in 1966
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "BWA", 2011)
+
+#### CAF ----------------------------------------------------------------------
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "CAF", 2011)
+
+#### CAN ----------------------------------------------------------------------
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "CAN", 2011)
+
+#### CHE ----------------------------------------------------------------------
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "CHE", 2011)
+
+#### CHL ----------------------------------------------------------------------
+# 1950: apply gdp.gl proportion to 1951 gdp.gl estimate and use that ratio
+# on gdp.pwt estimate
+gdp <- gdp_growth_estimator_pwt_func(gdp, "CHL", 1951)
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "CHL", 2011)
+
+#### CHN ----------------------------------------------------------------------
+# 1950-51: apply gdp.gl proportion to 1952 gdp.gl estimate and use that ratio
+# on gdp.pwt estimate
+gdp <- gdp_growth_estimator_pwt_func(gdp, "CHN", 1952)
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "CHN", 2011)
+
+#### CIV ----------------------------------------------------------------------
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "CHN", 2011)
+
+#### CMR ----------------------------------------------------------------------
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "CHN", 2011)
+
+#### COD ----------------------------------------------------------------------
+# 1950-1959: COD coded as gaining independence in 1960
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "COD", 2011)
+
+#### COG ----------------------------------------------------------------------
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "COG", 2011)
+
+#### COL ----------------------------------------------------------------------
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "COL", 2011)
+
+#### COM ----------------------------------------------------------------------
+# 1960-1974: COM coded as gaining independence in 1975
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "COM", 2011)
+
+#### CPV ----------------------------------------------------------------------
+# 1960-1974: CPV coded as gaining independence in 1975
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "CPV", 2011)
+
+#### CRI ----------------------------------------------------------------------
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "CRI", 2011)
+
+#### CUB(x) ----------------------------------------------------------------------
+# no gdp.pwt data, so use gdp.gl data as an estimate
+gdp$gdp.pwt.est[gdp$iso3c=="CUB"] <- gdp$gdp.gl[gdp$iso3c=="CUB"]
+
+#### CYP ----------------------------------------------------------------------
+# 1950-1959: CYP coded as gaining independence in 1960
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "CYP", 2011)
+
+#### CZE ----------------------------------------------------------------------
+# 1950-89: apply gdp.gl proportion to 1990 gdp.gl estimate and use that ratio
+# on gdp.pwt estimate
+gdp <- gdp_growth_estimator_pwt_func(gdp, "CZE", 1990)
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "CZE", 2011)
+
+#### DEU/BRD/DDR ----------------------------------------------------------------------
+# pwt data combines East and West Germany, while gl separates East and West Germany through
+# to 1990 (inclusive)
+# East and West Germany are coded as existing through 1989 (inclusive), with a unified
+# Germany coded as beginning starting in 1990
+
+# calculate ratio between gl's East and West Germany GDPs
+gdp_split_germany <- gdp %>%
+  dplyr::select(iso3c,year,gdp.gl) %>%
+  dplyr::filter(iso3c %in% c("BRD","DDR"),
+                # filter out 1990, which is coded as a unified Germany
+                year < 1990) %>%
+  dplyr::group_by(year) %>%
+  dplyr::mutate(multiplier = gdp.gl / sum(gdp.gl,na.rm=TRUE)) %>%
+  dplyr::ungroup()
+
+# pull pwt's unified German GDP data for before reunification
+gdp_combined_germany <- gdp %>%
+  dplyr::filter(iso3c == "DEU",
+                # filter out 1990, which is coded as a unified Germany
+                year < 1990) %>%
+  dplyr::select(-c(iso3c,gdp.gl)) %>%
+  # merge split East and West Germany ratios to combined Germany datasest
+  dplyr::full_join(gdp_split_germany,by="year") %>%
+  dplyr::mutate(gdp.pwt.est = gdp.pwt * multiplier,
+                country = ifelse(iso3c=="BRD","West Germany","East Germany"),
+                gdp.gl.est = gdp.gl) %>%
+  dplyr::select(-multiplier)
+
+# calculate 1990 estimates for pwt and gl
+deu.1990.pwt <- gdp$gdp.pwt[gdp$iso3c=="DEU"&gdp$year==1990]
+deu.1990.gl <- gdp$gdp.gl[gdp$iso3c=="BRD"&gdp$year==1990] + gdp$gdp.gl[gdp$iso3c=="DDR"&gdp$year==1990]
+
+gdp <- gdp %>%
+  # filter out entries for Germany 1950-1990
+  dplyr::filter(iso3c %!in% c("BRD","DDR","DEU") | year > 1990) %>%
+  rbind(gdp_combined_germany) %>%
+  tibble::add_row(iso3c = "DEU", country = "Germany", year = 1990,
+                  gdp.pwt = deu.1990.pwt, gdp.gl = NA,
+                  gdp.pwt.est = deu.1990.pwt, gdp.gl.est = deu.1990.gl)
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "DEU", 2011)
+
+#### DJI ----------------------------------------------------------------------
+# 1970-1976: DJI coded as gaining independence in 1977
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "DJI", 2011)
+
+#### DMA ----------------------------------------------------------------------
+# 1970-1977: DMA coded as gaining independence in 1978
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "DMA", 2011)
+
+#### DNK ----------------------------------------------------------------------
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "DNK", 2011)
+
+#### DOM ----------------------------------------------------------------------
+# 1950: apply gdp.gl proportion to 1951 gdp.gl estimate and use that ratio
+# on gdp.pwt estimate
+gdp <- gdp_growth_estimator_pwt_func(gdp, "DOM", 1951)
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "DOM", 2011)
+
+#### DZA ----------------------------------------------------------------------
+# 1960-1961: DZA coded as gaining independence in 1962
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "DZA", 2011)
+
+#### ECU ----------------------------------------------------------------------
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "ECU", 2011)
+
+#### EGY ----------------------------------------------------------------------
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "EGY", 2011)
+
+#### ERI(x) ----------------------------------------------------------------------
+# no gdp.pwt data, so use gdp.gl data as an estimate
+gdp$gdp.pwt.est[gdp$iso3c=="ERI"] <- gdp$gdp.gl[gdp$iso3c=="ERI"]
+
+#### ESP ----------------------------------------------------------------------
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "ESP", 2011)
+
+#### ETH ----------------------------------------------------------------------
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "ETH", 2011)
+
+#### FIN ----------------------------------------------------------------------
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "FIN", 2011)
+
+#### FJI ----------------------------------------------------------------------
+# 1960-1969: FJI coded as gaining independence in 1970
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "FIN", 2011)
+
+#### FRA ----------------------------------------------------------------------
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "FRA", 2011)
+
+#### FSM(x) ----------------------------------------------------------------------
+# no gdp.pwt data, so use gdp.gl data as an estimate
+gdp$gdp.pwt.est[gdp$iso3c=="FSM"] <- gdp$gdp.gl[gdp$iso3c=="FSM"]
+
+#### GAB ----------------------------------------------------------------------
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "GAB", 2011)
+
+#### GBR ----------------------------------------------------------------------
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "GBR", 2011)
+
+#### GEO ----------------------------------------------------------------------
+# 1990: GEO coded as gaining independence in 1991
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "GEO", 2011)
+
+#### GHA ----------------------------------------------------------------------
+# 1955-1956: GHA coded as gaining independence in 1957
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "GHA", 2011)
+
+#### GIN ----------------------------------------------------------------------
+# 1958: apply gdp.gl proportion to 1959 gdp.gl estimate and use that ratio
+# on gdp.pwt estimate
+gdp <- gdp_growth_estimator_pwt_func(gdp, "GIN", 1959)
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "GIN", 2011)
+
+#### GMB ----------------------------------------------------------------------
+# 1960-1964: GHA coded as gaining independence in 1965
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "GMB", 2011)
+
+#### GNB ----------------------------------------------------------------------
+# 1960-1973: GNB coded as gaining independence in 1974
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "GNB", 2011)
+
+#### GNQ ----------------------------------------------------------------------
+# 1960-1967: GNQ coded as gaining independence in 1968
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "GNQ", 2011)
+
+#### GRC ----------------------------------------------------------------------
+# 1950: apply gdp.gl proportion to 1951 gdp.gl estimate and use that ratio
+# on gdp.pwt estimate
+gdp <- gdp_growth_estimator_pwt_func(gdp, "GRC", 1951)
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "GRC", 2011)
+
+#### GRD ----------------------------------------------------------------------
+# 1970-1993: GRD coded as gaining independence in 1974
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "GRD", 2011)
+
+#### GTM ----------------------------------------------------------------------
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "GTM", 2011)
+
+#### GUY(x) ----------------------------------------------------------------------
+# no gdp.pwt data, so use gdp.gl data as an estimate
+gdp$gdp.pwt.est[gdp$iso3c=="GUY"] <- gdp$gdp.gl[gdp$iso3c=="GUY"]
+
+#### HND ----------------------------------------------------------------------
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "HND", 2011)
+
+#### HRV ----------------------------------------------------------------------
+# 1990: HRV coded as gaining independence in 1992 (both pwt and gl already have
+# values for 1991)
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "HND", 2011)
+
+#### HTI ----------------------------------------------------------------------
+# 1950-1959: apply gdp.gl proportion to 1960 gdp.gl estimate and use that ratio
+# on gdp.pwt estimate
+gdp <- gdp_growth_estimator_pwt_func(gdp, "HTI", 1960)
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "HND", 2011)
+
+#### HUN ----------------------------------------------------------------------
+# 1950-1969: apply gdp.gl proportion to 1970 gdp.gl estimate and use that ratio
+# on gdp.pwt estimate
+gdp <- gdp_growth_estimator_pwt_func(gdp, "HUN", 1970)
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "HUN", 2011)
+
+#### IDN ----------------------------------------------------------------------
+# 1950-1959: apply gdp.gl proportion to 1960 gdp.gl estimate and use that ratio
+# on gdp.pwt estimate
+gdp <- gdp_growth_estimator_pwt_func(gdp, "IDN", 1960)
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "IDN", 2011)
+
+#### IND ----------------------------------------------------------------------
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "IND", 2011)
+
+#### IRL ----------------------------------------------------------------------
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "IRL", 2011)
+
+#### IRN ----------------------------------------------------------------------
+# 1950-1954: apply gdp.gl proportion to 1955 gdp.gl estimate and use that ratio
+# on gdp.pwt estimate
+gdp <- gdp_growth_estimator_pwt_func(gdp, "IRN", 1955)
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "IRN", 2011)
+
+#### IRQ ----------------------------------------------------------------------
+# 1950-1969: apply gdp.gl proportion to 1970 gdp.gl estimate and use that ratio
+# on gdp.pwt estimate
+gdp <- gdp_growth_estimator_pwt_func(gdp, "IRQ", 1970)
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "IRQ", 2011)
+
+#### ISL ----------------------------------------------------------------------
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "ISL", 2011)
+
+#### ISR ----------------------------------------------------------------------
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "ISR", 2011)
+
+#### ITA ----------------------------------------------------------------------
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "ITA", 2011)
+
+#### JAM ----------------------------------------------------------------------
+# 1953-1961: JAM coded as gaining independence in 1962
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "ITA", 2011)
+
+#### JOR ----------------------------------------------------------------------
+# 1950-1953: apply gdp.gl proportion to 1954 gdp.gl estimate and use that ratio
+# on gdp.pwt estimate
+gdp <- gdp_growth_estimator_pwt_func(gdp, "JOR", 1970)
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "JOR", 2011)
+
+#### JPN ----------------------------------------------------------------------
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "JPN", 2011)
+
+#### KAZ ----------------------------------------------------------------------
+# 1990: KAZ coded as gaining independence in 1991
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "JPN", 2011)
+
+#### KEN ----------------------------------------------------------------------
+# 1950-1962: KEN coded as gaining independence in 1963
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "KEN", 2011)
+
+#### KGZ ----------------------------------------------------------------------
+# 1990: KGZ coded as gaining independence in 1991
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "KGZ", 2011)
+
+#### KHM ----------------------------------------------------------------------
+# 1953-1969: apply gdp.gl proportion to 1970 gdp.gl estimate and use that ratio
+# on gdp.pwt estimate
+gdp <- gdp_growth_estimator_pwt_func(gdp, "KHM", 1970)
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "KHM", 2011)
+
+#### KIR(x) ----------------------------------------------------------------------
+# no gdp.pwt data, so use gdp.gl data as an estimate
+gdp$gdp.pwt.est[gdp$iso3c=="KIR"] <- gdp$gdp.gl[gdp$iso3c=="KIR"]
+
+#### KNA ----------------------------------------------------------------------
+# 1970-1982: KGZ coded as gaining independence in 1983
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "KNA", 2011)
+
+#### KOR ----------------------------------------------------------------------
+# 1950-1952: apply gdp.gl proportion to 1953 gdp.gl estimate and use that ratio
+# on gdp.pwt estimate
+gdp <- gdp_growth_estimator_pwt_func(gdp, "KOR", 1970)
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "KOR", 2011)
+
+#### KSV/MNE/SRB/YUG(x) ----------------------------------------------------------------------
+# KSV and SRB
+gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2008] <- gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2008]*0.823933441
+gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2009] <- gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2009]*0.822333889
+gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2010] <- gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2010]*0.841862199
+gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2011] <- gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2011]*0.831400579
+gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2012] <- gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2012]*0.831400579
+gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2013] <- gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2013]*0.831400579
+gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2014] <- gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2014]*0.831400579
+gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2015] <- gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2015]*0.831400579
+gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2016] <- gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2016]*0.831400579
+gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2017] <- gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2017]*0.831400579
+
+gdp$rgdpna[gdp$iso3c=="KSV"&gdp$year==2008] <- gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2008]*0.176066559
+gdp$rgdpna[gdp$iso3c=="KSV"&gdp$year==2009] <- gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2009]*0.177666111
+gdp$rgdpna[gdp$iso3c=="KSV"&gdp$year==2010] <- gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2010]*0.158137801
+gdp$rgdpna[gdp$iso3c=="KSV"&gdp$year==2011] <- gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2011]*0.168599421
+gdp$rgdpna[gdp$iso3c=="KSV"&gdp$year==2012] <- gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2012]*0.168599421
+gdp$rgdpna[gdp$iso3c=="KSV"&gdp$year==2013] <- gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2013]*0.168599421
+gdp$rgdpna[gdp$iso3c=="KSV"&gdp$year==2014] <- gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2014]*0.168599421
+gdp$rgdpna[gdp$iso3c=="KSV"&gdp$year==2015] <- gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2015]*0.168599421
+gdp$rgdpna[gdp$iso3c=="KSV"&gdp$year==2016] <- gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2016]*0.168599421
+gdp$rgdpna[gdp$iso3c=="KSV"&gdp$year==2017] <- gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2017]*0.168599421
+
+# YUG
+# use gl
+gdp$rgdpna[gdp$iso3c=="YUG"&gdp$year<=1991] <- gdp$gdp[gdp$iso3c=="YUG"&gdp$year<=1991]
+
+# KSV
+# pwt codes SRB and KSV together, even after 2008; gl codes KSV as separate beginning in 2008,
+# with SRB not including Kosovo starting that year
+
+# no gdp.pwt data, so use gdp.gl data as an estimate
+gdp$gdp.pwt.est[gdp$iso3c=="KSV"] <- gdp$gdp.gl[gdp$iso3c=="KSV"]
+
+#### KWT ----------------------------------------------------------------------
+# 1961-1969: apply gdp.gl proportion to 1970 gdp.gl estimate and use that ratio
+# on gdp.pwt estimate
+gdp <- gdp_growth_estimator_pwt_func(gdp, "KWT", 1970)
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "KWT", 2011)
+
+#### LAO(x) ----------------------------------------------------------------------
+# 1954-1969: apply gdp.gl proportion to 1970 gdp.gl estimate and use that ratio
+# on gdp.pwt estimate
+gdp <- gdp_growth_estimator_pwt_func(gdp, "LAO", 1970)
+
+# 1953: LAO coded as gaining independence in 1953, though neither pwt nor gl have
+# estimates for that year
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "LAO", 2011)
+
+#### LBN ----------------------------------------------------------------------
+# 1950-1969: apply gdp.gl proportion to 1970 gdp.gl estimate and use that ratio
+# on gdp.pwt estimate
+gdp <- gdp_growth_estimator_pwt_func(gdp, "LBN", 1970)
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "LBN", 2011)
+
+#### LBR ----------------------------------------------------------------------
+# 1950-1963: apply gdp.gl proportion to 1964 gdp.gl estimate and use that ratio
+# on gdp.pwt estimate
+gdp <- gdp_growth_estimator_pwt_func(gdp, "LBR", 1964)
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "LBR", 2011)
+
+#### LBY(x) ----------------------------------------------------------------------
+# no gdp.pwt data, so use gdp.gl data as an estimate
+gdp$gdp.pwt.est[gdp$iso3c=="LBY"] <- gdp$gdp.gl[gdp$iso3c=="LBY"]
+
+#### LCA ----------------------------------------------------------------------
+# 1970-1978: LCA coded as gaining independence in 1979
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "LCA", 2011)
+
+#### LIE(x) ----------------------------------------------------------------------
+# no gdp.pwt data, so use gdp.gl data as an estimate
+gdp$gdp.pwt.est[gdp$iso3c=="LIE"] <- gdp$gdp.gl[gdp$iso3c=="LIE"]
+
+#### LKA ----------------------------------------------------------------------
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "LKA", 2011)
+
+#### LSO ----------------------------------------------------------------------
+# 1960-1966: LSO coded as gaining independence in 1966
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "LSO", 2011)
+
+#### LTU ----------------------------------------------------------------------
+# 1990: LTU coded as gaining independence in 1991
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "LTU", 2011)
+
+#### LUX ----------------------------------------------------------------------
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "LUX", 2011)
+
+#### LVA ----------------------------------------------------------------------
+# 1990: LVA coded as gaining independence in 1991
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "LVA", 2011)
+
+#### MAR ----------------------------------------------------------------------
+# 1950-1955: MAR coded as gaining independence in 1956
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "MAR", 2011)
+
+#### MCO(x) ----------------------------------------------------------------------
+# no gdp.pwt data, so use gdp.gl data as an estimate
+gdp$gdp.pwt.est[gdp$iso3c=="MCO"] <- gdp$gdp.gl[gdp$iso3c=="MCO"]
+
+#### MDA ----------------------------------------------------------------------
+# 1990: MDA coded as gaining independence in 1991
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "MDA", 2011)
+
+#### MDG ----------------------------------------------------------------------
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "MDG", 2011)
+
+#### MDV ----------------------------------------------------------------------
+# 1965-1969: apply gdp.gl proportion to 1970 gdp.gl estimate and use that ratio
+# on gdp.pwt estimate
+gdp <- gdp_growth_estimator_pwt_func(gdp, "MDV", 1970)
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "MDV", 2011)
+
+#### MEX ----------------------------------------------------------------------
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "MEX", 2011)
+
+#### MHL(x) ----------------------------------------------------------------------
+# no gdp.pwt data, so use gdp.gl data as an estimate
+# gl data starts in 1986 - Compact of Free Association with US
+gdp$gdp.pwt.est[gdp$iso3c=="MHL"] <- gdp$gdp.gl[gdp$iso3c=="MHL"]
+
+#### MKD ----------------------------------------------------------------------
+# 1990-1992: MKD coded as gaining independence in 1993 (pwt has values for 1990-1992,
+# gl has values for 1991-1992)
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "MKD", 2011)
+
+#### MLI ----------------------------------------------------------------------
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "MLI", 2011)
+
+#### MLT ----------------------------------------------------------------------
+# 1954-1963: MDA coded as gaining independence in 1964
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "MLT", 2011)
+
+#### MMR ----------------------------------------------------------------------
+# 1950-1961: apply gdp.gl proportion to 1962 gdp.gl estimate and use that ratio
+# on gdp.pwt estimate
+gdp <- gdp_growth_estimator_pwt_func(gdp, "MMR", 1962)
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "MLT", 2011)
+
+#### MNE(x) ----------------------------------------------------------------------
+
+#### MNG ----------------------------------------------------------------------
+# 1950-1969: apply gdp.gl proportion to 1970 gdp.gl estimate and use that ratio
+# on gdp.pwt estimate
+gdp <- gdp_growth_estimator_pwt_func(gdp, "MNG", 1970)
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "MNG", 2011)
+
+#### MOZ ----------------------------------------------------------------------
+# 1960-1974: MOZ coded as gaining independence in 1975
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "MNG", 2011)
+
+#### MRT ----------------------------------------------------------------------
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "MRT", 2011)
+
+#### MUS ----------------------------------------------------------------------
+# 1950-1967: MUS coded as gaining independence in 1968
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "MUS", 2011)
+
+#### MWI ----------------------------------------------------------------------
+# 1954-1963: MWI coded as gaining independence in 1964
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "MWI", 2011)
+
+#### MYS(x) ----------------------------------------------------------------------
+# 1955-1956: MYS coded as gaining independence in 1957
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "MYS", 2011)
+
+#### NAM/ZAF(x) ----------------------------------------------------------------------
+# NAM
+# gl data starts in 1990 (year of independence), pwt data starts in 1960
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "NAM", 2011)
+
+# ZAF
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "ZAF", 2011)
+
+#### NER ----------------------------------------------------------------------
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "NER", 2011)
+
+#### NGA ----------------------------------------------------------------------
+# 1950-1959: NGA coded as gaining independence in 1960
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "NGA", 2011)
+
+#### NIC ----------------------------------------------------------------------
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "NIC", 2011)
+
+#### NLD ----------------------------------------------------------------------
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "NLD", 2011)
+
+#### NOR ----------------------------------------------------------------------
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "NOR", 2011)
+
+#### NPL ----------------------------------------------------------------------
+# 1950-1959: apply gdp.gl proportion to 1960 gdp.gl estimate and use that ratio
+# on gdp.pwt estimate
+gdp <- gdp_growth_estimator_pwt_func(gdp, "NPL", 1960)
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "NPL", 2011)
+
+#### NRU(x) ----------------------------------------------------------------------
+# no gdp.pwt data, so use gdp.gl data as an estimate
+# gl data starts in 1968 - end of UN trusteeship
+gdp$gdp.pwt.est[gdp$iso3c=="MHL"] <- gdp$gdp.gl[gdp$iso3c=="MHL"]
+
+#### NZL ----------------------------------------------------------------------
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "NZL", 2011)
+
+#### OMN ----------------------------------------------------------------------
+# OMN coded as gaining independence in 1971, but due to Dhofar War,
+# extending GDP data back to 1950, as gl contains data from this point forward
+
+# 1950-1969: apply gdp.gl proportion to 1970 gdp.gl estimate and use that ratio
+# on gdp.pwt estimate
+gdp <- gdp_growth_estimator_pwt_func(gdp, "OMN", 1970)
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "OMN", 2011)
+
+#### PAK(x) ----------------------------------------------------------------------
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "PAK", 2011)
+
+#### PAN ----------------------------------------------------------------------
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "PAN", 2011)
+
+#### PER ----------------------------------------------------------------------
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "PER", 2011)
+
+#### PHL ----------------------------------------------------------------------
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "PHL", 2011)
+
+#### PLW(x) ----------------------------------------------------------------------
+# no gdp.pwt data, so use gdp.gl data as an estimate
+gdp$gdp.pwt.est[gdp$iso3c=="PLW"] <- gdp$gdp.gl[gdp$iso3c=="PLW"]
+
+#### PNG ----------------------------------------------------------------------
+# no gdp.pwt data, so use gdp.gl data as an estimate
+gdp$gdp.pwt.est[gdp$iso3c=="PNG"] <- gdp$gdp.gl[gdp$iso3c=="PNG"]
+
+#### POL ----------------------------------------------------------------------
+# 1950-1969: apply gdp.gl proportion to 1970 gdp.gl estimate and use that ratio
+# on gdp.pwt estimate
+gdp <- gdp_growth_estimator_pwt_func(gdp, "POL", 1970)
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "POL", 2011)
+
+#### PRK(x) ----------------------------------------------------------------------
+# no gdp.pwt data, so use gdp.gl data as an estimate
+gdp$gdp.pwt.est[gdp$iso3c=="PRK"] <- gdp$gdp.gl[gdp$iso3c=="PRK"]
+
+#### PRT ----------------------------------------------------------------------
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "PRT", 2011)
+
+#### PRY ----------------------------------------------------------------------
+# 1950: apply gdp.gl proportion to 1951 gdp.gl estimate and use that ratio
+# on gdp.pwt estimate
+gdp <- gdp_growth_estimator_pwt_func(gdp, "PRY", 1951)
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "PRY", 2011)
+
+#### PSE(x) ----------------------------------------------------------------------
+
+#### QAT ----------------------------------------------------------------------
+# 1970: QAT coded as gaining independence in 1971
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "QAT", 2011)
+
+#### ROU ----------------------------------------------------------------------
+# 1950-1959: apply gdp.gl proportion to 1960 gdp.gl estimate and use that ratio
+# on gdp.pwt estimate
+# gl values constant 1950-1960
+gdp <- gdp_growth_estimator_pwt_func(gdp, "ROU", 1960)
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "ROU", 2011)
+
+#### RUS(x) ----------------------------------------------------------------------
 # 1950-89
 # apply proportion of year to 1990 gl gdp, calculate based on 1990 pwt gdp
 gdp$rgdpna[gdp$iso3c=="RUS"&gdp$year==1950] <- 3620811000000*0.2436211
@@ -588,94 +1257,243 @@ gdp$rgdpna[gdp$iso3c=="RUS"&gdp$year==1987] <- 3620811000000*1.147718
 gdp$rgdpna[gdp$iso3c=="RUS"&gdp$year==1988] <- 3620811000000*1.21229
 gdp$rgdpna[gdp$iso3c=="RUS"&gdp$year==1989] <- 3620811000000*1.243235
 
-# SAU
-# 1950-69
-# apply proportion of year to 1970 gl gdp, calculate based on 1970 pwt gdp
-gdp$rgdpna[gdp$iso3c=="SAU"&gdp$year==1950] <- 365519100000*0.01983352
-gdp$rgdpna[gdp$iso3c=="SAU"&gdp$year==1951] <- 365519100000*0.02156631
-gdp$rgdpna[gdp$iso3c=="SAU"&gdp$year==1952] <- 365519100000*0.02295976
-gdp$rgdpna[gdp$iso3c=="SAU"&gdp$year==1953] <- 365519100000*0.02535497
-gdp$rgdpna[gdp$iso3c=="SAU"&gdp$year==1954] <- 365519100000*0.0283785
-gdp$rgdpna[gdp$iso3c=="SAU"&gdp$year==1955] <- 365519100000*0.02915761
-gdp$rgdpna[gdp$iso3c=="SAU"&gdp$year==1956] <- 365519100000*0.0314188
-gdp$rgdpna[gdp$iso3c=="SAU"&gdp$year==1957] <- 365519100000*0.03263065
-gdp$rgdpna[gdp$iso3c=="SAU"&gdp$year==1958] <- 365519100000*0.03435636
-gdp$rgdpna[gdp$iso3c=="SAU"&gdp$year==1959] <- 365519100000*0.03805956
-gdp$rgdpna[gdp$iso3c=="SAU"&gdp$year==1960] <- 365519100000*0.05154108
-gdp$rgdpna[gdp$iso3c=="SAU"&gdp$year==1961] <- 365519100000*0.05832101
-gdp$rgdpna[gdp$iso3c=="SAU"&gdp$year==1962] <- 365519100000*0.06139393
-gdp$rgdpna[gdp$iso3c=="SAU"&gdp$year==1963] <- 365519100000*0.07077048
-gdp$rgdpna[gdp$iso3c=="SAU"&gdp$year==1964] <- 365519100000*0.0815638
-gdp$rgdpna[gdp$iso3c=="SAU"&gdp$year==1965] <- 365519100000*0.09350898
-gdp$rgdpna[gdp$iso3c=="SAU"&gdp$year==1966] <- 365519100000*0.1045689
-gdp$rgdpna[gdp$iso3c=="SAU"&gdp$year==1967] <- 365519100000*0.1109867
-gdp$rgdpna[gdp$iso3c=="SAU"&gdp$year==1968] <- 365519100000*0.1204553
-gdp$rgdpna[gdp$iso3c=="SAU"&gdp$year==1969] <- 365519100000*0.1290332
+#### RWA ----------------------------------------------------------------------
+# 1960-1961: QAT coded as gaining independence in 1962
 
-# SDN
-# 1956-69
-# apply proportion of year to 1970 gl gdp, calculate based on 1970 pwt gdp
-gdp$rgdpna[gdp$iso3c=="SDN"&gdp$year==1956] <- 27497740000*1.109839
-gdp$rgdpna[gdp$iso3c=="SDN"&gdp$year==1957] <- 27497740000*1.084723
-gdp$rgdpna[gdp$iso3c=="SDN"&gdp$year==1958] <- 27497740000*1.120858
-gdp$rgdpna[gdp$iso3c=="SDN"&gdp$year==1959] <- 27497740000*1.243459
-gdp$rgdpna[gdp$iso3c=="SDN"&gdp$year==1960] <- 27497740000*1.256598
-gdp$rgdpna[gdp$iso3c=="SDN"&gdp$year==1961] <- 27497740000*1.246431
-gdp$rgdpna[gdp$iso3c=="SDN"&gdp$year==1962] <- 27497740000*1.323955
-gdp$rgdpna[gdp$iso3c=="SDN"&gdp$year==1963] <- 27497740000*1.276925
-gdp$rgdpna[gdp$iso3c=="SDN"&gdp$year==1964] <- 27497740000*1.255645
-gdp$rgdpna[gdp$iso3c=="SDN"&gdp$year==1965] <- 27497740000*1.336645
-gdp$rgdpna[gdp$iso3c=="SDN"&gdp$year==1966] <- 27497740000*1.314072
-gdp$rgdpna[gdp$iso3c=="SDN"&gdp$year==1967] <- 27497740000*1.266328
-gdp$rgdpna[gdp$iso3c=="SDN"&gdp$year==1968] <- 27497740000*1.338594
-gdp$rgdpna[gdp$iso3c=="SDN"&gdp$year==1969] <- 27497740000*1.416896
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "RWA", 2011)
 
-# SOM
-# No pwt data, use gl data
-gdp$rgdpna[gdp$iso3c=="SOM"] <- gdp$gdp[gdp$iso3c=="SOM"]
+#### SAU ----------------------------------------------------------------------
+# 1950-1969: apply gdp.gl proportion to 1970 gdp.gl estimate and use that ratio
+# on gdp.pwt estimate
+gdp <- gdp_growth_estimator_pwt_func(gdp, "SAU", 1970)
 
-# SSD
-# No pwt data, use gl data
-gdp$rgdpna[gdp$iso3c=="SSD"] <- gdp$gdp[gdp$iso3c=="SSD"]
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "SAU", 2011)
 
-# SWZ
-# 1968-69
-# apply proportion of year to 1970 gl gdp, calculate based on 1970 pwt gdp
-gdp$rgdpna[gdp$iso3c=="SWZ"&gdp$year==1968] <- 1181690991*2.002123
-gdp$rgdpna[gdp$iso3c=="SWZ"&gdp$year==1969] <- 1181690991*2.436974
+#### SDN ----------------------------------------------------------------------
+# 1956-1969: apply gdp.gl proportion to 1970 gdp.gl estimate and use that ratio
+# on gdp.pwt estimate
+gdp <- gdp_growth_estimator_pwt_func(gdp, "SDN", 1970)
 
-# SYR
-# 1950-59
-# apply proportion of year to 1960 gl gdp, calculate based on 1960 pwt gdp
-gdp$rgdpna[gdp$iso3c=="SYR"&gdp$year==1950] <- 10113925254*0.8900549
-gdp$rgdpna[gdp$iso3c=="SYR"&gdp$year==1951] <- 10113925254*0.8568255
-gdp$rgdpna[gdp$iso3c=="SYR"&gdp$year==1952] <- 10113925254*1.080886
-gdp$rgdpna[gdp$iso3c=="SYR"&gdp$year==1953] <- 10113925254*1.227474
-gdp$rgdpna[gdp$iso3c=="SYR"&gdp$year==1954] <- 10113925254*1.410478
-gdp$rgdpna[gdp$iso3c=="SYR"&gdp$year==1955] <- 10113925254*1.274459
-gdp$rgdpna[gdp$iso3c=="SYR"&gdp$year==1956] <- 10113925254*1.511193
-gdp$rgdpna[gdp$iso3c=="SYR"&gdp$year==1957] <- 10113925254*1.605017
-gdp$rgdpna[gdp$iso3c=="SYR"&gdp$year==1958] <- 10113925254*1.383689
-gdp$rgdpna[gdp$iso3c=="SYR"&gdp$year==1959] <- 10113925254*1.434623
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "SDN", 2011)
 
-# TLS
-# No pwt data, use gl data
-gdp$rgdpna[gdp$iso3c=="TLS"] <- gdp$gdp[gdp$iso3c=="TLS"]
+#### SEN ----------------------------------------------------------------------
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "SEN", 2011)
 
-# TUN
-# 1956-59
-# apply proportion of year to 1960 gl gdp, calculate based on 1960 pwt gdp
-gdp$rgdpna[gdp$iso3c=="TUN"&gdp$year==1956] <- 9738018047*0.9256697
-gdp$rgdpna[gdp$iso3c=="TUN"&gdp$year==1957] <- 9738018047*0.8928575
-gdp$rgdpna[gdp$iso3c=="TUN"&gdp$year==1958] <- 9738018047*1.012701
-gdp$rgdpna[gdp$iso3c=="TUN"&gdp$year==1959] <- 9738018047*0.9717677
+#### SGP ----------------------------------------------------------------------
+# 1960-1964: SGP coded as gaining independence in 1965
 
-# TWN
-# 1950
-# apply proportion of year to 1951 gl gdp, calculate based on 1951 pwt gdp
-gdp$rgdpna[gdp$iso3c=="TWN"&gdp$year==1950] <- 12399070000*0.8890934
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "SGP", 2011)
 
-# VNM and RVN
+#### SLB(x) ----------------------------------------------------------------------
+# no gdp.pwt data, so use gdp.gl data as an estimate
+gdp$gdp.pwt.est[gdp$iso3c=="SLB"] <- gdp$gdp.gl[gdp$iso3c=="SLB"]
+
+#### SLE ----------------------------------------------------------------------
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "SLE", 2011)
+
+#### SLV ----------------------------------------------------------------------
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "SLV", 2011)
+
+#### SMR(x) ----------------------------------------------------------------------
+# no gdp.pwt data, so use gdp.gl data as an estimate
+gdp$gdp.pwt.est[gdp$iso3c=="SMR"] <- gdp$gdp.gl[gdp$iso3c=="SMR"]
+
+#### SOM(x) ----------------------------------------------------------------------
+# no gdp.pwt data, so use gdp.gl data as an estimate
+gdp$gdp.pwt.est[gdp$iso3c=="SOM"] <- gdp$gdp.gl[gdp$iso3c=="SOM"]
+
+#### SRB(x) ----------------------------------------------------------------------
+
+#### SSD(x) ----------------------------------------------------------------------
+# no gdp.pwt data, so use gdp.gl data as an estimate
+# only have 2011 gl data
+gdp$gdp.pwt.est[gdp$iso3c=="SSD"] <- gdp$gdp.gl[gdp$iso3c=="SSD"]
+
+#### STP ----------------------------------------------------------------------
+# 1970-1974: STP coded as gaining independence in 1975
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "STP", 2011)
+
+#### SUR ----------------------------------------------------------------------
+# 1970-1974: SUR coded as gaining independence in 1975
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "SUR", 2011)
+
+#### SVK ----------------------------------------------------------------------
+# 1990-1992: SVK coded as gaining independence in 1993
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "SVK", 2011)
+
+#### SVN ----------------------------------------------------------------------
+# 1990-1991: SVN coded as gaining independence in 1992
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "SVN", 2011)
+
+#### SWE ----------------------------------------------------------------------
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "SWE", 2011)
+
+#### SWZ ----------------------------------------------------------------------
+# 1968-1969: apply gdp.gl proportion to 1970 gdp.gl estimate and use that ratio
+# on gdp.pwt estimate
+gdp <- gdp_growth_estimator_pwt_func(gdp, "SWZ", 1970)
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "SWZ", 2011)
+
+#### SYC(x) ----------------------------------------------------------------------
+# no gdp.pwt data, so use gdp.gl data as an estimate
+gdp$gdp.pwt.est[gdp$iso3c=="SYC"] <- gdp$gdp.gl[gdp$iso3c=="SYC"]
+
+#### SYR ----------------------------------------------------------------------
+# 1950-1959: apply gdp.gl proportion to 1960 gdp.gl estimate and use that ratio
+# on gdp.pwt estimate
+gdp <- gdp_growth_estimator_pwt_func(gdp, "SYR", 1960)
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "SYR", 2011)
+
+#### TCD ----------------------------------------------------------------------
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "TCD", 2011)
+
+#### TGO ----------------------------------------------------------------------
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "TGO", 2011)
+
+#### THA ----------------------------------------------------------------------
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "THA", 2011)
+
+#### TJK ----------------------------------------------------------------------
+# 1990: TJK coded as gaining independence in 1991
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "TJK", 2011)
+
+#### TKM ----------------------------------------------------------------------
+# 1990: TKM coded as gaining independence in 1991
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "TKM", 2011)
+
+#### TLS(x) ----------------------------------------------------------------------
+# no gdp.pwt data, so use gdp.gl data as an estimate
+gdp$gdp.pwt.est[gdp$iso3c=="TLS"] <- gdp$gdp.gl[gdp$iso3c=="TLS"]
+
+#### TON(x) ----------------------------------------------------------------------
+# no gdp.pwt data, so use gdp.gl data as an estimate
+# gl data starts in 1970 - end of protection status
+gdp$gdp.pwt.est[gdp$iso3c=="TON"] <- gdp$gdp.gl[gdp$iso3c=="TON"]
+
+#### TTO ----------------------------------------------------------------------
+# 1950-1961: TTO coded as gaining independence in 1962
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "TTO", 2011)
+
+#### TUN ----------------------------------------------------------------------
+# 1950-1959: apply gdp.gl proportion to 1960 gdp.gl estimate and use that ratio
+# on gdp.pwt estimate
+gdp <- gdp_growth_estimator_pwt_func(gdp, "TUN", 1960)
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "TTO", 2011)
+
+#### TUR ----------------------------------------------------------------------
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "TUR", 2011)
+
+#### TUV(x) ----------------------------------------------------------------------
+# no gdp.pwt data, so use gdp.gl data as an estimate
+# gl data starts in 1978 - independence from UK
+gdp$gdp.pwt.est[gdp$iso3c=="TUV"] <- gdp$gdp.gl[gdp$iso3c=="TUV"]
+
+#### TWN ----------------------------------------------------------------------
+# 1950: apply gdp.gl proportion to 1951 gdp.gl estimate and use that ratio
+# on gdp.pwt estimate
+gdp <- gdp_growth_estimator_pwt_func(gdp, "TWN", 1951)
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "TWN", 2011)
+
+#### TZA/ZAN(x) ----------------------------------------------------------------------
+
+
+# no gdp.pwt data, so use gdp.gl data as an estimate
+gdp$gdp.pwt.est[gdp$iso3c=="ZAN"] <- gdp$gdp.gl[gdp$iso3c=="ZAN"]
+
+#### UGA ----------------------------------------------------------------------
+# 1950-1961: UGA coded as gaining independence in 1962
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "UGA", 2011)
+
+#### UKR ----------------------------------------------------------------------
+# 1990: UKR coded as gaining independence in 1991
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "UKR", 2011)
+
+#### URY ----------------------------------------------------------------------
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "URY", 2011)
+
+#### USA ----------------------------------------------------------------------
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "USA", 2011)
+
+#### VCT ----------------------------------------------------------------------
+# 1970-1978: VCT coded as gaining independence in 1979
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "USA", 2011)
+
+#### VEN ----------------------------------------------------------------------
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "VEN", 2011)
+
+#### VNM/RVN(x) ----------------------------------------------------------------------
 # See excel spreadsheet for calculations
 gdp$rgdpna[gdp$iso3c=="VNM"&gdp$year==1954] <- 45768960469*0.847859729*0.582806934
 gdp$rgdpna[gdp$iso3c=="VNM"&gdp$year==1955] <- 45768960469*0.863093225*0.572520459
@@ -723,190 +1541,156 @@ gdp$rgdpna[gdp$iso3c=="RVN"&gdp$year==1973] <- 47753593594*0.537145149
 gdp$rgdpna[gdp$iso3c=="RVN"&gdp$year==1974] <- 48938752734*0.511239605
 gdp$rgdpna[gdp$iso3c=="RVN"&gdp$year==1975] <- 50400250547*0.512703797
 
+#### VUT ----------------------------------------------------------------------
+# no gdp.pwt data, so use gdp.gl data as an estimate
+# gl data starts in 1980
+gdp$gdp.pwt.est[gdp$iso3c=="VUT"] <- gdp$gdp.gl[gdp$iso3c=="VUT"]
 
-# BRD and DDR
-gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1950] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1950]*0.65
-gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1951] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1951]*0.67
-gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1952] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1952]*0.69
-gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1953] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1953]*0.71
-gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1954] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1954]*0.72
-gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1955] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1955]*0.75
-gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1956] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1956]*0.76
-gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1957] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1957]*0.77
-gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1958] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1958]*0.78
-gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1959] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1959]*0.79
-gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1960] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1960]*0.81
-gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1961] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1961]*0.81
-gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1962] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1962]*0.82
-gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1963] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1963]*0.82
-gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1964] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1964]*0.83
-gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1965] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1965]*0.84
-gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1966] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1966]*0.84
-gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1967] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1967]*0.84
-gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1968] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1968]*0.85
-gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1969] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1969]*0.86
-gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1970] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1970]*0.86
-gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1971] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1971]*0.86
-gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1972] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1972]*0.86
-gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1973] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1973]*0.86
-gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1974] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1974]*0.86
-gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1975] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1975]*0.85
-gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1976] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1976]*0.86
-gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1977] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1977]*0.85
-gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1978] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1978]*0.85
-gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1979] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1979]*0.85
-gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1980] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1980]*0.85
-gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1981] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1981]*0.84
-gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1982] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1982]*0.83
-gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1983] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1983]*0.83
-gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1984] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1984]*0.82
-gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1985] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1985]*0.82
-gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1986] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1986]*0.82
-gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1987] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1987]*0.82
-gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1988] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1988]*0.82
-gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1989] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1989]*0.83
-gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1990] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1990]*0.83
+#### WSM ----------------------------------------------------------------------
+# no gdp.pwt data, so use gdp.gl data as an estimate
+# gl data starts in 1962- Western Samoa Act of 1961 enters effect
+gdp$gdp.pwt.est[gdp$iso3c=="WSM"] <- gdp$gdp.gl[gdp$iso3c=="WSM"]
 
-gdp$rgdpna[gdp$iso3c=="DDR"&gdp$year==1950] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1950]*0.35
-gdp$rgdpna[gdp$iso3c=="DDR"&gdp$year==1951] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1951]*0.33
-gdp$rgdpna[gdp$iso3c=="DDR"&gdp$year==1952] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1952]*0.31
-gdp$rgdpna[gdp$iso3c=="DDR"&gdp$year==1953] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1953]*0.29
-gdp$rgdpna[gdp$iso3c=="DDR"&gdp$year==1954] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1954]*0.28
-gdp$rgdpna[gdp$iso3c=="DDR"&gdp$year==1955] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1955]*0.25
-gdp$rgdpna[gdp$iso3c=="DDR"&gdp$year==1956] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1956]*0.24
-gdp$rgdpna[gdp$iso3c=="DDR"&gdp$year==1957] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1957]*0.23
-gdp$rgdpna[gdp$iso3c=="DDR"&gdp$year==1958] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1958]*0.22
-gdp$rgdpna[gdp$iso3c=="DDR"&gdp$year==1959] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1959]*0.21
-gdp$rgdpna[gdp$iso3c=="DDR"&gdp$year==1960] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1960]*0.19
-gdp$rgdpna[gdp$iso3c=="DDR"&gdp$year==1961] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1961]*0.19
-gdp$rgdpna[gdp$iso3c=="DDR"&gdp$year==1962] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1962]*0.18
-gdp$rgdpna[gdp$iso3c=="DDR"&gdp$year==1963] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1963]*0.18
-gdp$rgdpna[gdp$iso3c=="DDR"&gdp$year==1964] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1964]*0.17
-gdp$rgdpna[gdp$iso3c=="DDR"&gdp$year==1965] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1965]*0.16
-gdp$rgdpna[gdp$iso3c=="DDR"&gdp$year==1966] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1966]*0.16
-gdp$rgdpna[gdp$iso3c=="DDR"&gdp$year==1967] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1967]*0.16
-gdp$rgdpna[gdp$iso3c=="DDR"&gdp$year==1968] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1968]*0.15
-gdp$rgdpna[gdp$iso3c=="DDR"&gdp$year==1969] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1969]*0.14
-gdp$rgdpna[gdp$iso3c=="DDR"&gdp$year==1970] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1970]*0.14
-gdp$rgdpna[gdp$iso3c=="DDR"&gdp$year==1971] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1971]*0.14
-gdp$rgdpna[gdp$iso3c=="DDR"&gdp$year==1972] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1972]*0.14
-gdp$rgdpna[gdp$iso3c=="DDR"&gdp$year==1973] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1973]*0.14
-gdp$rgdpna[gdp$iso3c=="DDR"&gdp$year==1974] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1974]*0.14
-gdp$rgdpna[gdp$iso3c=="DDR"&gdp$year==1975] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1975]*0.15
-gdp$rgdpna[gdp$iso3c=="DDR"&gdp$year==1976] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1976]*0.14
-gdp$rgdpna[gdp$iso3c=="DDR"&gdp$year==1977] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1977]*0.15
-gdp$rgdpna[gdp$iso3c=="DDR"&gdp$year==1978] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1978]*0.15
-gdp$rgdpna[gdp$iso3c=="DDR"&gdp$year==1979] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1979]*0.15
-gdp$rgdpna[gdp$iso3c=="DDR"&gdp$year==1980] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1980]*0.15
-gdp$rgdpna[gdp$iso3c=="DDR"&gdp$year==1981] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1981]*0.16
-gdp$rgdpna[gdp$iso3c=="DDR"&gdp$year==1982] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1982]*0.17
-gdp$rgdpna[gdp$iso3c=="DDR"&gdp$year==1983] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1983]*0.17
-gdp$rgdpna[gdp$iso3c=="DDR"&gdp$year==1984] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1984]*0.18
-gdp$rgdpna[gdp$iso3c=="DDR"&gdp$year==1985] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1985]*0.18
-gdp$rgdpna[gdp$iso3c=="DDR"&gdp$year==1986] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1986]*0.18
-gdp$rgdpna[gdp$iso3c=="DDR"&gdp$year==1987] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1987]*0.18
-gdp$rgdpna[gdp$iso3c=="DDR"&gdp$year==1988] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1988]*0.18
-gdp$rgdpna[gdp$iso3c=="DDR"&gdp$year==1989] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1989]*0.17
-gdp$rgdpna[gdp$iso3c=="DDR"&gdp$year==1990] <- gdp$rgdpna[gdp$iso3c=="DEU"&gdp$year==1990]*0.17
+#### YEM/YAR/YPR ----------------------------------------------------------------------
+# pwt data contains combined Yemen beginning in 1989, while gl separates North and South Yemen from
+# 1950 / 1967 (respectively) through to 1990 (inclusive)
+# Yemen coded as beginning starting in 1991
 
-gdp$iso3c[gdp$iso3c=="DEU"&gdp$year<=1990] <- "BRD"
+# calculate the proportions of Yemen's 1989 and 1990 economies
+gdp.north.yemen.prop.89 <- gdp$gdp.gl[gdp$iso3c=="YAR"&gdp$year==1989]/(gdp$gdp.gl[gdp$iso3c=="YAR"&gdp$year==1989]+
+                                                                      gdp$gdp.gl[gdp$iso3c=="YPR"&gdp$year==1989])
+gdp.south.yemen.prop.89 <- gdp$gdp.gl[gdp$iso3c=="YPR"&gdp$year==1989]/(gdp$gdp.gl[gdp$iso3c=="YAR"&gdp$year==1989]+
+                                                                      gdp$gdp.gl[gdp$iso3c=="YPR"&gdp$year==1989])
+gdp.north.yemen.prop.90 <- gdp$gdp.gl[gdp$iso3c=="YAR"&gdp$year==1990]/(gdp$gdp.gl[gdp$iso3c=="YAR"&gdp$year==1990]+
+                                                                         gdp$gdp.gl[gdp$iso3c=="YPR"&gdp$year==1990])
+gdp.south.yemen.prop.90 <- gdp$gdp.gl[gdp$iso3c=="YPR"&gdp$year==1990]/(gdp$gdp.gl[gdp$iso3c=="YAR"&gdp$year==1990]+
+                                                                         gdp$gdp.gl[gdp$iso3c=="YPR"&gdp$year==1990])
 
-# YEM
-gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1950] <- 36403208086*0.766175876
-gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1951] <- 36403208086*0.782980248
-gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1952] <- 36403208086*0.802124909
-gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1953] <- 36403208086*0.823335607
-gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1954] <- 36403208086*0.845934022
-gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1955] <- 36403208086*0.86899501
-gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1956] <- 36403208086*0.89063537
-gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1957] <- 36403208086*0.913630538
-gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1958] <- 36403208086*0.936079029
-gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1959] <- 36403208086*0.959410613
-gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1960] <- 36403208086*0.985146478
-gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1961] <- 36403208086*1.012566255
-gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1962] <- 36403208086*1.042024643
-gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1963] <- 36403208086*1.075295142
-gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1964] <- 36403208086*1.103530363
-gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1965] <- 36403208086*1.132005097
-gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1966] <- 36403208086*1.163361313
-gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1967] <- 36403208086*2.159944126*0.553142898
-gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1968] <- 36403208086*2.239144624*0.545840546
-gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1969] <- 36403208086*2.234323263*0.508364272
-gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1970] <- 36403208086*2.578976526*0.531671379
-gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1971] <- 36403208086*2.069952701*0.717879913
-gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1972] <- 36403208086*2.306435246*0.740464405
-gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1973] <- 36403208086*2.423371077*0.740840973
-gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1974] <- 36403208086*2.791522303*0.765063879
-gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1975] <- 36403208086*3.13662534*0.783567826
-gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1976] <- 36403208086*3.339016457*0.785461425
-gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1977] <- 36403208086*3.440034666*0.785064651
-gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1978] <- 36403208086*3.539224523*0.777036978
-gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1979] <- 36403208086*3.756606288*0.781373105
-gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1980] <- 36403208086*4.08193754*0.78433014
-gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1981] <- 36403208086*4.425800955*0.789147717
-gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1982] <- 36403208086*4.609332634*0.786674748
-gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1983] <- 36403208086*4.728460657*0.778670468
-gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1984] <- 36403208086*4.873117941*0.772559119
-gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1985] <- 36403208086*5.699428275*0.792284933
-gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1986] <- 36403208086*5.872827234*0.79340554
-gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1987] <- 36403208086*6.301204335*0.795408931
-gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1988] <- 36403208086*7.246468998*0.809809327
-gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1989] <- 36403208086*0.409221266
+# calculate gdp.gl proportions for YAR (1950-1988) and YPR (1967-1988) based on 1989 gl GDPs
+yar.multiplier <- gdp %>%
+  dplyr::filter(iso3c == "YAR",
+                year < 1989) %>%
+  dplyr::mutate(yar.multiplier = gdp.gl / gdp$gdp.gl[gdp$iso3c=="YAR"&gdp$year==1989]) %>%
+  dplyr::select(year,yar.multiplier)
+ypr.multiplier <- gdp %>%
+  dplyr::filter(iso3c == "YPR",
+                year < 1989) %>%
+  dplyr::mutate(ypr.multiplier = gdp.gl / gdp$gdp.gl[gdp$iso3c=="YPR"&gdp$year==1989]) %>%
+  dplyr::select(year,ypr.multiplier)
 
-gdp$rgdpna[gdp$iso3c=="YPR"&gdp$year==1967] <- 36403208086*2.159944126*0.446857102
-gdp$rgdpna[gdp$iso3c=="YPR"&gdp$year==1968] <- 36403208086*2.239144624*0.454159454
-gdp$rgdpna[gdp$iso3c=="YPR"&gdp$year==1969] <- 36403208086*2.234323263*0.491635728
-gdp$rgdpna[gdp$iso3c=="YPR"&gdp$year==1970] <- 36403208086*2.578976526*0.468328621
-gdp$rgdpna[gdp$iso3c=="YPR"&gdp$year==1971] <- 36403208086*2.069952701*0.282120087
-gdp$rgdpna[gdp$iso3c=="YPR"&gdp$year==1972] <- 36403208086*2.306435246*0.259535595
-gdp$rgdpna[gdp$iso3c=="YPR"&gdp$year==1973] <- 36403208086*2.423371077*0.259159027
-gdp$rgdpna[gdp$iso3c=="YPR"&gdp$year==1974] <- 36403208086*2.791522303*0.234936121
-gdp$rgdpna[gdp$iso3c=="YPR"&gdp$year==1975] <- 36403208086*3.13662534*0.216432174
-gdp$rgdpna[gdp$iso3c=="YPR"&gdp$year==1976] <- 36403208086*3.339016457*0.214538575
-gdp$rgdpna[gdp$iso3c=="YPR"&gdp$year==1977] <- 36403208086*3.440034666*0.214935349
-gdp$rgdpna[gdp$iso3c=="YPR"&gdp$year==1978] <- 36403208086*3.539224523*0.222963022
-gdp$rgdpna[gdp$iso3c=="YPR"&gdp$year==1979] <- 36403208086*3.756606288*0.218626895
-gdp$rgdpna[gdp$iso3c=="YPR"&gdp$year==1980] <- 36403208086*4.08193754*0.21566986
-gdp$rgdpna[gdp$iso3c=="YPR"&gdp$year==1981] <- 36403208086*4.425800955*0.210852283
-gdp$rgdpna[gdp$iso3c=="YPR"&gdp$year==1982] <- 36403208086*4.609332634*0.213325252
-gdp$rgdpna[gdp$iso3c=="YPR"&gdp$year==1983] <- 36403208086*4.728460657*0.221329532
-gdp$rgdpna[gdp$iso3c=="YPR"&gdp$year==1984] <- 36403208086*4.873117941*0.227440881
-gdp$rgdpna[gdp$iso3c=="YPR"&gdp$year==1985] <- 36403208086*5.699428275*0.207715067
-gdp$rgdpna[gdp$iso3c=="YPR"&gdp$year==1986] <- 36403208086*5.872827234*0.20659446
-gdp$rgdpna[gdp$iso3c=="YPR"&gdp$year==1987] <- 36403208086*6.301204335*0.204591069
-gdp$rgdpna[gdp$iso3c=="YPR"&gdp$year==1988] <- 36403208086*7.246468998*0.190190673
-gdp$rgdpna[gdp$iso3c=="YPR"&gdp$year==1989] <- 36403208086*0.590778734
-gdp$rgdpna[gdp$iso3c=="YPR"&gdp$year==1990] <- 36403208086*0.590778734 # rough estimate - double check
 
-gdp$iso3c[gdp$iso3c=="YEM"&gdp$year<=1990] <- "YAR"
+gdp_split_yemen <- data.frame(iso3c = c(rep("YAR",41),rep("YPR",24)), year = c(1950:1990,1967:1990),
+                              # calculate 1989 and 1990 pwt estimates based on gl ratios between North and South Yemen
+                              gdp.pwt.est2 = c(rep(NA,39),
+                                              gdp.north.yemen.prop.89*gdp$gdp.pwt[gdp$iso3c=="YEM"&gdp$year==1989],
+                                              gdp.north.yemen.prop.90*gdp$gdp.pwt[gdp$iso3c=="YEM"&gdp$year==1990],
+                                              rep(NA,22),
+                                              gdp.south.yemen.prop.89*gdp$gdp.pwt[gdp$iso3c=="YEM"&gdp$year==1989],
+                                              gdp.south.yemen.prop.90*gdp$gdp.pwt[gdp$iso3c=="YEM"&gdp$year==1990])) %>%
+  dplyr::full_join(yar.multiplier,by="year") %>%
+  dplyr::full_join(ypr.multiplier,by="year") %>%
+  dplyr::mutate(gdp.pwt.est2 = ifelse(iso3c=="YAR"&is.na(gdp.pwt.est2),
+                                     gdp_split_yemen$gdp.pwt.est2[gdp_split_yemen$iso3c=="YAR"&gdp_split_yemen$year==1989]*yar.multiplier,
+                                     gdp.pwt.est2),
+                gdp.pwt.est2 = ifelse(iso3c=="YPR"&is.na(gdp.pwt.est2),
+                                     gdp_split_yemen$gdp.pwt.est2[gdp_split_yemen$iso3c=="YPR"&gdp_split_yemen$year==1989]*ypr.multiplier,
+                                     gdp.pwt.est2)) %>%
+  dplyr::select(-c(yar.multiplier,ypr.multiplier))
 
-# KSV and SRB
-gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2008] <- gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2008]*0.823933441
-gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2009] <- gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2009]*0.822333889
-gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2010] <- gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2010]*0.841862199
-gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2011] <- gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2011]*0.831400579
-gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2012] <- gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2012]*0.831400579
-gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2013] <- gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2013]*0.831400579
-gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2014] <- gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2014]*0.831400579
-gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2015] <- gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2015]*0.831400579
-gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2016] <- gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2016]*0.831400579
-gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2017] <- gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2017]*0.831400579
+# merge pwt split estimates into the main dataset
+gdp <- gdp %>%
+  dplyr::full_join(gdp_split_yemen,by=c("iso3c","year")) %>%
+  dplyr::mutate(gdp.pwt.est = dplyr::coalesce(gdp.pwt.est,gdp.pwt.est2)) %>%
+  # filter out YEM entries for 1950-1990
+  dplyr::filter(iso3c != "YEM" | year > 1990) %>%
+  dplyr::select(-gdp.pwt.est2)
 
-gdp$rgdpna[gdp$iso3c=="KSV"&gdp$year==2008] <- gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2008]*0.176066559
-gdp$rgdpna[gdp$iso3c=="KSV"&gdp$year==2009] <- gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2009]*0.177666111
-gdp$rgdpna[gdp$iso3c=="KSV"&gdp$year==2010] <- gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2010]*0.158137801
-gdp$rgdpna[gdp$iso3c=="KSV"&gdp$year==2011] <- gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2011]*0.168599421
-gdp$rgdpna[gdp$iso3c=="KSV"&gdp$year==2012] <- gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2012]*0.168599421
-gdp$rgdpna[gdp$iso3c=="KSV"&gdp$year==2013] <- gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2013]*0.168599421
-gdp$rgdpna[gdp$iso3c=="KSV"&gdp$year==2014] <- gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2014]*0.168599421
-gdp$rgdpna[gdp$iso3c=="KSV"&gdp$year==2015] <- gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2015]*0.168599421
-gdp$rgdpna[gdp$iso3c=="KSV"&gdp$year==2016] <- gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2016]*0.168599421
-gdp$rgdpna[gdp$iso3c=="KSV"&gdp$year==2017] <- gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2017]*0.168599421
+#######
+# original estimates - appear to be different methodology for calculating than what is done above
+# # YEM
+# gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1950] <- 36403208086*0.766175876
+# gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1951] <- 36403208086*0.782980248
+# gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1952] <- 36403208086*0.802124909
+# gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1953] <- 36403208086*0.823335607
+# gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1954] <- 36403208086*0.845934022
+# gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1955] <- 36403208086*0.86899501
+# gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1956] <- 36403208086*0.89063537
+# gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1957] <- 36403208086*0.913630538
+# gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1958] <- 36403208086*0.936079029
+# gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1959] <- 36403208086*0.959410613
+# gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1960] <- 36403208086*0.985146478
+# gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1961] <- 36403208086*1.012566255
+# gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1962] <- 36403208086*1.042024643
+# gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1963] <- 36403208086*1.075295142
+# gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1964] <- 36403208086*1.103530363
+# gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1965] <- 36403208086*1.132005097
+# gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1966] <- 36403208086*1.163361313
+# gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1967] <- 36403208086*2.159944126*0.553142898
+# gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1968] <- 36403208086*2.239144624*0.545840546
+# gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1969] <- 36403208086*2.234323263*0.508364272
+# gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1970] <- 36403208086*2.578976526*0.531671379
+# gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1971] <- 36403208086*2.069952701*0.717879913
+# gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1972] <- 36403208086*2.306435246*0.740464405
+# gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1973] <- 36403208086*2.423371077*0.740840973
+# gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1974] <- 36403208086*2.791522303*0.765063879
+# gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1975] <- 36403208086*3.13662534*0.783567826
+# gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1976] <- 36403208086*3.339016457*0.785461425
+# gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1977] <- 36403208086*3.440034666*0.785064651
+# gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1978] <- 36403208086*3.539224523*0.777036978
+# gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1979] <- 36403208086*3.756606288*0.781373105
+# gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1980] <- 36403208086*4.08193754*0.78433014
+# gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1981] <- 36403208086*4.425800955*0.789147717
+# gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1982] <- 36403208086*4.609332634*0.786674748
+# gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1983] <- 36403208086*4.728460657*0.778670468
+# gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1984] <- 36403208086*4.873117941*0.772559119
+# gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1985] <- 36403208086*5.699428275*0.792284933
+# gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1986] <- 36403208086*5.872827234*0.79340554
+# gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1987] <- 36403208086*6.301204335*0.795408931
+# gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1988] <- 36403208086*7.246468998*0.809809327
+# gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1989] <- 36403208086*0.409221266
+# 
+# gdp$rgdpna[gdp$iso3c=="YPR"&gdp$year==1967] <- 36403208086*2.159944126*0.446857102
+# gdp$rgdpna[gdp$iso3c=="YPR"&gdp$year==1968] <- 36403208086*2.239144624*0.454159454
+# gdp$rgdpna[gdp$iso3c=="YPR"&gdp$year==1969] <- 36403208086*2.234323263*0.491635728
+# gdp$rgdpna[gdp$iso3c=="YPR"&gdp$year==1970] <- 36403208086*2.578976526*0.468328621
+# gdp$rgdpna[gdp$iso3c=="YPR"&gdp$year==1971] <- 36403208086*2.069952701*0.282120087
+# gdp$rgdpna[gdp$iso3c=="YPR"&gdp$year==1972] <- 36403208086*2.306435246*0.259535595
+# gdp$rgdpna[gdp$iso3c=="YPR"&gdp$year==1973] <- 36403208086*2.423371077*0.259159027
+# gdp$rgdpna[gdp$iso3c=="YPR"&gdp$year==1974] <- 36403208086*2.791522303*0.234936121
+# gdp$rgdpna[gdp$iso3c=="YPR"&gdp$year==1975] <- 36403208086*3.13662534*0.216432174
+# gdp$rgdpna[gdp$iso3c=="YPR"&gdp$year==1976] <- 36403208086*3.339016457*0.214538575
+# gdp$rgdpna[gdp$iso3c=="YPR"&gdp$year==1977] <- 36403208086*3.440034666*0.214935349
+# gdp$rgdpna[gdp$iso3c=="YPR"&gdp$year==1978] <- 36403208086*3.539224523*0.222963022
+# gdp$rgdpna[gdp$iso3c=="YPR"&gdp$year==1979] <- 36403208086*3.756606288*0.218626895
+# gdp$rgdpna[gdp$iso3c=="YPR"&gdp$year==1980] <- 36403208086*4.08193754*0.21566986
+# gdp$rgdpna[gdp$iso3c=="YPR"&gdp$year==1981] <- 36403208086*4.425800955*0.210852283
+# gdp$rgdpna[gdp$iso3c=="YPR"&gdp$year==1982] <- 36403208086*4.609332634*0.213325252
+# gdp$rgdpna[gdp$iso3c=="YPR"&gdp$year==1983] <- 36403208086*4.728460657*0.221329532
+# gdp$rgdpna[gdp$iso3c=="YPR"&gdp$year==1984] <- 36403208086*4.873117941*0.227440881
+# gdp$rgdpna[gdp$iso3c=="YPR"&gdp$year==1985] <- 36403208086*5.699428275*0.207715067
+# gdp$rgdpna[gdp$iso3c=="YPR"&gdp$year==1986] <- 36403208086*5.872827234*0.20659446
+# gdp$rgdpna[gdp$iso3c=="YPR"&gdp$year==1987] <- 36403208086*6.301204335*0.204591069
+# gdp$rgdpna[gdp$iso3c=="YPR"&gdp$year==1988] <- 36403208086*7.246468998*0.190190673
+# gdp$rgdpna[gdp$iso3c=="YPR"&gdp$year==1989] <- 36403208086*0.590778734
+# gdp$rgdpna[gdp$iso3c=="YPR"&gdp$year==1990] <- 36403208086*0.590778734 # rough estimate - double check
+# 
+# gdp$iso3c[gdp$iso3c=="YEM"&gdp$year<=1990] <- "YAR"
 
-# YUG
-# use gl
-gdp$rgdpna[gdp$iso3c=="YUG"&gdp$year<=1991] <- gdp$gdp[gdp$iso3c=="YUG"&gdp$year<=1991]
+#### ZMB ----------------------------------------------------------------------
+# 1955-1963: ZMB coded as gaining independence in 1964
 
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "ZMB", 2011)
+
+#### ZWE ----------------------------------------------------------------------
+# 1955-1964: ZWE coded as gaining independence in 1965
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "ZMB", 2011)
+
+#### formatting ----------------------------------------------------------------------
 gdp <- gdp %>%
   dplyr::select(iso3c,year,rgdpna) %>%
   dplyr::rename(gdp = rgdpna)
