@@ -3467,30 +3467,31 @@
 "MNE","Montenegro",2014,1,8
 "MNE","Montenegro",2015,1,9
 "MNE","Montenegro",2016,1,10
-"MKD","North Macedonia",1993,1,0
-"MKD","North Macedonia",1994,1,1
-"MKD","North Macedonia",1995,1,2
-"MKD","North Macedonia",1996,1,3
-"MKD","North Macedonia",1997,1,4
-"MKD","North Macedonia",1998,1,5
-"MKD","North Macedonia",1999,1,6
-"MKD","North Macedonia",2000,1,7
-"MKD","North Macedonia",2001,1,8
-"MKD","North Macedonia",2002,1,9
-"MKD","North Macedonia",2003,1,10
-"MKD","North Macedonia",2004,1,11
-"MKD","North Macedonia",2005,1,12
-"MKD","North Macedonia",2006,1,13
-"MKD","North Macedonia",2007,1,14
-"MKD","North Macedonia",2008,1,15
-"MKD","North Macedonia",2009,1,16
-"MKD","North Macedonia",2010,1,17
-"MKD","North Macedonia",2011,1,18
-"MKD","North Macedonia",2012,1,19
-"MKD","North Macedonia",2013,1,20
-"MKD","North Macedonia",2014,1,21
-"MKD","North Macedonia",2015,1,22
-"MKD","North Macedonia",2016,1,23
+"MKD","North Macedonia",1992,1,0
+"MKD","North Macedonia",1993,1,1
+"MKD","North Macedonia",1994,1,2
+"MKD","North Macedonia",1995,1,3
+"MKD","North Macedonia",1996,1,4
+"MKD","North Macedonia",1997,1,5
+"MKD","North Macedonia",1998,1,6
+"MKD","North Macedonia",1999,1,7
+"MKD","North Macedonia",2000,1,8
+"MKD","North Macedonia",2001,1,9
+"MKD","North Macedonia",2002,1,10
+"MKD","North Macedonia",2003,1,11
+"MKD","North Macedonia",2004,1,12
+"MKD","North Macedonia",2005,1,13
+"MKD","North Macedonia",2006,1,14
+"MKD","North Macedonia",2007,1,15
+"MKD","North Macedonia",2008,1,16
+"MKD","North Macedonia",2009,1,17
+"MKD","North Macedonia",2010,1,18
+"MKD","North Macedonia",2011,1,19
+"MKD","North Macedonia",2012,1,20
+"MKD","North Macedonia",2013,1,21
+"MKD","North Macedonia",2014,1,22
+"MKD","North Macedonia",2015,1,23
+"MKD","North Macedonia",2016,1,24
 "HRV","Croatia",1992,1,0
 "HRV","Croatia",1993,1,1
 "HRV","Croatia",1994,1,2
@@ -10575,7 +10576,7 @@
 "MLT","Malta",2017,1,53
 "ALB","Albania",2017,1,73
 "MNE","Montenegro",2017,1,11
-"MKD","North Macedonia",2017,1,24
+"MKD","North Macedonia",2017,1,25
 "HRV","Croatia",2017,1,25
 "SRB","Serbia",2017,1,25
 "BIH","Bosnia & Herzegovina",2017,1,25
@@ -10770,7 +10771,7 @@
 "MLT","Malta",2018,1,54
 "ALB","Albania",2018,1,74
 "MNE","Montenegro",2018,1,12
-"MKD","North Macedonia",2018,1,25
+"MKD","North Macedonia",2018,1,26
 "HRV","Croatia",2018,1,26
 "SRB","Serbia",2018,1,26
 "BIH","Bosnia & Herzegovina",2018,1,26
@@ -10965,7 +10966,7 @@
 "MLT","Malta",2019,1,55
 "ALB","Albania",2019,1,75
 "MNE","Montenegro",2019,1,13
-"MKD","North Macedonia",2019,1,26
+"MKD","North Macedonia",2019,1,27
 "HRV","Croatia",2019,1,27
 "SRB","Serbia",2019,1,27
 "BIH","Bosnia & Herzegovina",2019,1,27
@@ -14662,7 +14663,6 @@
 "DDR","East Germany",1992,0,38
 "SVK","Slovakia",1992,0,0
 "MNE","Montenegro",1992,0,0
-"MKD","North Macedonia",1992,0,0
 "YUG","Yugoslavia",1992,0,48
 "KSV","Kosovo",1992,0,0
 "ZAN","Zanzibar",1992,0,29

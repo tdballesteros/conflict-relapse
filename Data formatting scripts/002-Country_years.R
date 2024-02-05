@@ -28,6 +28,11 @@ cyears$iso3c[cyears$stateabb=="CZE"] <- "CZE"
 cyears$iso3c[cyears$stateabb=="GDR"] <- "DDR"
 cyears$iso3c[cyears$stateabb=="GFR"] <- "BRD"
 
+# recode MKD independence year as 1992 - 8 April 1993 date references when Greece allowed recognition
+# of an independent country under the Former Yugoslav Republic of Macedonia name; SVN, HRV, BIH all coded
+# as becoming independend in 1992
+cyears$styear[cyears$iso3c=="MKD"] <- 1992
+
 ### calculate year of independence ----------------------------------------------------------------------
 # note: CZE and SYR have two different dates
 # CZE: 1945 for Czechoslovakia; 1993 for Czechia

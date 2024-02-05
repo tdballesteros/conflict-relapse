@@ -230,6 +230,14 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "ARE", 2011)
 # on gdp.gl estimate
 gdp <- gdp_growth_estimator_gl_func(gdp, "ARG", 2011)
 
+# plot gdp.pwt.est and gdp.gl.est line graphs
+gdp.arg <- gdp %>%
+  dplyr::filter(iso3c == "ARG") %>%
+  dplyr::arrange(year)
+
+plot(gdp.arg$year,gdp.arg$gdp.pwt.est, type = 'l')
+lines(gdp.arg$year,gdp.arg$gdp.gl.est, type = 'l')
+
 #### ARM ----------------------------------------------------------------------
 # 1990: ARM coded as gaining independence in 1991
 
@@ -834,6 +842,82 @@ gdp <- gdp_growth_estimator_pwt_func(gdp, "KOR", 1970)
 gdp <- gdp_growth_estimator_gl_func(gdp, "KOR", 2011)
 
 #### KSV/MNE/SRB/YUG(x) ----------------------------------------------------------------------
+# Data time frames (note all gl data extends only through 2011, inclusive):
+## BIH - pwt 1990-; gl 1992-; coded as starting 1992
+## HRV - pwt 1990-; gl 1991-; coded as starting 1992
+## MKD - pwt 1990-; gl 1991-; coded as starting 1992
+## SLN - pwt 1990-; gl 1992-; coded as starting 1992
+## KSV - pwt no data; gl 2008-; coded as starting 2008
+## MNE - pwt 1990-; gl 2006-; coded as starting in 2006
+## SRB - pwt 1990-; gl 2006-; coded as starting in 1992
+## YUG - pwt no data; gl 1950-2006; coded as ending 1991
+
+## YUG 1992-2005 gl data is for Serbia and Montenegro
+## SRB 2008- pwt data is for both Serbia and Kosovo
+gdp.srb.ksv <- gdp %>%
+  dplyr::filter(iso3c %in% c("SRB","KSV"),
+                year >= 2008) %>%
+  # calculate gl ratio between SRB and KSV GDP for 2008-2011
+  dplyr::group_by(year) %>%
+  dplyr::mutate(multiplier = gdp.gl / sum(gdp.gl,na.rm=TRUE)) %>%
+  dplyr::ungroup() %>%
+  dplyr::select(iso3c,year,multiplier) %>%
+  dplyr::full_join(expand.grid(iso3c = c("SRB","KSV"), year = c(2008:2017))) %>%
+  dplyr::group_by(iso3c) %>%
+  dplyr::arrange(year) %>%
+  # extends 2011 ratios through 2017
+  dplyr::mutate(multiplier = imputeTS::na_interpolation(multiplier, option = "linear")) %>%
+  dplyr::ungroup()
+  
+# SRB pwt data 2008-2017
+srb.pwt.08.17 <- gdp %>%
+  dplyr::filter(iso3c == "SRB",
+                year %in% c(2008:2017)) %>%
+  dplyr::select(year,gdp.pwt)
+
+# merge SRB pwt estimates with ratio dataset
+gdp.srb.ksv <- gdp.srb.ksv %>%
+  dplyr::full_join(srb.pwt.08.17,by="year") %>%
+  dplyr::mutate(gdp.pwt.est2 = gdp.pwt * multiplier) %>%
+  dplyr::select(-c(multiplier,gdp.pwt))
+
+# merge gdp.pwt.est2 estimates with main gdp dataset
+gdp <- gdp %>%
+  dplyr::full_join(gdp.srb.ksv,by=c("iso3c","year")) %>%
+  dplyr::mutate(gdp.pwt.est = ifelse(iso3c %in% c("SRB","KSV")&year %in% c(2008:2017),gdp.pwt.est2,gdp.pwt.est)) %>%
+  dplyr::select(-gdp.pwt.est2)
+  
+## SRB and MNE coded separately gdp.pwt 1991-2005 and together (as YUG) for gl ???-2006
+## note gl has YUG, SRB, and MNE values for 2006, though SRB alone is larger than YUG
+gdp.srb.mne <- gdp %>%
+  dplyr::filter(iso3c %in% c("YUG","SRB","MNE")) %>%
+  dplyr::filter(year %in% c(1991:2005)) %>%
+  dplyr::group_by(year) %>%
+  dplyr::summarise(gdp.pwt.est = sum(gdp.pwt,na.rm=TRUE),
+                   gdp.gl.est = sum(gdp.gl,na.rm=TRUE)) %>%
+  dplyr::ungroup() %>%
+  dplyr::mutate(iso3c = "SRB",
+                country = "Serbia and Montenegro",
+                gdp.pwt = NA,
+                gdp.gl = gdp.gl.est)
+
+gdp <- gdp %>%
+  # filter out YUG/SRB/MNE for 1991-2005
+  dplyr::filter(iso3c %!in% c("YUG","SRB","MNE") | year %!in% c(1991:2005)) %>%
+  rbind(gdp.srb.mne)
+
+
+
+
+gdp.yug.full <- gdp %>%
+  dplyr::filter(iso3c %in% c("YUG","KSV","SRB","MNE","MKD","HRV","BIH","SVN"))
+
+gdp.srb.ksv.mne <- gdp %>%
+  dplyr::filter(iso3c %in% c("YUG","KSV","SRB","MNE")) %>%
+  dplyr::filter(year > 1990)
+
+
+
 # KSV and SRB
 gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2008] <- gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2008]*0.823933441
 gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2009] <- gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2009]*0.822333889
@@ -1023,8 +1107,6 @@ gdp <- gdp_growth_estimator_pwt_func(gdp, "MMR", 1962)
 # 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
 # on gdp.gl estimate
 gdp <- gdp_growth_estimator_gl_func(gdp, "MLT", 2011)
-
-#### MNE(x) ----------------------------------------------------------------------
 
 #### MNG ----------------------------------------------------------------------
 # 1950-1969: apply gdp.gl proportion to 1970 gdp.gl estimate and use that ratio
@@ -1315,8 +1397,6 @@ gdp$gdp.pwt.est[gdp$iso3c=="SMR"] <- gdp$gdp.gl[gdp$iso3c=="SMR"]
 #### SOM(x) ----------------------------------------------------------------------
 # no gdp.pwt data, so use gdp.gl data as an estimate
 gdp$gdp.pwt.est[gdp$iso3c=="SOM"] <- gdp$gdp.gl[gdp$iso3c=="SOM"]
-
-#### SRB(x) ----------------------------------------------------------------------
 
 #### SSD(x) ----------------------------------------------------------------------
 # no gdp.pwt data, so use gdp.gl data as an estimate
