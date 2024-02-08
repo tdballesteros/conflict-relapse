@@ -1,5 +1,15 @@
 # This script formats two GDP estimates and creates a composite estimate score.
 
+# TODO
+## gl but no pwt countries: AFG, AND, CUB, ERI, FSM, GUY, KIR, LBY, LIE, MCO, MHL, NRU, PLW,
+## PRK, SLB, SMR, SOM, SYC, TLS, TON, TUV
+###
+## ISR/PSE (/JOR?)
+## RUS/SOV
+## YUG
+## NAM/ZAF
+## MYS/SGP
+
 ### load libraries ----------------------------------------------------------------------
 library(readxl)
 library(utils)
@@ -113,8 +123,18 @@ gdp_growth_estimator_pwt_func <- function(df = gdp, iso, yr){
   # the gdp.gl baseline to estimate the proportions from
   baseline <- df$gdp.gl[df$iso3c==iso&df$year==yr]
   
+  if(is.na(baseline)){
+    # if baseline based on gdp.gl is NA, use gdp.gl.est
+    baseline <- df$gdp.gl.est[df$iso3c==iso&df$year==yr]
+  }
+  
   # the gdp.pwt relative gdp to apply the proportions to
   relative <- df$gdp.pwt[df$iso3c==iso&df$year==yr]
+  
+  if(is.na(relative)){
+    # if relative based on gdp.pwt is NA, use gdp.pwt.est
+    relative <- df$gdp.pwt.est[df$iso3c==iso&df$year==yr]
+  }
   
   df <- df %>%
     dplyr::mutate(prop = relative * gdp.gl / baseline,
@@ -132,8 +152,18 @@ gdp_growth_estimator_gl_func <- function(df = gdp, iso, yr){
   # the gdp.pwt baseline to estimate the proportions from
   baseline <- df$gdp.pwt[df$iso3c==iso&df$year==yr]
   
+  if(is.na(baseline)){
+    # if baseline based on gdp.pwt is NA, use gdp.pwt.est
+    baseline <- df$gdp.pwt.est[df$iso3c==iso&df$year==yr]
+  }
+  
   # the gdp.gl relative gdp to apply the proportions to
   relative <- df$gdp.gl[df$iso3c==iso&df$year==yr]
+  
+  if(is.na(relative)){
+    # if baseline based on gdp.gl is NA, use gdp.gl.est
+    relative <- df$gdp.gl.est[df$iso3c==iso&df$year==yr]
+  }
   
   df <- df %>%
     dplyr::mutate(prop = relative * gdp.pwt / baseline,
@@ -145,58 +175,60 @@ gdp_growth_estimator_gl_func <- function(df = gdp, iso, yr){
 }
 
 ### calculate estimates ----------------------------------------------------------------------
-# modifications calculated on Excel workbook unless otherwise denoted
 
 #### AFG(x) ----------------------------------------------------------------------
 # no gdp.pwt data, so use gdp.gl data as an estimate
 gdp$gdp.pwt.est[gdp$iso3c=="AFG"] <- gdp$gdp.gl[gdp$iso3c=="AFG"]
 
-# calculate the average differences (absolute differences and % differences) between
-# pwt and gl data for countries most comparable to AFG: PAK, IRN, TJK, TKM, KGZ, UZB
-gdp_afg_compare <- gdp %>%
-  dplyr::filter(iso3c %in% c("PAK","IRN","TJK","TKM","KGZ","UZB","BGD")) %>%
-  # only comparing original data (after converting to 2019$), not estimates
-  dplyr::select(-c(gdp.pwt.est,gdp.gl.est)) %>%
-  # for purposes of this comparison, recode BGD 1950-1970 as PAK for pwt estimates, as
-  # gl estimates for PAK include BGD before BGD independence, while pwt estimates do not
-  dplyr::mutate(gdp.gl = ifelse(iso3c=="BGD",NA,gdp.gl),
-                iso3c = ifelse(iso3c=="BGD"&year<1971,"PAK",iso3c)) %>%
-  dplyr::group_by(iso3c,year) %>%
-  dplyr::summarise(gdp.pwt = sum(gdp.pwt,na.rm=TRUE),
-                  gdp.gl = sum(gdp.gl,na.rm=TRUE)) %>%
-  dplyr::ungroup() %>%
-  dplyr::filter(iso3c != "BGD") %>%
-  # converts gdp values of 0 back into NAs and calculate comparison metrics
-  dplyr::mutate(gdp.pwt = ifelse(gdp.pwt==0,NA,gdp.pwt),
-                gdp.gl = ifelse(gdp.gl==0,NA,gdp.gl),
-                # BGD pwt estimates start in 1959, so prior years' estimates are omitting East Pakistan;
-                # replace estimates with NA
-                gdp.pwt = ifelse(iso3c=="PAK"&year<1959,NA,gdp.pwt),
-                pwt.minus.gl = gdp.pwt - gdp.gl,
-                pwt.perc.gl = gdp.pwt/gdp.gl)
+# # calculate the average differences (absolute differences and % differences) between
+# # pwt and gl data for countries most comparable to AFG: PAK, IRN, TJK, TKM, KGZ, UZB
+# gdp_afg_compare <- gdp %>%
+#   dplyr::filter(iso3c %in% c("PAK","IRN","TJK","TKM","KGZ","UZB","BGD")) %>%
+#   # only comparing original data (after converting to 2019$), not estimates
+#   dplyr::select(-c(gdp.pwt.est,gdp.gl.est)) %>%
+#   # for purposes of this comparison, recode BGD 1950-1970 as PAK for pwt estimates, as
+#   # gl estimates for PAK include BGD before BGD independence, while pwt estimates do not
+#   dplyr::mutate(gdp.gl = ifelse(iso3c=="BGD",NA,gdp.gl),
+#                 iso3c = ifelse(iso3c=="BGD"&year<1971,"PAK",iso3c)) %>%
+#   dplyr::group_by(iso3c,year) %>%
+#   dplyr::summarise(gdp.pwt = sum(gdp.pwt,na.rm=TRUE),
+#                   gdp.gl = sum(gdp.gl,na.rm=TRUE)) %>%
+#   dplyr::ungroup() %>%
+#   dplyr::filter(iso3c != "BGD") %>%
+#   # converts gdp values of 0 back into NAs and calculate comparison metrics
+#   dplyr::mutate(gdp.pwt = ifelse(gdp.pwt==0,NA,gdp.pwt),
+#                 gdp.gl = ifelse(gdp.gl==0,NA,gdp.gl),
+#                 # BGD pwt estimates start in 1959, so prior years' estimates are omitting East Pakistan;
+#                 # replace estimates with NA
+#                 gdp.pwt = ifelse(iso3c=="PAK"&year<1959,NA,gdp.pwt),
+#                 pwt.minus.gl = gdp.pwt - gdp.gl,
+#                 pwt.perc.gl = gdp.pwt/gdp.gl)
 
-# average differences by year (collapse countries)
-gdp_afg_compare_year <- gdp_afg_compare %>%
-  dplyr::select(iso3c,year,pwt.minus.gl,pwt.perc.gl) %>%
-  na.omit() %>%
-  dplyr::group_by(year) %>%
-  dplyr::summarise(pwt.minus.gl.avg = mean(pwt.minus.gl,na.rm=TRUE),
-                   pwt.perc.gl.avg = mean(pwt.perc.gl,na.rm=TRUE),
-                   n = n()) %>%
-  dplyr::ungroup()
+# # average differences by year (collapse countries)
+# gdp_afg_compare_year <- gdp_afg_compare %>%
+#   dplyr::select(iso3c,year,pwt.minus.gl,pwt.perc.gl) %>%
+#   na.omit() %>%
+#   dplyr::group_by(year) %>%
+#   dplyr::summarise(pwt.minus.gl.avg = mean(pwt.minus.gl,na.rm=TRUE),
+#                    pwt.perc.gl.avg = mean(pwt.perc.gl,na.rm=TRUE),
+#                    n = n()) %>%
+#   dplyr::ungroup()
 
-# average differences by country (collapse years)
-gdp_afg_compare_country <- gdp_afg_compare %>%
-  dplyr::select(iso3c,year,pwt.minus.gl,pwt.perc.gl) %>%
-  na.omit() %>%
-  dplyr::group_by(iso3c) %>%
-  dplyr::summarise(pwt.minus.gl.avg = mean(pwt.minus.gl,na.rm=TRUE),
-                   pwt.perc.gl.avg = mean(pwt.perc.gl,na.rm=TRUE),
-                   n = n()) %>%
-  dplyr::ungroup()
-# 5/6 countries (PAK, TJK, TKM, KGZ, UZB) match closesly between pwt and gl metrics, while
-# IRN is slightly over twice as large in the pwt estimates versus the gl estimates.
+# # average differences by country (collapse years)
+# gdp_afg_compare_country <- gdp_afg_compare %>%
+#   dplyr::select(iso3c,year,pwt.minus.gl,pwt.perc.gl) %>%
+#   na.omit() %>%
+#   dplyr::group_by(iso3c) %>%
+#   dplyr::summarise(pwt.minus.gl.avg = mean(pwt.minus.gl,na.rm=TRUE),
+#                    pwt.perc.gl.avg = mean(pwt.perc.gl,na.rm=TRUE),
+#                    n = n()) %>%
+#   dplyr::ungroup()
+# # 5/6 countries (PAK, TJK, TKM, KGZ, UZB) match closesly between pwt and gl metrics, while
+# # IRN is slightly over twice as large in the pwt estimates versus the gl estimates.
 
+# # glm
+# gdp_afg_compare_glm <- stats::glm(pwt.perc.gl ~ iso3c + year + log(gdp.gl), data = gdp_afg_compare)
+# summary(gdp_afg_compare_glm)
 
 #### AGO ----------------------------------------------------------------------
 # 1970-1974: AGO coded as gaining independence in 1975
@@ -230,13 +262,13 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "ARE", 2011)
 # on gdp.gl estimate
 gdp <- gdp_growth_estimator_gl_func(gdp, "ARG", 2011)
 
-# plot gdp.pwt.est and gdp.gl.est line graphs
-gdp.arg <- gdp %>%
-  dplyr::filter(iso3c == "ARG") %>%
-  dplyr::arrange(year)
+# # plot gdp.pwt.est and gdp.gl.est line graphs
+# gdp.arg <- gdp %>%
+#   dplyr::filter(iso3c == "ARG") %>%
+#   dplyr::arrange(year)
 
-plot(gdp.arg$year,gdp.arg$gdp.pwt.est, type = 'l')
-lines(gdp.arg$year,gdp.arg$gdp.gl.est, type = 'l')
+# plot(gdp.arg$year,gdp.arg$gdp.pwt.est, type = 'l')
+# lines(gdp.arg$year,gdp.arg$gdp.gl.est, type = 'l')
 
 #### ARM ----------------------------------------------------------------------
 # 1990: ARM coded as gaining independence in 1991
@@ -295,11 +327,104 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "BEN", 2011)
 # on gdp.gl estimate
 gdp <- gdp_growth_estimator_gl_func(gdp, "BFA", 2011)
 
-#### BGD(x) ----------------------------------------------------------------------
+#### BGD/PAK(x) ----------------------------------------------------------------------
 # pwt codes PAK and BGD separate prior to 1971; gl codes PAK as unified until 1971,
 # with PAK not including East Pakistan/Bangladesh starting that year
 
 # BGD coded as gaining independence in 1971
+
+# pwt estimates code PAK and BGD separate through 1971, though BGD estimates only start in 1959
+# (Method 1) extend BGD estimates back based on PAK (pwt) growth rates
+# (Method 2) combine PAK and BGD, then extend back using PAK (gl) growth rates, removing 1950-1958 PAK pwt estimates
+
+# Method 1
+# extend BGD pwt estimates back to 1950 using PAK pwt growth rates, then combine BGD and PAK 1950-1970
+
+# pull dataset of just PAK to calculate growth rates
+gdp.bgd.method1.growth.rates <- gdp %>%
+  dplyr::filter(iso3c == "PAK")
+
+# pull reference year to calculate the growth rates relative to 1959
+gdp.bgd.method1.ref.gdp <- gdp.bgd.method1.growth.rates$gdp.pwt.est[gdp.bgd.method1.growth.rates$year==1959]
+
+# calculate growth rates relative to 1959
+gdp.bgd.method1.growth.rates <- gdp.bgd.method1.growth.rates %>%
+  dplyr::mutate(multiplier = gdp.pwt.est / gdp.bgd.method1.ref.gdp) %>%
+  dplyr::select(year,multiplier)
+
+# pull dataset of just BGD to apply growth rates to
+gdp.bgd.method1.estimates <- gdp %>%
+  dplyr::filter(iso3c == "BGD") %>%
+  dplyr::left_join(gdp.bgd.method1.growth.rates,by="year")
+
+gdp.bgd.method1.ref.gdp <- gdp.bgd.method1.estimates$gdp.pwt.est[gdp.bgd.method1.estimates$year==1959]
+
+gdp.bgd.method1.estimates <- gdp.bgd.method1.estimates %>%
+  dplyr::mutate(gdp.pwt.est = ifelse(is.na(gdp.pwt.est),gdp.bgd.method1.ref.gdp*multiplier,gdp.pwt.est)) %>%
+  dplyr::select(iso3c,year,gdp.pwt.est)
+
+gdp.bgd.method1.combined <- gdp %>%
+  dplyr::filter(iso3c == "PAK",
+                year < 1971) %>%
+  dplyr::select(iso3c,year,gdp.pwt.est) %>%
+  rbind(gdp.bgd.method1.estimates) %>%
+  dplyr::group_by(year) %>%
+  dplyr::summarise(gdp.pwt.est = sum(gdp.pwt.est,na.rm=TRUE)) %>%
+  dplyr::ungroup() %>%
+  dplyr::rename(gdp.pwt.est.method1 = gdp.pwt.est)
+
+# Method 2
+# remove pwt PAK 1950-1958 estimates, combine pwt PAK and BGD estimates, and use PAK gl growth rates to extend back to 1950
+
+# pull PAK and BGD gdp data
+gdp.bgd.method2 <- gdp %>%
+  dplyr::filter(iso3c %in% c("PAK","BGD"))
+
+# remove PAK pwt estimates from 1950-1958
+gdp.bgd.method2$gdp.pwt.est[gdp.bgd.method2$iso3c=="PAK"&gdp.bgd.method2$year %in% c(1950:1958)] <- NA
+
+gdp.bgd.method2.combined <- gdp.bgd.method2 %>%
+  # filter only years prior to BGD independence
+  dplyr::filter(year %in% c(1950:1970)) %>%
+  dplyr::group_by(year) %>%
+  dplyr::summarise(gdp.pwt.est = sum(gdp.pwt.est,na.rm=TRUE)) %>%
+  dplyr::ungroup() %>%
+  dplyr::mutate(gdp.pwt.est = ifelse(gdp.pwt.est==0,NA,gdp.pwt.est))
+
+gdp.bgd.method2.growth.rates <- gdp %>%
+  dplyr::filter(iso3c == "PAK")
+
+gdp.bgd.method2.ref.gdp <- gdp.bgd.method2.growth.rates$gdp.gl.est[gdp.bgd.method2.growth.rates$year==1959]
+
+gdp.bgd.method2.growth.rates <- gdp.bgd.method2.growth.rates %>%
+  dplyr::mutate(multiplier = gdp.gl.est / gdp.bgd.method2.ref.gdp) %>%
+  dplyr::select(year,multiplier)
+
+gdp.bgd.method2.ref.gdp2 <- gdp.bgd.method2.combined$gdp.pwt.est[gdp.bgd.method2.combined$year==1959]
+
+gdp.bgd.method2.combined <- gdp.bgd.method2.combined %>%
+  dplyr::left_join(gdp.bgd.method2.growth.rates,by="year") %>%
+  dplyr::mutate(gdp.pwt.est = ifelse(is.na(gdp.pwt.est),gdp.bgd.method2.ref.gdp2*multiplier,gdp.pwt.est)) %>%
+  dplyr::select(-multiplier) %>%
+  dplyr::rename(gdp.pwt.est.method2 = gdp.pwt.est)
+
+# combine methods
+gdp.bgd.combined.methods <- dplyr::full_join(gdp.bgd.method1.combined,gdp.bgd.method2.combined,by="year") %>%
+  dplyr::filter(year < 1971) %>%
+  dplyr::mutate(iso3c = "PAK",
+                # use the average between the two methods as the pwt estimate
+                gdp.pwt.est.avg = (gdp.pwt.est.method1 + gdp.pwt.est.method2) / 2) %>%
+  dplyr::select(iso3c,year,gdp.pwt.est.avg)
+
+gdp <- gdp %>%
+  dplyr::left_join(gdp.bgd.combined.methods,by=c("iso3c","year")) %>%
+  dplyr::mutate(gdp.pwt.est = ifelse(iso3c=="PAK"&year %in% c(1950:1970),gdp.pwt.est.avg,gdp.pwt.est)) %>%
+  dplyr::select(-gdp.pwt.est.avg)
+
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "BGD", 2011)
+gdp <- gdp_growth_estimator_gl_func(gdp, "PAK", 2011)
 
 #### BGR ----------------------------------------------------------------------
 # 1950-69: apply gdp.gl proportion to 1970 gdp.gl estimate and use that ratio
@@ -760,10 +885,14 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "IRQ", 2011)
 # on gdp.gl estimate
 gdp <- gdp_growth_estimator_gl_func(gdp, "ISL", 2011)
 
-#### ISR ----------------------------------------------------------------------
+#### ISR/PSE(x) ----------------------------------------------------------------------
 # 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
 # on gdp.gl estimate
 gdp <- gdp_growth_estimator_gl_func(gdp, "ISR", 2011)
+
+
+gdp.isr.pse <- gdp %>%
+  dplyr::filter(iso3c %in% c("ISR","PSE"))
 
 #### ITA ----------------------------------------------------------------------
 # 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
@@ -961,13 +1090,18 @@ gdp <- gdp_growth_estimator_pwt_func(gdp, "KWT", 1970)
 # on gdp.gl estimate
 gdp <- gdp_growth_estimator_gl_func(gdp, "KWT", 2011)
 
-#### LAO(x) ----------------------------------------------------------------------
-# 1954-1969: apply gdp.gl proportion to 1970 gdp.gl estimate and use that ratio
-# on gdp.pwt estimate
-gdp <- gdp_growth_estimator_pwt_func(gdp, "LAO", 1970)
-
+#### LAO ----------------------------------------------------------------------
 # 1953: LAO coded as gaining independence in 1953, though neither pwt nor gl have
 # estimates for that year
+# estimate 1953 by assuming 1953-1954 GDP growth is the same as 1954-1955 growth
+lao.54.55.growth <- gdp$gdp.gl.est[gdp$iso3c=="LAO"&gdp$year==1955]/gdp$gdp.gl.est[gdp$iso3c=="LAO"&gdp$year==1954]
+
+# estimate 1953 value
+gdp$gdp.gl.est[gdp$iso3c=="LAO"&gdp$year==1953] <- gdp$gdp.gl.est[gdp$iso3c=="LAO"&gdp$year==1954]/lao.54.55.growth
+
+# 1953-1969: apply gdp.gl proportion to 1970 gdp.gl estimate and use that ratio
+# on gdp.pwt estimate
+gdp <- gdp_growth_estimator_pwt_func(gdp, "LAO", 1970)
 
 # 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
 # on gdp.gl estimate
@@ -1221,11 +1355,6 @@ gdp <- gdp_growth_estimator_pwt_func(gdp, "OMN", 1970)
 # on gdp.gl estimate
 gdp <- gdp_growth_estimator_gl_func(gdp, "OMN", 2011)
 
-#### PAK(x) ----------------------------------------------------------------------
-# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
-# on gdp.gl estimate
-gdp <- gdp_growth_estimator_gl_func(gdp, "PAK", 2011)
-
 #### PAN ----------------------------------------------------------------------
 # 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
 # on gdp.gl estimate
@@ -1276,8 +1405,6 @@ gdp <- gdp_growth_estimator_pwt_func(gdp, "PRY", 1951)
 # on gdp.gl estimate
 gdp <- gdp_growth_estimator_gl_func(gdp, "PRY", 2011)
 
-#### PSE(x) ----------------------------------------------------------------------
-
 #### QAT ----------------------------------------------------------------------
 # 1970: QAT coded as gaining independence in 1971
 
@@ -1295,7 +1422,19 @@ gdp <- gdp_growth_estimator_pwt_func(gdp, "ROU", 1960)
 # on gdp.gl estimate
 gdp <- gdp_growth_estimator_gl_func(gdp, "ROU", 2011)
 
-#### RUS(x) ----------------------------------------------------------------------
+#### RUS/SOV(x) ----------------------------------------------------------------------
+
+gdp.sov.all <- gdp %>%
+  dplyr::filter(iso3c %in% c("RUS","EST","LVA","LTU","UKR","BLR","MDA","GEO","ARM","AZE","TJK","KAZ","KGZ","TKM","UZB")) %>%
+  dplyr::group_by(year) %>%
+  dplyr::summarise(gl.est = sum(gdp.gl.est,na.rm=TRUE)) %>%
+  dplyr::ungroup()
+
+
+gdp.rus <- gdp %>%
+  dplyr::filter(iso3c == "RUS") %>%
+  dplyr::full_join(gdp.sov.all,by="year")
+
 # 1950-89
 # apply proportion of year to 1990 gl gdp, calculate based on 1990 pwt gdp
 gdp$rgdpna[gdp$iso3c=="RUS"&gdp$year==1950] <- 3620811000000*0.2436211
@@ -1573,53 +1712,51 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "USA", 2011)
 # on gdp.gl estimate
 gdp <- gdp_growth_estimator_gl_func(gdp, "VEN", 2011)
 
-#### VNM/RVN(x) ----------------------------------------------------------------------
-# See excel spreadsheet for calculations
-gdp$rgdpna[gdp$iso3c=="VNM"&gdp$year==1954] <- 45768960469*0.847859729*0.582806934
-gdp$rgdpna[gdp$iso3c=="VNM"&gdp$year==1955] <- 45768960469*0.863093225*0.572520459
-gdp$rgdpna[gdp$iso3c=="VNM"&gdp$year==1956] <- 45768960469*0.877545627*0.563091552
-gdp$rgdpna[gdp$iso3c=="VNM"&gdp$year==1957] <- 45768960469*0.892581918*0.553605803
-gdp$rgdpna[gdp$iso3c=="VNM"&gdp$year==1958] <- 45768960469*0.908294833*0.544028779
-gdp$rgdpna[gdp$iso3c=="VNM"&gdp$year==1959] <- 45768960469*0.92390843*0.534834961
-gdp$rgdpna[gdp$iso3c=="VNM"&gdp$year==1960] <- 45768960469*0.940365804*0.525474796
-gdp$rgdpna[gdp$iso3c=="VNM"&gdp$year==1961] <- 45768960469*0.960169378*0.514636834
-gdp$rgdpna[gdp$iso3c=="VNM"&gdp$year==1962] <- 45768960469*1.017489834*0.485644684
-gdp$rgdpna[gdp$iso3c=="VNM"&gdp$year==1963] <- 45768960469*1.029340494*0.480053521
-gdp$rgdpna[gdp$iso3c=="VNM"&gdp$year==1964] <- 45768960469*1.051408643*0.469977618
-gdp$rgdpna[gdp$iso3c=="VNM"&gdp$year==1965] <- 45768960469*1.054095678*0.46877958
-gdp$rgdpna[gdp$iso3c=="VNM"&gdp$year==1966] <- 45768960469*1.056892907*0.467538883
-gdp$rgdpna[gdp$iso3c=="VNM"&gdp$year==1967] <- 45768960469*0.985486984*0.501415582
-gdp$rgdpna[gdp$iso3c=="VNM"&gdp$year==1968] <- 45768960469*0.976159927*0.50620653
-gdp$rgdpna[gdp$iso3c=="VNM"&gdp$year==1969] <- 45768960469*1.017207907*0.485779284
-gdp$rgdpna[gdp$iso3c=="VNM"&gdp$year==1970] <- 45768960469*0.480787873
-gdp$rgdpna[gdp$iso3c=="VNM"&gdp$year==1971] <- 47510435156*0.470670747
-gdp$rgdpna[gdp$iso3c=="VNM"&gdp$year==1972] <- 48442033359*0.48532456
-gdp$rgdpna[gdp$iso3c=="VNM"&gdp$year==1973] <- 47753593594*0.462854851
-gdp$rgdpna[gdp$iso3c=="VNM"&gdp$year==1974] <- 48938752734*0.488760395
-gdp$rgdpna[gdp$iso3c=="VNM"&gdp$year==1975] <- 50400250547*0.487296203
+#### VNM/RVN ----------------------------------------------------------------------
+# VNM pwt estimates 1970-1975 contain both North and South Vietnam - use ratio between
+# economies from gl estimates in those years to break up pwt estimates
+gdp.vnm.multiplier <- gdp %>%
+  dplyr::filter(iso3c %in% c("VNM","RVN")) %>%
+  dplyr::select(iso3c,year,gdp.gl) %>%
+  dplyr::group_by(year) %>%
+  dplyr::mutate(multiplier = gdp.gl / sum(gdp.gl,na.rm=TRUE)) %>%
+  dplyr::ungroup()
 
-gdp$rgdpna[gdp$iso3c=="RVN"&gdp$year==1954] <- 45768960469*0.847859729*0.417193066
-gdp$rgdpna[gdp$iso3c=="RVN"&gdp$year==1955] <- 45768960469*0.863093225*0.427479541
-gdp$rgdpna[gdp$iso3c=="RVN"&gdp$year==1956] <- 45768960469*0.877545627*0.436908448
-gdp$rgdpna[gdp$iso3c=="RVN"&gdp$year==1957] <- 45768960469*0.892581918*0.446394197
-gdp$rgdpna[gdp$iso3c=="RVN"&gdp$year==1958] <- 45768960469*0.908294833*0.455971221
-gdp$rgdpna[gdp$iso3c=="RVN"&gdp$year==1959] <- 45768960469*0.92390843*0.465165039
-gdp$rgdpna[gdp$iso3c=="RVN"&gdp$year==1960] <- 45768960469*0.940365804*0.474525204
-gdp$rgdpna[gdp$iso3c=="RVN"&gdp$year==1961] <- 45768960469*0.960169378*0.485363166
-gdp$rgdpna[gdp$iso3c=="RVN"&gdp$year==1962] <- 45768960469*1.017489834*0.514355316
-gdp$rgdpna[gdp$iso3c=="RVN"&gdp$year==1963] <- 45768960469*1.029340494*0.519946479
-gdp$rgdpna[gdp$iso3c=="RVN"&gdp$year==1964] <- 45768960469*1.051408643*0.530022382
-gdp$rgdpna[gdp$iso3c=="RVN"&gdp$year==1965] <- 45768960469*1.054095678*0.53122042
-gdp$rgdpna[gdp$iso3c=="RVN"&gdp$year==1966] <- 45768960469*1.056892907*0.532461117
-gdp$rgdpna[gdp$iso3c=="RVN"&gdp$year==1967] <- 45768960469*0.985486984*0.498584418
-gdp$rgdpna[gdp$iso3c=="RVN"&gdp$year==1968] <- 45768960469*0.976159927*0.49379347
-gdp$rgdpna[gdp$iso3c=="RVN"&gdp$year==1969] <- 45768960469*1.017207907*0.514220716
-gdp$rgdpna[gdp$iso3c=="RVN"&gdp$year==1970] <- 45768960469*0.519212127
-gdp$rgdpna[gdp$iso3c=="RVN"&gdp$year==1971] <- 47510435156*0.529329253
-gdp$rgdpna[gdp$iso3c=="RVN"&gdp$year==1972] <- 48442033359*0.51467544
-gdp$rgdpna[gdp$iso3c=="RVN"&gdp$year==1973] <- 47753593594*0.537145149
-gdp$rgdpna[gdp$iso3c=="RVN"&gdp$year==1974] <- 48938752734*0.511239605
-gdp$rgdpna[gdp$iso3c=="RVN"&gdp$year==1975] <- 50400250547*0.512703797
+# pull pwt estimates for 1970-1975
+gdp.vnm.70.75 <- gdp %>%
+  dplyr::filter(iso3c == "VNM",
+                year %in% c(1970:1975)) %>%
+  dplyr::select(year,gdp.pwt)
+
+# merge pwt 1970-1975 estimates with ratios
+gdp.vnm.multiplier <- gdp.vnm.multiplier %>%
+  dplyr::left_join(gdp.vnm.70.75,by="year") %>%
+  dplyr::mutate(gdp.pwt.est2 = gdp.pwt * multiplier) %>%
+  dplyr::select(iso3c,year,gdp.pwt.est2)
+  
+# merge gdp.pwt.est 1970-1975 with main gdp dataset
+gdp <- gdp %>%
+  dplyr::left_join(gdp.vnm.multiplier) %>%
+  dplyr::mutate(gdp.pwt.est = ifelse(year %in% c(1970:1975)&iso3c %in% c("VNM","RVN"),gdp.pwt.est2,gdp.pwt.est)) %>%
+  dplyr::select(-gdp.pwt.est2)
+
+# RVN 1954-1969: apply gdp.gl proportion to 1970 gdp.gl estimate and use that ratio
+# on gdp.pwt estimate
+gdp <- gdp_growth_estimator_pwt_func(gdp, "RVN", 1970)
+
+# calculate VNM gdp.pwt.est using separate dataset with gdp.pwt (North and South Vietnam combined) as NAs
+gdp.vnm <- gdp %>%
+  dplyr::filter(iso3c == "VNM") %>%
+  dplyr::mutate(gdp.pwt = NA)
+
+gdp.vnm <- gdp_growth_estimator_pwt_func(gdp.vnm, "VNM", 1970) %>%
+  dplyr::rename(gdp.pwt.est2 = gdp.pwt.est) %>%
+  dplyr::select(iso3c,year,gdp.pwt.est2)
+
+gdp <- gdp %>%
+  dplyr::full_join(gdp.vnm,by=c("iso3c","year")) %>%
+  dplyr::mutate(gdp.pwt.est = ifelse(year %in% c(1954:1969)&iso3c=="VNM",gdp.pwt.est2,gdp.pwt.est)) %>%
+  dplyr::select(-gdp.pwt.est2)
 
 #### VUT ----------------------------------------------------------------------
 # no gdp.pwt data, so use gdp.gl data as an estimate
@@ -1668,7 +1805,9 @@ gdp_split_yemen <- data.frame(iso3c = c(rep("YAR",41),rep("YPR",24)), year = c(1
                                               gdp.south.yemen.prop.89*gdp$gdp.pwt[gdp$iso3c=="YEM"&gdp$year==1989],
                                               gdp.south.yemen.prop.90*gdp$gdp.pwt[gdp$iso3c=="YEM"&gdp$year==1990])) %>%
   dplyr::full_join(yar.multiplier,by="year") %>%
-  dplyr::full_join(ypr.multiplier,by="year") %>%
+  dplyr::full_join(ypr.multiplier,by="year")
+
+gdp_split_yemen <- gdp_split_yemen %>%
   dplyr::mutate(gdp.pwt.est2 = ifelse(iso3c=="YAR"&is.na(gdp.pwt.est2),
                                      gdp_split_yemen$gdp.pwt.est2[gdp_split_yemen$iso3c=="YAR"&gdp_split_yemen$year==1989]*yar.multiplier,
                                      gdp.pwt.est2),
@@ -1685,7 +1824,6 @@ gdp <- gdp %>%
   dplyr::filter(iso3c != "YEM" | year > 1990) %>%
   dplyr::select(-gdp.pwt.est2)
 
-#######
 # original estimates - appear to be different methodology for calculating than what is done above
 # # YEM
 # gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1950] <- 36403208086*0.766175876
@@ -1753,7 +1891,7 @@ gdp <- gdp %>%
 # gdp$rgdpna[gdp$iso3c=="YPR"&gdp$year==1988] <- 36403208086*7.246468998*0.190190673
 # gdp$rgdpna[gdp$iso3c=="YPR"&gdp$year==1989] <- 36403208086*0.590778734
 # gdp$rgdpna[gdp$iso3c=="YPR"&gdp$year==1990] <- 36403208086*0.590778734 # rough estimate - double check
-# 
+
 # gdp$iso3c[gdp$iso3c=="YEM"&gdp$year<=1990] <- "YAR"
 
 #### ZMB ----------------------------------------------------------------------
@@ -1772,26 +1910,71 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "ZMB", 2011)
 
 #### formatting ----------------------------------------------------------------------
 gdp <- gdp %>%
-  dplyr::select(iso3c,year,rgdpna) %>%
-  dplyr::rename(gdp = rgdpna)
+  dplyr::rename(gdp.pwt.original = gdp.pwt,
+                gdp.gl.original = gdp.gl) %>%
+  # temp
+  dplyr::select(-rgdpna)
 
 ### add workbook estimates ----------------------------------------------------------------------
 # adds additional gdp estimates (file notes sources of estimates)
 gdp.add <- readxl::read_excel("Data files/Workbooks/gdp_add.xlsx") %>%
-  dplyr::select(iso3c,year,gdp)
+  dplyr::select(iso3c,year,gdp) %>%
+  dplyr::rename(gdp.pwt.est = gdp) %>%
+  # using the countrycode package, add country name based on iso3c code
+  dplyr::mutate(country = countrycode::countrycode(iso3c,"iso3c","country.name"),
+                gdp.pwt.original = NA,
+                gdp.gl.original = NA,
+                gdp.gl.est = NA)
+
+gdp.add$country[gdp.add$iso3c=="KSV"] <- "Kosovo"
 
 # adds gdp estimates for countries in the 1940s (file notes sources of estimates)
 gdp_40s <- readxl::read_excel("Data files/Workbooks/gdp_estimates_40s.xlsx", sheet = 1) %>%
-  dplyr::select(-method)
+  dplyr::select(-method) %>%
+  dplyr::rename(gdp.pwt.est = gdp) %>%
+  # using the countrycode package, add country name based on iso3c code
+  dplyr::mutate(country = countrycode::countrycode(iso3c,"iso3c","country.name"),
+                gdp.pwt.original = NA,
+                gdp.gl.original = NA,
+                gdp.gl.est = NA)
+
+gdp_40s$country[gdp_40s$iso3c=="BRD"] <- "West Germany"
+gdp_40s$country[gdp_40s$iso3c=="DDR"] <- "East Germany"
+gdp_40s$country[gdp_40s$iso3c=="SOV"] <- "Soviet Union"
+gdp_40s$country[gdp_40s$iso3c=="YAR"] <- "North Yemen"
+gdp_40s$country[gdp_40s$iso3c=="YUG"] <- "Yugoslavia"
 
 gdp <- gdp %>%
   rbind(gdp.add,gdp_40s) %>%
-  na.omit() %>%
   # using the countrycode package, add country name based on iso3c code
   dplyr::mutate(country = countrycode::countrycode(iso3c,"iso3c","country.name"))  %>%
   dplyr::relocate(country,.after = iso3c)
 
-gdp$iso3c[gdp$iso3c=="RUS"&gdp$year<= 1991] <- "SOV"
+### calculate growth rates ----------------------------------------------------------------------
+gdp_year_prior <- gdp %>%
+  dplyr::mutate(year = year + 1) %>%
+  dplyr::rename(gdp.pwt.original.plus1 = gdp.pwt.original,
+                gdp.gl.original.plus1 = gdp.gl.original,
+                gdp.pwt.est.plus1 = gdp.pwt.est,
+                gdp.gl.est.plus1 = gdp.gl.est)
+
+gdp2 <- gdp %>%
+  dplyr::left_join(gdp_year_prior,by=c("iso3c","country","year")) %>%
+  dplyr::mutate(gdp.pwt.original.growth.rate = (gdp.pwt.original / gdp.pwt.original.plus1)-1,
+                gdp.gl.original.growth.rate = (gdp.gl.original / gdp.gl.original.plus1)-1,
+                gdp.pwt.est.growth.rate = (gdp.pwt.est / gdp.pwt.est.plus1)-1,
+                gdp.gl.est.growth.rate = (gdp.gl.est / gdp.gl.est.plus1)-1)
+
+### adjust growth estimates for countries uniting/dissolving ----------------------------------------------------------------------
+# CZE
+# YEM
+# post-Soviet
+# post-Yugoslav
+# SRB 2006
+# SRB 2008
+# DEU
+# VNM
+# BGD / PAK
 
 ### write data ----------------------------------------------------------------------
 # writes formatted dataframe as csv files
