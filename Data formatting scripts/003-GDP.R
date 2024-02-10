@@ -9,6 +9,7 @@
 ## YUG
 ## NAM/ZAF
 ## MYS/SGP
+## MAR - Western Sahara included?
 
 ### load libraries ----------------------------------------------------------------------
 library(readxl)
@@ -37,8 +38,6 @@ pwt <- readxl::read_excel("Data files/Raw data files/pwt91.xlsx", sheet = 3) %>%
   # filter non-sovereign entities
   dplyr::filter(iso3c %!in% c("ABW","AIA","BMU","CUW","CYM","HKG","MAC","MSR","SXM","SYC","TCA","VGB")) %>%
   dplyr::rename(gdp.pwt = rgdpna)
-
-# Note: PSE and ISR are coded separately in this dataset
 
 #### Gleditsch ----------------------------------------------------------------------
 # realgdp	- total real GDP, 2005 
@@ -105,8 +104,6 @@ gdpgl$country[gdpgl$iso3c=="YUG"] <- "Yugoslavia"
 gdpgl$country[gdpgl$iso3c=="YAR"] <- "North Yemen"
 gdpgl$country[gdpgl$iso3c=="YPR"] <- "South Yemen"
 gdpgl$country[gdpgl$iso3c=="RVN"] <- "South Vietnam"
-
-# gdpgl$country[gdpgl$iso3c=="CZE"&gdpgl$year<1993] <- "Czechoslovakia" # recodes Czechia before 1993 as Czechoslovakia
 
 ### merge data ----------------------------------------------------------------------
 gdp <- dplyr::full_join(pwt,gdpgl,by=c("iso3c","country","year")) %>%
@@ -327,7 +324,7 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "BEN", 2011)
 # on gdp.gl estimate
 gdp <- gdp_growth_estimator_gl_func(gdp, "BFA", 2011)
 
-#### BGD/PAK(x) ----------------------------------------------------------------------
+#### BGD/PAK ----------------------------------------------------------------------
 # pwt codes PAK and BGD separate prior to 1971; gl codes PAK as unified until 1971,
 # with PAK not including East Pakistan/Bangladesh starting that year
 
@@ -1045,35 +1042,6 @@ gdp.srb.ksv.mne <- gdp %>%
   dplyr::filter(iso3c %in% c("YUG","KSV","SRB","MNE")) %>%
   dplyr::filter(year > 1990)
 
-
-
-# KSV and SRB
-gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2008] <- gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2008]*0.823933441
-gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2009] <- gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2009]*0.822333889
-gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2010] <- gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2010]*0.841862199
-gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2011] <- gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2011]*0.831400579
-gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2012] <- gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2012]*0.831400579
-gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2013] <- gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2013]*0.831400579
-gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2014] <- gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2014]*0.831400579
-gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2015] <- gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2015]*0.831400579
-gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2016] <- gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2016]*0.831400579
-gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2017] <- gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2017]*0.831400579
-
-gdp$rgdpna[gdp$iso3c=="KSV"&gdp$year==2008] <- gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2008]*0.176066559
-gdp$rgdpna[gdp$iso3c=="KSV"&gdp$year==2009] <- gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2009]*0.177666111
-gdp$rgdpna[gdp$iso3c=="KSV"&gdp$year==2010] <- gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2010]*0.158137801
-gdp$rgdpna[gdp$iso3c=="KSV"&gdp$year==2011] <- gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2011]*0.168599421
-gdp$rgdpna[gdp$iso3c=="KSV"&gdp$year==2012] <- gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2012]*0.168599421
-gdp$rgdpna[gdp$iso3c=="KSV"&gdp$year==2013] <- gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2013]*0.168599421
-gdp$rgdpna[gdp$iso3c=="KSV"&gdp$year==2014] <- gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2014]*0.168599421
-gdp$rgdpna[gdp$iso3c=="KSV"&gdp$year==2015] <- gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2015]*0.168599421
-gdp$rgdpna[gdp$iso3c=="KSV"&gdp$year==2016] <- gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2016]*0.168599421
-gdp$rgdpna[gdp$iso3c=="KSV"&gdp$year==2017] <- gdp$rgdpna[gdp$iso3c=="SRB"&gdp$year==2017]*0.168599421
-
-# YUG
-# use gl
-gdp$rgdpna[gdp$iso3c=="YUG"&gdp$year<=1991] <- gdp$gdp[gdp$iso3c=="YUG"&gdp$year<=1991]
-
 # KSV
 # pwt codes SRB and KSV together, even after 2008; gl codes KSV as separate beginning in 2008,
 # with SRB not including Kosovo starting that year
@@ -1429,7 +1397,6 @@ gdp.sov.all <- gdp %>%
   dplyr::group_by(year) %>%
   dplyr::summarise(gl.est = sum(gdp.gl.est,na.rm=TRUE)) %>%
   dplyr::ungroup()
-
 
 gdp.rus <- gdp %>%
   dplyr::filter(iso3c == "RUS") %>%
@@ -1926,8 +1893,6 @@ gdp.add <- readxl::read_excel("Data files/Workbooks/gdp_add.xlsx") %>%
                 gdp.gl.original = NA,
                 gdp.gl.est = NA)
 
-gdp.add$country[gdp.add$iso3c=="KSV"] <- "Kosovo"
-
 # adds gdp estimates for countries in the 1940s (file notes sources of estimates)
 gdp_40s <- readxl::read_excel("Data files/Workbooks/gdp_estimates_40s.xlsx", sheet = 1) %>%
   dplyr::select(-method) %>%
@@ -1938,17 +1903,21 @@ gdp_40s <- readxl::read_excel("Data files/Workbooks/gdp_estimates_40s.xlsx", she
                 gdp.gl.original = NA,
                 gdp.gl.est = NA)
 
-gdp_40s$country[gdp_40s$iso3c=="BRD"] <- "West Germany"
-gdp_40s$country[gdp_40s$iso3c=="DDR"] <- "East Germany"
-gdp_40s$country[gdp_40s$iso3c=="SOV"] <- "Soviet Union"
-gdp_40s$country[gdp_40s$iso3c=="YAR"] <- "North Yemen"
-gdp_40s$country[gdp_40s$iso3c=="YUG"] <- "Yugoslavia"
-
 gdp <- gdp %>%
   rbind(gdp.add,gdp_40s) %>%
   # using the countrycode package, add country name based on iso3c code
   dplyr::mutate(country = countrycode::countrycode(iso3c,"iso3c","country.name"))  %>%
   dplyr::relocate(country,.after = iso3c)
+
+gdp$country[gdp$iso3c=="BRD"] <- "West Germany"
+gdp$country[gdp$iso3c=="DDR"] <- "East Germany"
+gdp$country[gdp$iso3c=="KSV"] <- "Kosovo"
+gdp$country[gdp$iso3c=="RVN"] <- "South Vietnam"
+gdp$country[gdp$iso3c=="SOV"] <- "Soviet Union"
+gdp$country[gdp$iso3c=="YAR"] <- "North Yemen"
+gdp$country[gdp$iso3c=="YPR"] <- "South Yemen"
+gdp$country[gdp$iso3c=="YUG"] <- "Yugoslavia"
+gdp$country[gdp$iso3c=="ZAN"] <- "Zanzibar"
 
 ### calculate growth rates ----------------------------------------------------------------------
 gdp_year_prior <- gdp %>%
@@ -1963,7 +1932,51 @@ gdp2 <- gdp %>%
   dplyr::mutate(gdp.pwt.original.growth.rate = (gdp.pwt.original / gdp.pwt.original.plus1)-1,
                 gdp.gl.original.growth.rate = (gdp.gl.original / gdp.gl.original.plus1)-1,
                 gdp.pwt.est.growth.rate = (gdp.pwt.est / gdp.pwt.est.plus1)-1,
-                gdp.gl.est.growth.rate = (gdp.gl.est / gdp.gl.est.plus1)-1)
+                gdp.gl.est.growth.rate = (gdp.gl.est / gdp.gl.est.plus1)-1) %>%
+  dplyr::select(-c(gdp.pwt.original.plus1,gdp.gl.original.plus1,gdp.pwt.est.plus1,gdp.gl.est.plus1))
+
+### load growth dataset ----------------------------------------------------------------------
+imf.growth <- read_excel("Data files/Raw data files/imf-dm-export-gdp-growth.xls")[-1,] %>%
+  dplyr::rename(country = 1) %>%
+  tidyr::pivot_longer(2:40, names_to = "year", values_to = "imf.growth.rate") %>%
+  # filter out groupings of countries
+  dplyr::filter(country %!in% c("Africa (Region)","Asia and Pacific","Australia and New Zealand","Caribbean",
+                                "Central America","Central Asia and the Caucasus","East Asia","Eastern Europe",
+                                "Europe","Middle East (Region)","North Africa","North America","Pacific Islands",
+                                "South America","South Asia","Southeast Asia","Sub-Saharan Africa (Region)",
+                                "Western Europe","Western Hemisphere (Region)","ASEAN-5","Advanced economies",
+                                "Emerging and Developing Asia","Emerging and Developing Europe",
+                                "Emerging market and developing economies","Euro area","European Union",
+                                "Latin America and the Caribbean","Major advanced economies (G7)",
+                                "Middle East and Central Asia","Other advanced economies","Sub-Saharan Africa","World"),
+                # filter out non-sovereign entities
+                country %!in% c("Aruba","Hong Kong SAR","Macao SAR")) %>%
+  # using the countrycode package, add iso3c based on country name
+  dplyr::mutate(iso3c = countrycode::countrycode(country,"country.name","iso3c"),
+                iso3c = ifelse(country=="Kosovo","KSV",iso3c),
+                # using the countrycode package, add iso3c based on country name
+                country = countrycode::countrycode(iso3c,"iso3c","country.name"),
+                country = ifelse(iso3c=="KSV","Kosovo",country),
+                year = as.numeric(year),
+                imf.growth.rate = as.numeric(imf.growth.rate))
+
+gdp.growth.calculated <- gdp2 %>%
+  dplyr::select(iso3c,country,year,gdp.pwt.original.growth.rate,gdp.gl.original.growth.rate,gdp.pwt.est.growth.rate,gdp.gl.est.growth.rate)
+
+gdp.growth.compare <- dplyr::full_join(gdp.growth.calculated,imf.growth,by=c("iso3c","country","year")) %>%
+  dplyr::mutate(pwt.vs.imf = (100*gdp.pwt.est.growth.rate)-imf.growth.rate,
+                gl.vs.imf = (100*gdp.gl.est.growth.rate)-imf.growth.rate,
+                pwt.flag = ifelse(abs(pwt.vs.imf)>=5,1,0),
+                gl.flag = ifelse(abs(gl.vs.imf)>=5,1,0),
+                high.flag = ifelse(pwt.flag==1|gl.flag==1,1,0))
+
+gdp.flag.by.country <- gdp.growth.compare %>%
+  dplyr::group_by(iso3c,high.flag) %>%
+  dplyr::tally() %>%
+  dplyr::ungroup() %>%
+  dplyr::group_by(iso3c) %>%
+  dplyr::mutate(perc = n / sum(n,na.rm=TRUE)) %>%
+  dplyr::ungroup()
 
 ### adjust growth estimates for countries uniting/dissolving ----------------------------------------------------------------------
 # CZE
