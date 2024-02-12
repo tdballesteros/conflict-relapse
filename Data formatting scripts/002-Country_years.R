@@ -33,6 +33,18 @@ cyears$iso3c[cyears$stateabb=="GFR"] <- "BRD"
 # as becoming independend in 1992
 cyears$styear[cyears$iso3c=="MKD"] <- 1992
 
+# recode AND's 1993 independence date with 1814 - independence from Napoleon's France
+cyears$styear[cyears$iso3c=="AND"] <- 1814
+
+# recode MCO's 1993 independence date with 1861 - Franco-Monégasque Treaty of 1861
+cyears$styear[cyears$iso3c=="MCO"] <- 1861
+
+# recode SMR's 1992 independence date with 1740 - independence restored from Ravenna's Legate Alberoni
+cyears$styear[cyears$iso3c=="SMR"] <- 1861
+
+# recode LIE's 1990 independence date with 1866 - end of German Confederation
+cyears$styear[cyears$iso3c=="LIE"] <- 1866
+
 ### calculate year of independence ----------------------------------------------------------------------
 # note: CZE and SYR have two different dates
 # CZE: 1945 for Czechoslovakia; 1993 for Czechia
