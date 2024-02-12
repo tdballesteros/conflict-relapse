@@ -10,6 +10,7 @@
 ### YUG
 ### MAR - Western Sahara included?
 ### NAM/ZAF: add pre-independence NAM GDP to ZAF
+## (4) means 1940s gdp estimates not complete [excluding workbook]
 
 ### load libraries ----------------------------------------------------------------------
 library(readxl)
@@ -279,6 +280,7 @@ gdp_growth_estimator_gl_func <- function(df = gdp, iso, yr){
 # this function uses IMF growth estimates to extend both pwt and gl estimates through to 2019
 gdp_growth_estimator_imf_rate_func <- function(df = gdp, imf.df = imf.growth, iso){
   
+  # add 2018
   df <- df %>%
     tibble::add_row(iso3c = iso,
                    country = countrycode::countrycode(iso3c,"iso3c","country.name"),
@@ -288,6 +290,7 @@ gdp_growth_estimator_imf_rate_func <- function(df = gdp, imf.df = imf.growth, is
                    gdp.pwt.est = ((100+imf.df$imf.growth.rate.extend[imf.df$iso3c==iso&imf.df$year==2018])*df$gdp.pwt.est[df$iso3c==iso&df$year==2017])/100,
                    gdp.gl.est = ((100+imf.df$imf.growth.rate.extend[imf.df$iso3c==iso&imf.df$year==2018])*df$gdp.gl.est[df$iso3c==iso&df$year==2017])/100)
   
+  # add 2019
   df <- df %>%
     tibble::add_row(iso3c = iso,
                    country = countrycode::countrycode(iso3c,"iso3c","country.name"),
@@ -477,8 +480,56 @@ gdp_growth_estimator_wb_rate_extended_func <- function(df = gdp, wb.df = imf.gro
   
 }
 
+# this function uses IMF growth estimates to extend both pwt and gl estimates back through 1946
+gdp_growth_estimator_imf_prior_rate_func <- function(df = gdp, imf.df = imf.growth, iso){
+  
+  # add 1949
+  df <- df %>%
+    tibble::add_row(iso3c = iso,
+                    country = countrycode::countrycode(iso3c,"iso3c","country.name"),
+                    year = 1949,
+                    gdp.pwt = NA,
+                    gdp.gl = NA,
+                    gdp.pwt.est = df$gdp.pwt.est[df$iso3c==iso&df$year==1950]/(1+(imf.df$imf.growth.rate.extend[imf.df$iso3c==iso&imf.df$year==1950]/100)),
+                    gdp.gl.est = df$gdp.gl.est[df$iso3c==iso&df$year==1950]/(1+(imf.df$imf.growth.rate.extend[imf.df$iso3c==iso&imf.df$year==1950]/100)))
+  
+  # add 1948
+  df <- df %>%
+    tibble::add_row(iso3c = iso,
+                    country = countrycode::countrycode(iso3c,"iso3c","country.name"),
+                    year = 1948,
+                    gdp.pwt = NA,
+                    gdp.gl = NA,
+                    gdp.pwt.est = df$gdp.pwt.est[df$iso3c==iso&df$year==1949]/(1+(imf.df$imf.growth.rate.extend[imf.df$iso3c==iso&imf.df$year==1949]/100)),
+                    gdp.gl.est = df$gdp.gl.est[df$iso3c==iso&df$year==1949]/(1+(imf.df$imf.growth.rate.extend[imf.df$iso3c==iso&imf.df$year==1949]/100)))
+  
+  # add 1947
+  df <- df %>%
+    tibble::add_row(iso3c = iso,
+                    country = countrycode::countrycode(iso3c,"iso3c","country.name"),
+                    year = 1947,
+                    gdp.pwt = NA,
+                    gdp.gl = NA,
+                    gdp.pwt.est = df$gdp.pwt.est[df$iso3c==iso&df$year==1948]/(1+(imf.df$imf.growth.rate.extend[imf.df$iso3c==iso&imf.df$year==1948]/100)),
+                    gdp.gl.est = df$gdp.gl.est[df$iso3c==iso&df$year==1948]/(1+(imf.df$imf.growth.rate.extend[imf.df$iso3c==iso&imf.df$year==1948]/100)))
+  
+  # add 1946
+  df <- df %>%
+    tibble::add_row(iso3c = iso,
+                    country = countrycode::countrycode(iso3c,"iso3c","country.name"),
+                    year = 1946,
+                    gdp.pwt = NA,
+                    gdp.gl = NA,
+                    gdp.pwt.est = df$gdp.pwt.est[df$iso3c==iso&df$year==1947]/(1+(imf.df$imf.growth.rate.extend[imf.df$iso3c==iso&imf.df$year==1947]/100)),
+                    gdp.gl.est = df$gdp.gl.est[df$iso3c==iso&df$year==1947]/(1+(imf.df$imf.growth.rate.extend[imf.df$iso3c==iso&imf.df$year==1947]/100)))
+  
+  return(df)
+  
+}
+
+
 ### calculate estimates ----------------------------------------------------------------------
-#### AFG(p) ----------------------------------------------------------------------
+#### AFG(p/4) ----------------------------------------------------------------------
 # AFG gl 2008-2011 estimates are the same
 # recalculate based on 2008 estimate and imf growth rates + extend through to 2019
 
@@ -564,7 +615,7 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "AGO", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "AGO")
 
-#### ALB ----------------------------------------------------------------------
+#### ALB(4) ----------------------------------------------------------------------
 # 1950-69: apply gdp.gl proportion to 1970 gdp.gl estimate and use that ratio
 # on gdp.pwt estimate
 gdp <- gdp_growth_estimator_pwt_func(gdp, "ALB", 1970)
@@ -576,7 +627,7 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "ALB", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "ALB")
 
-#### AND(p) ----------------------------------------------------------------------
+#### AND(p/4) ----------------------------------------------------------------------
 # no gdp.pwt data, so use gdp.gl data as an estimate
 gdp$gdp.pwt.est[gdp$iso3c=="AND"] <- gdp$gdp.gl[gdp$iso3c=="AND"]
 
@@ -600,6 +651,9 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "ARG", 2011)
 
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "ARG")
+
+# 1946-1949: apply imf growth rates
+gdp <- gdp_growth_estimator_imf_prior_rate_func(gdp, imf.growth, "ARG")
 
 # # plot gdp.pwt.est and gdp.gl.est line graphs
 # gdp.arg <- gdp %>%
@@ -637,6 +691,9 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "AUS", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "AUS")
 
+# 1946-1949: apply imf growth rates
+gdp <- gdp_growth_estimator_imf_prior_rate_func(gdp, imf.growth, "AUS")
+
 #### AUT ----------------------------------------------------------------------
 # 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
 # on gdp.gl estimate
@@ -644,6 +701,9 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "AUT", 2011)
 
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "AUT")
+
+# 1946-1949: apply imf growth rates
+gdp <- gdp_growth_estimator_imf_prior_rate_func(gdp, imf.growth, "AUT")
 
 #### AZE ----------------------------------------------------------------------
 # 1990: AZE coded as gaining independence in 1991
@@ -672,6 +732,9 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "BEL", 2011)
 
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "BEL")
+
+# 1946-1949: apply imf growth rates
+gdp <- gdp_growth_estimator_imf_prior_rate_func(gdp, imf.growth, "BEL")
 
 #### BEN ----------------------------------------------------------------------
 # 1959: BEN coded as gaining independence in 1960
@@ -796,7 +859,10 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "PAK", 2011)
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "BGD")
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "PAK")
 
-#### BGR ----------------------------------------------------------------------
+# 1946-1949: apply imf growth rates
+gdp <- gdp_growth_estimator_imf_prior_rate_func(gdp, imf.growth, "PAK")
+
+#### BGR(4) ----------------------------------------------------------------------
 # 1950-69: apply gdp.gl proportion to 1970 gdp.gl estimate and use that ratio
 # on gdp.pwt estimate
 gdp <- gdp_growth_estimator_pwt_func(gdp, "BGR", 1970)
@@ -866,6 +932,9 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "BOL", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "BOL")
 
+# 1946-1949: apply imf growth rates
+gdp <- gdp_growth_estimator_imf_prior_rate_func(gdp, imf.growth, "BOL")
+
 #### BRA ----------------------------------------------------------------------
 # 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
 # on gdp.gl estimate
@@ -873,6 +942,9 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "BRA", 2011)
 
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "BRA")
+
+# 1946-1949: apply imf growth rates
+gdp <- gdp_growth_estimator_imf_prior_rate_func(gdp, imf.growth, "BRA")
 
 #### BRB ----------------------------------------------------------------------
 # 1960-1965: BRB coded as gaining independence in 1966
@@ -931,6 +1003,9 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "CAN", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "CAN")
 
+# 1946-1949: apply imf growth rates
+gdp <- gdp_growth_estimator_imf_prior_rate_func(gdp, imf.growth, "CAN")
+
 #### CHE ----------------------------------------------------------------------
 # 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
 # on gdp.gl estimate
@@ -938,6 +1013,9 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "CHE", 2011)
 
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "CHE")
+
+# 1946-1949: apply imf growth rates
+gdp <- gdp_growth_estimator_imf_prior_rate_func(gdp, imf.growth, "CHE")
 
 #### CHL ----------------------------------------------------------------------
 # 1950: apply gdp.gl proportion to 1951 gdp.gl estimate and use that ratio
@@ -951,7 +1029,10 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "CHL", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "CHL")
 
-#### CHN ----------------------------------------------------------------------
+# 1946-1949: apply imf growth rates
+gdp <- gdp_growth_estimator_imf_prior_rate_func(gdp, imf.growth, "CHL")
+
+#### CHN(4) ----------------------------------------------------------------------
 # 1950-51: apply gdp.gl proportion to 1952 gdp.gl estimate and use that ratio
 # on gdp.pwt estimate
 gdp <- gdp_growth_estimator_pwt_func(gdp, "CHN", 1952)
@@ -1005,6 +1086,9 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "COL", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "COL")
 
+# 1946-1949: apply imf growth rates
+gdp <- gdp_growth_estimator_imf_prior_rate_func(gdp, imf.growth, "COL")
+
 #### COM ----------------------------------------------------------------------
 # 1960-1974: COM coded as gaining independence in 1975
 
@@ -1033,7 +1117,10 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "CRI", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "CRI")
 
-#### CUB(p) ----------------------------------------------------------------------
+# 1946-1949: apply imf growth rates
+gdp <- gdp_growth_estimator_imf_prior_rate_func(gdp, imf.growth, "CRI")
+
+#### CUB(p/4) ----------------------------------------------------------------------
 # no gdp.pwt data, so use gdp.gl data as an estimate
 gdp$gdp.pwt.est[gdp$iso3c=="CUB"] <- gdp$gdp.gl[gdp$iso3c=="CUB"]
 
@@ -1053,7 +1140,7 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "CYP", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "CYP")
 
-#### CZE ----------------------------------------------------------------------
+#### CZE(4) ----------------------------------------------------------------------
 # 1950-89: apply gdp.gl proportion to 1990 gdp.gl estimate and use that ratio
 # on gdp.pwt estimate
 gdp <- gdp_growth_estimator_pwt_func(gdp, "CZE", 1990)
@@ -1065,7 +1152,7 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "CZE", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "CZE")
 
-#### DEU/BRD/DDR ----------------------------------------------------------------------
+#### DEU/BRD/DDR(4) ----------------------------------------------------------------------
 # pwt data combines East and West Germany, while gl separates East and West Germany through
 # to 1990 (inclusive)
 # East and West Germany are coded as existing through 1989 (inclusive), with a unified
@@ -1141,7 +1228,10 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "DNK", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "DNK")
 
-#### DOM ----------------------------------------------------------------------
+# 1946-1949: apply imf growth rates
+gdp <- gdp_growth_estimator_imf_prior_rate_func(gdp, imf.growth, "DNK")
+
+#### DOM(4) ----------------------------------------------------------------------
 # 1950: apply gdp.gl proportion to 1951 gdp.gl estimate and use that ratio
 # on gdp.pwt estimate
 gdp <- gdp_growth_estimator_pwt_func(gdp, "DOM", 1951)
@@ -1163,7 +1253,7 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "DZA", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "DZA")
 
-#### ECU ----------------------------------------------------------------------
+#### ECU(4) ----------------------------------------------------------------------
 # 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
 # on gdp.gl estimate
 gdp <- gdp_growth_estimator_gl_func(gdp, "ECU", 2011)
@@ -1171,7 +1261,7 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "ECU", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "ECU")
 
-#### EGY ----------------------------------------------------------------------
+#### EGY(4) ----------------------------------------------------------------------
 # 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
 # on gdp.gl estimate
 gdp <- gdp_growth_estimator_gl_func(gdp, "EGY", 2011)
@@ -1194,6 +1284,9 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "ESP", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "ESP")
 
+# 1946-1949: apply imf growth rates
+gdp <- gdp_growth_estimator_imf_prior_rate_func(gdp, imf.growth, "ESP")
+
 #### EST ----------------------------------------------------------------------
 # 1990: EST coded as gaining independence in 1991
 
@@ -1204,7 +1297,7 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "EST", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "EST")
 
-#### ETH ----------------------------------------------------------------------
+#### ETH(4) ----------------------------------------------------------------------
 # 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
 # on gdp.gl estimate
 gdp <- gdp_growth_estimator_gl_func(gdp, "ETH", 2011)
@@ -1219,6 +1312,9 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "FIN", 2011)
 
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "FIN")
+
+# 1946-1949: apply imf growth rates
+gdp <- gdp_growth_estimator_imf_prior_rate_func(gdp, imf.growth, "FIN")
 
 #### FJI ----------------------------------------------------------------------
 # 1960-1969: FJI coded as gaining independence in 1970
@@ -1237,6 +1333,9 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "FRA", 2011)
 
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "FRA")
+
+# 1946-1949: apply imf growth rates
+gdp <- gdp_growth_estimator_imf_prior_rate_func(gdp, imf.growth, "FRA")
 
 #### FSM(p) ----------------------------------------------------------------------
 # no gdp.pwt data, so use gdp.gl data as an estimate
@@ -1260,6 +1359,9 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "GBR", 2011)
 
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "GBR")
+
+# 1946-1949: apply imf growth rates
+gdp <- gdp_growth_estimator_imf_prior_rate_func(gdp, imf.growth, "GBR")
 
 #### GEO ----------------------------------------------------------------------
 # 1990: GEO coded as gaining independence in 1991
@@ -1335,6 +1437,9 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "GRC", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "GRC")
 
+# 1946-1949: apply imf growth rates
+gdp <- gdp_growth_estimator_imf_prior_rate_func(gdp, imf.growth, "GRC")
+
 #### GRD ----------------------------------------------------------------------
 # 1970-1993: GRD coded as gaining independence in 1974
 
@@ -1345,7 +1450,7 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "GRD", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "GRD")
 
-#### GTM ----------------------------------------------------------------------
+#### GTM(4) ----------------------------------------------------------------------
 # 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
 # on gdp.gl estimate
 gdp <- gdp_growth_estimator_gl_func(gdp, "GTM", 2011)
@@ -1367,6 +1472,9 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "HND", 2011)
 
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "HND")
+
+# 1946-1949: apply imf growth rates
+gdp <- gdp_growth_estimator_imf_prior_rate_func(gdp, imf.growth, "HND")
 
 #### HRV ----------------------------------------------------------------------
 # 1990: HRV coded as gaining independence in 1992 (both pwt and gl already have
@@ -1391,7 +1499,10 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "HTI", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "HTI")
 
-#### HUN ----------------------------------------------------------------------
+# 1946-1949: apply imf growth rates
+gdp <- gdp_growth_estimator_imf_prior_rate_func(gdp, imf.growth, "HTI")
+
+#### HUN(4) ----------------------------------------------------------------------
 # 1950-1969: apply gdp.gl proportion to 1970 gdp.gl estimate and use that ratio
 # on gdp.pwt estimate
 gdp <- gdp_growth_estimator_pwt_func(gdp, "HUN", 1970)
@@ -1403,7 +1514,10 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "HUN", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "HUN")
 
-#### IDN ----------------------------------------------------------------------
+# 1946-1949: apply imf growth rates
+gdp <- gdp_growth_estimator_imf_prior_rate_func(gdp, imf.growth, "HUN")
+
+#### IDN(4) ----------------------------------------------------------------------
 # 1950-1959: apply gdp.gl proportion to 1960 gdp.gl estimate and use that ratio
 # on gdp.pwt estimate
 gdp <- gdp_growth_estimator_pwt_func(gdp, "IDN", 1960)
@@ -1423,6 +1537,9 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "IND", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "IND")
 
+# 1946-1949: apply imf growth rates
+gdp <- gdp_growth_estimator_imf_prior_rate_func(gdp, imf.growth, "IND")
+
 #### IRL ----------------------------------------------------------------------
 # 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
 # on gdp.gl estimate
@@ -1431,7 +1548,10 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "IRL", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "IRL")
 
-#### IRN ----------------------------------------------------------------------
+# 1946-1949: apply imf growth rates
+gdp <- gdp_growth_estimator_imf_prior_rate_func(gdp, imf.growth, "IRL")
+
+#### IRN(4) ----------------------------------------------------------------------
 # 1950-1954: apply gdp.gl proportion to 1955 gdp.gl estimate and use that ratio
 # on gdp.pwt estimate
 gdp <- gdp_growth_estimator_pwt_func(gdp, "IRN", 1955)
@@ -1443,7 +1563,7 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "IRN", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "IRN")
 
-#### IRQ ----------------------------------------------------------------------
+#### IRQ(4) ----------------------------------------------------------------------
 # 1950-1969: apply gdp.gl proportion to 1970 gdp.gl estimate and use that ratio
 # on gdp.pwt estimate
 gdp <- gdp_growth_estimator_pwt_func(gdp, "IRQ", 1970)
@@ -1455,7 +1575,7 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "IRQ", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "IRQ")
 
-#### ISL ----------------------------------------------------------------------
+#### ISL(4) ----------------------------------------------------------------------
 # 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
 # on gdp.gl estimate
 gdp <- gdp_growth_estimator_gl_func(gdp, "ISL", 2011)
@@ -1463,7 +1583,7 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "ISL", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "ISL")
 
-#### ISR/PSE(x) ----------------------------------------------------------------------
+#### ISR/PSE(x/4) ----------------------------------------------------------------------
 # 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
 # on gdp.gl estimate
 gdp <- gdp_growth_estimator_gl_func(gdp, "ISR", 2011)
@@ -1481,6 +1601,9 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "ITA", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "ITA")
 
+# 1946-1949: apply imf growth rates
+gdp <- gdp_growth_estimator_imf_prior_rate_func(gdp, imf.growth, "ITA")
+
 #### JAM ----------------------------------------------------------------------
 # 1953-1961: JAM coded as gaining independence in 1962
 
@@ -1491,7 +1614,7 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "JAM", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "JAM")
 
-#### JOR(x) ----------------------------------------------------------------------
+#### JOR(x/4) ----------------------------------------------------------------------
 # 1950-1953: apply gdp.gl proportion to 1954 gdp.gl estimate and use that ratio
 # on gdp.pwt estimate
 gdp <- gdp_growth_estimator_pwt_func(gdp, "JOR", 1970)
@@ -1510,6 +1633,9 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "JPN", 2011)
 
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "JPN")
+
+# 1946-1949: apply imf growth rates
+gdp <- gdp_growth_estimator_imf_prior_rate_func(gdp, imf.growth, "JPN")
 
 #### KAZ ----------------------------------------------------------------------
 # 1990: KAZ coded as gaining independence in 1991
@@ -1582,7 +1708,10 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "KOR", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "KOR")
 
-#### KSV/MNE/SRB/YUG(x) ----------------------------------------------------------------------
+# 1946-1949: apply imf growth rates
+gdp <- gdp_growth_estimator_imf_prior_rate_func(gdp, imf.growth, "KOR")
+
+#### KSV/MNE/SRB/YUG(x/4) ----------------------------------------------------------------------
 # Data time frames (note all gl data extends only through 2011, inclusive):
 ## BIH - pwt 1990-; gl 1992-; coded as starting 1992
 ## HRV - pwt 1990-; gl 1991-; coded as starting 1992
@@ -1710,7 +1839,7 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "LAO", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "LAO")
 
-#### LBN ----------------------------------------------------------------------
+#### LBN(4) ----------------------------------------------------------------------
 # 1950-1969: apply gdp.gl proportion to 1970 gdp.gl estimate and use that ratio
 # on gdp.pwt estimate
 gdp <- gdp_growth_estimator_pwt_func(gdp, "LBN", 1970)
@@ -1722,7 +1851,7 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "LBN", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "LBN")
 
-#### LBR ----------------------------------------------------------------------
+#### LBR(4) ----------------------------------------------------------------------
 # 1950-1963: apply gdp.gl proportion to 1964 gdp.gl estimate and use that ratio
 # on gdp.pwt estimate
 gdp <- gdp_growth_estimator_pwt_func(gdp, "LBR", 1964)
@@ -1769,11 +1898,11 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "LCA", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "LCA")
 
-#### LIE(p/x) ----------------------------------------------------------------------
+#### LIE(p/x/4) ----------------------------------------------------------------------
 # no gdp.pwt data, so use gdp.gl data as an estimate
 gdp$gdp.pwt.est[gdp$iso3c=="LIE"] <- gdp$gdp.gl[gdp$iso3c=="LIE"]
 
-#### LKA ----------------------------------------------------------------------
+#### LKA(4) ----------------------------------------------------------------------
 # 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
 # on gdp.gl estimate
 gdp <- gdp_growth_estimator_gl_func(gdp, "LKA", 2011)
@@ -1801,7 +1930,7 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "LTU", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "LTU")
 
-#### LUX ----------------------------------------------------------------------
+#### LUX(4) ----------------------------------------------------------------------
 # 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
 # on gdp.gl estimate
 gdp <- gdp_growth_estimator_gl_func(gdp, "LUX", 2011)
@@ -1829,7 +1958,7 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "MAR", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "MAR")
 
-#### MCO(p/x) ----------------------------------------------------------------------
+#### MCO(p/x/4) ----------------------------------------------------------------------
 # no gdp.pwt data, so use gdp.gl data as an estimate
 gdp$gdp.pwt.est[gdp$iso3c=="MCO"] <- gdp$gdp.gl[gdp$iso3c=="MCO"]
 
@@ -1874,6 +2003,9 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "MEX", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "MEX")
 
+# 1946-1949: apply imf growth rates
+gdp <- gdp_growth_estimator_imf_prior_rate_func(gdp, imf.growth, "MEX")
+
 #### MHL(p) ----------------------------------------------------------------------
 # no gdp.pwt data, so use gdp.gl data as an estimate
 # gl data starts in 1986 - Compact of Free Association with US
@@ -1911,7 +2043,7 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "MLT", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "MLT")
 
-#### MMR ----------------------------------------------------------------------
+#### MMR(4) ----------------------------------------------------------------------
 # 1950-1961: apply gdp.gl proportion to 1962 gdp.gl estimate and use that ratio
 # on gdp.pwt estimate
 gdp <- gdp_growth_estimator_pwt_func(gdp, "MMR", 1962)
@@ -1923,7 +2055,7 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "MMR", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "MMR")
 
-#### MNG ----------------------------------------------------------------------
+#### MNG(4) ----------------------------------------------------------------------
 # 1950-1969: apply gdp.gl proportion to 1970 gdp.gl estimate and use that ratio
 # on gdp.pwt estimate
 gdp <- gdp_growth_estimator_pwt_func(gdp, "MNG", 1970)
@@ -2006,7 +2138,7 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "SGP", 2011)
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "MYS")
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "SGP")
 
-#### NAM/ZAF(x) ----------------------------------------------------------------------
+#### NAM/ZAF(x/4) ----------------------------------------------------------------------
 # Note: both pwt and gl code NAM as separate throughout its pre-independence period
 # gl data starts in 1990, pwt data starts in 1960
 # NAM coded as gaining independence in 1990
@@ -2071,6 +2203,9 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "NIC", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "NIC")
 
+# 1946-1949: apply imf growth rates
+gdp <- gdp_growth_estimator_imf_prior_rate_func(gdp, imf.growth, "NIC")
+
 #### NLD ----------------------------------------------------------------------
 # 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
 # on gdp.gl estimate
@@ -2078,6 +2213,9 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "NLD", 2011)
 
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "NLD")
+
+# 1946-1949: apply imf growth rates
+gdp <- gdp_growth_estimator_imf_prior_rate_func(gdp, imf.growth, "NLD")
 
 #### NOR ----------------------------------------------------------------------
 # 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
@@ -2087,7 +2225,10 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "NOR", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "NOR")
 
-#### NPL ----------------------------------------------------------------------
+# 1946-1949: apply imf growth rates
+gdp <- gdp_growth_estimator_imf_prior_rate_func(gdp, imf.growth, "NOR")
+
+#### NPL(4) ----------------------------------------------------------------------
 # 1950-1959: apply gdp.gl proportion to 1960 gdp.gl estimate and use that ratio
 # on gdp.pwt estimate
 gdp <- gdp_growth_estimator_pwt_func(gdp, "NPL", 1960)
@@ -2115,6 +2256,9 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "NZL", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "NZL")
 
+# 1946-1949: apply imf growth rates
+gdp <- gdp_growth_estimator_imf_prior_rate_func(gdp, imf.growth, "NZL")
+
 #### OMN ----------------------------------------------------------------------
 # OMN coded as gaining independence in 1971, but due to Dhofar War,
 # extending GDP data back to 1950, as gl contains data from this point forward
@@ -2138,6 +2282,9 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "PAN", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "PAN")
 
+# 1946-1949: apply imf growth rates
+gdp <- gdp_growth_estimator_imf_prior_rate_func(gdp, imf.growth, "PAN")
+
 #### PER ----------------------------------------------------------------------
 # 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
 # on gdp.gl estimate
@@ -2146,13 +2293,19 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "PER", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "PER")
 
-#### PHL ----------------------------------------------------------------------
+# 1946-1949: apply imf growth rates
+gdp <- gdp_growth_estimator_imf_prior_rate_func(gdp, imf.growth, "PER")
+
+#### PHL(4) ----------------------------------------------------------------------
 # 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
 # on gdp.gl estimate
 gdp <- gdp_growth_estimator_gl_func(gdp, "PHL", 2011)
 
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "PHL")
+
+# 1947-1949: apply imf growth rates
+gdp <- gdp_growth_estimator_imf_prior_rate_func(gdp, imf.growth, "PHL")
 
 #### PLW(p) ----------------------------------------------------------------------
 # no gdp.pwt data, so use gdp.gl data as an estimate
@@ -2198,7 +2351,7 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "POL", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "POL")
 
-#### PRK(p) ----------------------------------------------------------------------
+#### PRK(p/4) ----------------------------------------------------------------------
 # 2012-2018: use Bank of Korea's estimated PRK growth rates for 2012-2018 applied to gl's 2011 estimate
 # https://www.bok.or.kr/eng/bbs/E0000634/view.do?nttId=10053001&menuNo=400069
 gdp$gdp.gl.est[gdp$iso3c=="PRK"&gdp$year==2012] <- gdp$gdp.gl.est[gdp$iso3c=="PRK"&gdp$year==2011]*(1+0.013)
@@ -2223,6 +2376,9 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "PRT", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "PRT")
 
+# 1946-1949: apply imf growth rates
+gdp <- gdp_growth_estimator_imf_prior_rate_func(gdp, imf.growth, "PRT")
+
 #### PRY ----------------------------------------------------------------------
 # 1950: apply gdp.gl proportion to 1951 gdp.gl estimate and use that ratio
 # on gdp.pwt estimate
@@ -2235,6 +2391,9 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "PRY", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "PRY")
 
+# 1946-1949: apply imf growth rates
+gdp <- gdp_growth_estimator_imf_prior_rate_func(gdp, imf.growth, "PRY")
+
 #### QAT ----------------------------------------------------------------------
 # 1970: QAT coded as gaining independence in 1971
 
@@ -2245,7 +2404,7 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "QAT", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "QAT")
 
-#### ROU ----------------------------------------------------------------------
+#### ROU(4) ----------------------------------------------------------------------
 # 1950-1959: apply gdp.gl proportion to 1960 gdp.gl estimate and use that ratio
 # on gdp.pwt estimate
 # gl values constant 1950-1960
@@ -2258,7 +2417,7 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "ROU", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "ROU")
 
-#### RUS/SOV(x) ----------------------------------------------------------------------
+#### RUS/SOV(x/4) ----------------------------------------------------------------------
 
 gdp.sov.all <- gdp %>%
   dplyr::filter(iso3c %in% c("RUS","EST","LVA","LTU","UKR","BLR","MDA","GEO","ARM","AZE","TJK","KAZ","KGZ","TKM","UZB")) %>%
@@ -2326,7 +2485,7 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "RWA", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "RWA")
 
-#### SAU ----------------------------------------------------------------------
+#### SAU(4) ----------------------------------------------------------------------
 # 1950-1969: apply gdp.gl proportion to 1970 gdp.gl estimate and use that ratio
 # on gdp.pwt estimate
 gdp <- gdp_growth_estimator_pwt_func(gdp, "SAU", 1970)
@@ -2373,7 +2532,7 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "SLE", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "SLE")
 
-#### SLV ----------------------------------------------------------------------
+#### SLV(4) ----------------------------------------------------------------------
 # 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
 # on gdp.gl estimate
 gdp <- gdp_growth_estimator_gl_func(gdp, "SLV", 2011)
@@ -2381,7 +2540,7 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "SLV", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "SLV")
 
-#### SMR(p) ----------------------------------------------------------------------
+#### SMR(p/4) ----------------------------------------------------------------------
 # no gdp.pwt data, so use gdp.gl data as an estimate
 gdp$gdp.pwt.est[gdp$iso3c=="SMR"] <- gdp$gdp.gl[gdp$iso3c=="SMR"]
 
@@ -2473,6 +2632,9 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "SWE", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "SWE")
 
+# 1946-1949: apply imf growth rates
+gdp <- gdp_growth_estimator_imf_prior_rate_func(gdp, imf.growth, "SWE")
+
 #### SWZ ----------------------------------------------------------------------
 # 1968-1969: apply gdp.gl proportion to 1970 gdp.gl estimate and use that ratio
 # on gdp.pwt estimate
@@ -2492,7 +2654,7 @@ gdp$gdp.pwt.est[gdp$iso3c=="SYC"] <- gdp$gdp.gl[gdp$iso3c=="SYC"]
 # 2012-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_extended_func(gdp, imf.growth, "SYC")
 
-#### SYR(p/x) ----------------------------------------------------------------------
+#### SYR(p/x/4) ----------------------------------------------------------------------
 # 1950-1959: apply gdp.gl proportion to 1960 gdp.gl estimate and use that ratio
 # on gdp.pwt estimate
 gdp <- gdp_growth_estimator_pwt_func(gdp, "SYR", 1960)
@@ -2523,7 +2685,7 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "TGO", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "TGO")
 
-#### THA ----------------------------------------------------------------------
+#### THA(4) ----------------------------------------------------------------------
 # 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
 # on gdp.gl estimate
 gdp <- gdp_growth_estimator_gl_func(gdp, "THA", 2011)
@@ -2596,6 +2758,9 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "TUR", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "TUR")
 
+# 1946-1949: apply imf growth rates
+gdp <- gdp_growth_estimator_imf_prior_rate_func(gdp, imf.growth, "TUR")
+
 #### TUV(p) ----------------------------------------------------------------------
 # no gdp.pwt data, so use gdp.gl data as an estimate
 # gl data starts in 1978 - independence from UK
@@ -2604,7 +2769,7 @@ gdp$gdp.pwt.est[gdp$iso3c=="TUV"] <- gdp$gdp.gl[gdp$iso3c=="TUV"]
 # 2012-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_extended_func(gdp, imf.growth, "TUV")
 
-#### TWN ----------------------------------------------------------------------
+#### TWN(4) ----------------------------------------------------------------------
 # 1950: apply gdp.gl proportion to 1951 gdp.gl estimate and use that ratio
 # on gdp.pwt estimate
 gdp <- gdp_growth_estimator_pwt_func(gdp, "TWN", 1951)
@@ -2672,6 +2837,9 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "URY", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "URY")
 
+# 1946-1949: apply imf growth rates
+gdp <- gdp_growth_estimator_imf_prior_rate_func(gdp, imf.growth, "URY")
+
 #### USA ----------------------------------------------------------------------
 # 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
 # on gdp.gl estimate
@@ -2679,6 +2847,9 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "USA", 2011)
 
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "USA")
+
+# 1946-1949: apply imf growth rates
+gdp <- gdp_growth_estimator_imf_prior_rate_func(gdp, imf.growth, "USA")
 
 #### UZB ----------------------------------------------------------------------
 # 1990: UZB coded as gaining independence in 1991
@@ -2707,6 +2878,9 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "VEN", 2011)
 
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, imf.growth, "VEN")
+
+# 1946-1949: apply imf growth rates
+gdp <- gdp_growth_estimator_imf_prior_rate_func(gdp, imf.growth, "VEN")
 
 #### VNM/RVN ----------------------------------------------------------------------
 # VNM pwt estimates 1970-1975 contain both North and South Vietnam - use ratio between
@@ -2777,7 +2951,7 @@ gdp$gdp.pwt.est[gdp$iso3c=="WSM"] <- gdp$gdp.gl[gdp$iso3c=="WSM"]
 # 2012-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_extended_func(gdp, imf.growth, "WSM")
 
-#### YEM/YAR/YPR ----------------------------------------------------------------------
+#### YEM/YAR/YPR(4) ----------------------------------------------------------------------
 # pwt data contains combined Yemen beginning in 1989, while gl separates North and South Yemen from
 # 1950 / 1967 (respectively) through to 1990 (inclusive)
 # Yemen coded as beginning starting in 1991
