@@ -15,8 +15,8 @@ library(countrycode)
 library(dplyr)
 
 ### load data files ----------------------------------------------------------------------
-country_regions1 <- readxl::read_excel("Data files/Raw data files/country_regions.xlsx") 
-country_regions2 <- readxl::read_excel("Data files/Raw data files/country_regions2.xlsx")
+country_regions1 <- readxl::read_xlsx("Data files/Raw data files/country_regions.xlsx") 
+country_regions2 <- readxl::read_xlsx("Data files/Raw data files/country_regions2.xlsx")
 
 ### data formatting ----------------------------------------------------------------------
 country_regions1 <- country_regions1 %>%
