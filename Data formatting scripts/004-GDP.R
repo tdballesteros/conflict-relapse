@@ -11,10 +11,13 @@
 ### MAR - Western Sahara included?
 ### ETH/ERI - ERI in ETH pre-independence?
 ### ROU - values same for select years
+### DOM, LBN, PRK 1940s estimates look off
 ## (4) means 1940s gdp estimates not complete [excluding workbook]
 ### AFG, ALB, AND, PAK, CHN, CZE, DEU, DOM, ECU, EGY, ETH, GTM, HUN, IRN, IRQ, ISL, ISR/PSE,
 ## JOR, YUG, LBN, LBR, LBY, LIE, LKA, LUX, MCO, MMR, MNG, NAM/ZAF, NPL, PHL, PRK, SAU, SMR,
 ### SYR, THA, TWN, YAR
+
+## MCO, LIE, YUG 1991, PRK, SYR
 
 ### load libraries ----------------------------------------------------------------------
 library(readxl)
@@ -280,15 +283,6 @@ growth.rate.datasets <- dplyr::full_join(imf.growth.modern,imf.growth.historical
   dplyr::full_join(mpd,by=c("iso3c","country","year")) %>%
   dplyr::select(-c("cgdppc","rgdpnapc","pop","i_cig","i_bm","cgdp","rgdpna","cgdp.plus1","rgdpna.plus1"))
 
-# imf.growth <- dplyr::full_join(imf.growth.modern,imf.growth.historical,by=c("iso3c","country","year")) %>%
-#   dplyr::relocate(iso3c, .before = country) %>%
-#   # note: for 2018 and 2019 growth rates, modern dataset rate is a rounded version of the historical rate
-#   # create a variable using the historical rate when available, using modern rate if not
-#   # only to be used for the 2018 and 2019 estimates, though coded for all country-years - the datasets contain
-#   # significant discrepancies with older years
-#   dplyr::mutate(imf.growth.rate.extend = dplyr::coalesce(imf.growth.rate.historical,imf.growth.rate.modern)) %>%
-#   dplyr::full_join(wb.growth.data,by=c("iso3c","country","year"))
-
 ### gdp growth estimator functions ----------------------------------------------------------------------
 # this function is used to estimate pwt gdp data based on the relative difference in the size of the economy
 # between two years within the gl gdp data and applying the proportion to the pwt gdp data
@@ -430,8 +424,76 @@ gdp_growth_estimator_mpd_prior_rate_func <- function(df = gdp, growth.df = growt
   
 }
 
+# this function approximates the 1946-1949 gdp of a country based on its growth rates the subsequent years.
+# the function applies weighted growth rates of 1/2 year+1, 1/3 year+2, and 1/6 year+3
+gdp_growth_estimator_no_data_func <- function(df = gdp, iso){
+  
+  # calculate growth rates - pwt
+  pwt.growth.51 <- df$gdp.pwt.est[df$iso3c==iso&df$year==1951]/df$gdp.pwt.est[df$iso3c==iso&df$year==1950]
+  pwt.growth.52 <- df$gdp.pwt.est[df$iso3c==iso&df$year==1952]/df$gdp.pwt.est[df$iso3c==iso&df$year==1951]
+  pwt.growth.53 <- df$gdp.pwt.est[df$iso3c==iso&df$year==1953]/df$gdp.pwt.est[df$iso3c==iso&df$year==1952]
+  
+  pwt.growth.50 <- (1/2)*pwt.growth.51 + (1/3)*pwt.growth.52 + (1/6)*pwt.growth.53
+  pwt.growth.49 <- (1/2)*pwt.growth.50 + (1/3)*pwt.growth.51 + (1/6)*pwt.growth.52
+  pwt.growth.48 <- (1/2)*pwt.growth.49 + (1/3)*pwt.growth.50 + (1/6)*pwt.growth.51
+  pwt.growth.47 <- (1/2)*pwt.growth.48 + (1/3)*pwt.growth.49 + (1/6)*pwt.growth.50
+  pwt.growth.46 <- (1/2)*pwt.growth.47 + (1/3)*pwt.growth.48 + (1/6)*pwt.growth.49
+  
+  # calculate growth rates - gl
+  gl.growth.51 <- df$gdp.gl.est[df$iso3c==iso&df$year==1951]/df$gdp.gl.est[df$iso3c==iso&df$year==1950]
+  gl.growth.52 <- df$gdp.gl.est[df$iso3c==iso&df$year==1952]/df$gdp.gl.est[df$iso3c==iso&df$year==1951]
+  gl.growth.53 <- df$gdp.gl.est[df$iso3c==iso&df$year==1953]/df$gdp.gl.est[df$iso3c==iso&df$year==1952]
+  
+  gl.growth.50 <- (1/2)*gl.growth.51 + (1/3)*gl.growth.52 + (1/6)*gl.growth.53
+  gl.growth.49 <- (1/2)*gl.growth.50 + (1/3)*gl.growth.51 + (1/6)*gl.growth.52
+  gl.growth.48 <- (1/2)*gl.growth.49 + (1/3)*gl.growth.50 + (1/6)*gl.growth.51
+  gl.growth.47 <- (1/2)*gl.growth.48 + (1/3)*gl.growth.49 + (1/6)*gl.growth.50
+  gl.growth.46 <- (1/2)*gl.growth.47 + (1/3)*gl.growth.48 + (1/6)*gl.growth.49
+  
+  # add 1949
+  df <- df %>%
+    tibble::add_row(iso3c = iso,
+                    country = countrycode::countrycode(iso3c,"iso3c","country.name"),
+                    year = 1949,
+                    gdp.pwt = NA,
+                    gdp.gl = NA,
+                    gdp.pwt.est = df$gdp.pwt.est[df$iso3c==iso&df$year==1950]/pwt.growth.50,
+                    gdp.gl.est = df$gdp.gl.est[df$iso3c==iso&df$year==1950]/gl.growth.50)
+  
+  # add 1948
+  df <- df %>%
+    tibble::add_row(iso3c = iso,
+                    country = countrycode::countrycode(iso3c,"iso3c","country.name"),
+                    year = 1948,
+                    gdp.pwt = NA,
+                    gdp.gl = NA,
+                    gdp.pwt.est = df$gdp.pwt.est[df$iso3c==iso&df$year==1949]/pwt.growth.49,
+                    gdp.gl.est = df$gdp.gl.est[df$iso3c==iso&df$year==1949]/gl.growth.49)
+ 
+  # add 1947
+  df <- df %>%
+    tibble::add_row(iso3c = iso,
+                    country = countrycode::countrycode(iso3c,"iso3c","country.name"),
+                    year = 1947,
+                    gdp.pwt = NA,
+                    gdp.gl = NA,
+                    gdp.pwt.est = df$gdp.pwt.est[df$iso3c==iso&df$year==1948]/pwt.growth.48,
+                    gdp.gl.est = df$gdp.gl.est[df$iso3c==iso&df$year==1948]/gl.growth.48)
+   
+  # add 1946
+  df <- df %>%
+    tibble::add_row(iso3c = iso,
+                    country = countrycode::countrycode(iso3c,"iso3c","country.name"),
+                    year = 1946,
+                    gdp.pwt = NA,
+                    gdp.gl = NA,
+                    gdp.pwt.est = df$gdp.pwt.est[df$iso3c==iso&df$year==1947]/pwt.growth.47,
+                    gdp.gl.est = df$gdp.gl.est[df$iso3c==iso&df$year==1947]/gl.growth.47)
+  
+}
+
 ### calculate estimates ----------------------------------------------------------------------
-#### AFG(p/4) ----------------------------------------------------------------------
+#### AFG(p) ----------------------------------------------------------------------
 # AFG gl 2008-2011 estimates are the same
 # recalculate based on 2008 estimate and imf growth rates + extend through to 2019
 
@@ -456,6 +518,9 @@ for(a in 2009:2019){
 # no gdp.pwt data, so use gdp.gl data as an estimate
 gdp <- gdp %>%
   dplyr::mutate(gdp.pwt.est = ifelse(iso3c=="AFG",gdp.gl.est,gdp.pwt.est))
+
+# 1946-1949: apply 3-year moving average weighted growth rates
+gdp <- gdp_growth_estimator_no_data_func(gdp, "AFG")
 
 # # calculate the average differences (absolute differences and % differences) between
 # # pwt and gl data for countries most comparable to AFG: PAK, IRN, TJK, TKM, KGZ, UZB
@@ -517,7 +582,7 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "AGO", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "AGO")
 
-#### ALB(4) ----------------------------------------------------------------------
+#### ALB ----------------------------------------------------------------------
 # 1950-69: apply gdp.gl proportion to 1970 gdp.gl estimate and use that ratio
 # on gdp.pwt estimate
 gdp <- gdp_growth_estimator_pwt_func(gdp, "ALB", 1970)
@@ -529,12 +594,18 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "ALB", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "ALB")
 
-#### AND(p/4) ----------------------------------------------------------------------
+# 1946-1949: apply 3-year moving average weighted growth rates
+gdp <- gdp_growth_estimator_no_data_func(gdp, "ALB")
+
+#### AND(p) ----------------------------------------------------------------------
 # no gdp.pwt data, so use gdp.gl data as an estimate
 gdp$gdp.pwt.est[gdp$iso3c=="AND"] <- gdp$gdp.gl[gdp$iso3c=="AND"]
 
 # 2012-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "AND", 2012)
+
+# 1946-1949: apply 3-year moving average weighted growth rates
+gdp <- gdp_growth_estimator_no_data_func(gdp, "AND")
 
 #### ARE ----------------------------------------------------------------------
 # 1970: ARE coded as gaining independence in 1971
@@ -761,8 +832,50 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "PAK", 2011)
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "BGD")
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "PAK")
 
-# 1946-1949: apply imf growth rates
+# 1948-1949: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_prior_rate_func(gdp, growth.rate.datasets, "PAK")
+
+# remove blank 1946 and 1947 PAK entries
+gdp <- gdp %>%
+  dplyr::filter(iso3c != "PAK" | year %!in% c(1946:1947))
+
+# 1946-1947: apply 3-year moving average weighted growth rates
+
+# calculate growth rates - pwt
+pak.pwt.growth.49 <- gdp$gdp.pwt.est[gdp$iso3c=="PAK"&gdp$year==1949]/gdp$gdp.pwt.est[gdp$iso3c=="PAK"&gdp$year==1948]
+pak.pwt.growth.50 <- gdp$gdp.pwt.est[gdp$iso3c=="PAK"&gdp$year==1950]/gdp$gdp.pwt.est[gdp$iso3c=="PAK"&gdp$year==1949]
+pak.pwt.growth.51 <- gdp$gdp.pwt.est[gdp$iso3c=="PAK"&gdp$year==1951]/gdp$gdp.pwt.est[gdp$iso3c=="PAK"&gdp$year==1950]
+
+pak.pwt.growth.48 <- (1/2)*pak.pwt.growth.49 + (1/3)*pak.pwt.growth.50 + (1/6)*pak.pwt.growth.51
+pak.pwt.growth.47 <- (1/2)*pak.pwt.growth.48 + (1/3)*pak.pwt.growth.49 + (1/6)*pak.pwt.growth.50
+
+# calculate growth rates - gl
+pak.gl.growth.49 <- gdp$gdp.gl.est[gdp$iso3c=="PAK"&gdp$year==1949]/gdp$gdp.gl.est[gdp$iso3c=="PAK"&gdp$year==1948]
+pak.gl.growth.50 <- gdp$gdp.gl.est[gdp$iso3c=="PAK"&gdp$year==1950]/gdp$gdp.gl.est[gdp$iso3c=="PAK"&gdp$year==1949]
+pak.gl.growth.51 <- gdp$gdp.gl.est[gdp$iso3c=="PAK"&gdp$year==1951]/gdp$gdp.gl.est[gdp$iso3c=="PAK"&gdp$year==1950]
+
+pak.gl.growth.48 <- (1/2)*pak.gl.growth.49 + (1/3)*pak.gl.growth.50 + (1/6)*pak.gl.growth.51
+pak.gl.growth.47 <- (1/2)*pak.gl.growth.48 + (1/3)*pak.gl.growth.49 + (1/6)*pak.gl.growth.50
+
+# add 1947
+gdp <- gdp %>%
+  tibble::add_row(iso3c = "PAK",
+                  country = "Pakistan",
+                  year = 1947,
+                  gdp.pwt = NA,
+                  gdp.gl = NA,
+                  gdp.pwt.est = gdp$gdp.pwt.est[gdp$iso3c=="PAK"&gdp$year==1948]/pak.pwt.growth.48,
+                  gdp.gl.est = gdp$gdp.gl.est[gdp$iso3c=="PAK"&gdp$year==1948]/pak.gl.growth.48)
+
+# add 1946
+gdp <- gdp %>%
+  tibble::add_row(iso3c = "PAK",
+                  country = "Pakistan",
+                  year = 1946,
+                  gdp.pwt = NA,
+                  gdp.gl = NA,
+                  gdp.pwt.est = gdp$gdp.pwt.est[gdp$iso3c=="PAK"&gdp$year==1947]/pak.pwt.growth.47,
+                  gdp.gl.est = gdp$gdp.gl.est[gdp$iso3c=="PAK"&gdp$year==1947]/pak.gl.growth.47)
 
 #### BGR ----------------------------------------------------------------------
 # 1950-69: apply gdp.gl proportion to 1970 gdp.gl estimate and use that ratio
@@ -952,7 +1065,7 @@ gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "CHL")
 # 1946-1949: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_prior_rate_func(gdp, growth.rate.datasets, "CHL")
 
-#### CHN(4) ----------------------------------------------------------------------
+#### CHN ----------------------------------------------------------------------
 # 1950-51: apply gdp.gl proportion to 1952 gdp.gl estimate and use that ratio
 # on gdp.pwt estimate
 gdp <- gdp_growth_estimator_pwt_func(gdp, "CHN", 1952)
@@ -964,10 +1077,13 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "CHN", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "CHN")
 
+# 1946-1949: apply 3-year moving average weighted growth rates
+gdp <- gdp_growth_estimator_no_data_func(gdp, "CHN")
+
 #### CIV ----------------------------------------------------------------------
 # 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
 # on gdp.gl estimate
-gdp <- gdp_growth_estimator_gl_func(gdp, "CHN", 2011)
+gdp <- gdp_growth_estimator_gl_func(gdp, "CIV", 2011)
 
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "CIV")
@@ -1063,7 +1179,7 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "CYP", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "CYP")
 
-#### CZE(4) ----------------------------------------------------------------------
+#### CZE ----------------------------------------------------------------------
 # 1950-89: apply gdp.gl proportion to 1990 gdp.gl estimate and use that ratio
 # on gdp.pwt estimate
 gdp <- gdp_growth_estimator_pwt_func(gdp, "CZE", 1990)
@@ -1098,20 +1214,164 @@ gdp <- gdp %>%
                   gdp.gl.est = gdp$gdp.gl.est[gdp$iso3c=="CZE"&gdp$year==1949]/
                     (1+(growth.rate.datasets$mpd.rgdpna.growth[growth.rate.datasets$iso3c=="CSK"&growth.rate.datasets$year==1949]/100)))
 
+# 1946-1947: apply 3-year moving average weighted growth rates
+
+# calculate growth rates - pwt
+csk.pwt.growth.49 <- gdp$gdp.pwt.est[gdp$iso3c=="CZE"&gdp$year==1949]/gdp$gdp.pwt.est[gdp$iso3c=="CZE"&gdp$year==1948]
+csk.pwt.growth.50 <- gdp$gdp.pwt.est[gdp$iso3c=="CZE"&gdp$year==1950]/gdp$gdp.pwt.est[gdp$iso3c=="CZE"&gdp$year==1949]
+csk.pwt.growth.51 <- gdp$gdp.pwt.est[gdp$iso3c=="CZE"&gdp$year==1951]/gdp$gdp.pwt.est[gdp$iso3c=="CZE"&gdp$year==1950]
+
+csk.pwt.growth.48 <- (1/2)*csk.pwt.growth.49 + (1/3)*csk.pwt.growth.50 + (1/6)*csk.pwt.growth.51
+csk.pwt.growth.47 <- (1/2)*csk.pwt.growth.48 + (1/3)*csk.pwt.growth.49 + (1/6)*csk.pwt.growth.50
+
+# calculate growth rates - gl
+csk.gl.growth.49 <- gdp$gdp.gl.est[gdp$iso3c=="CZE"&gdp$year==1949]/gdp$gdp.gl.est[gdp$iso3c=="CZE"&gdp$year==1948]
+csk.gl.growth.50 <- gdp$gdp.gl.est[gdp$iso3c=="CZE"&gdp$year==1950]/gdp$gdp.gl.est[gdp$iso3c=="CZE"&gdp$year==1949]
+csk.gl.growth.51 <- gdp$gdp.gl.est[gdp$iso3c=="CZE"&gdp$year==1951]/gdp$gdp.gl.est[gdp$iso3c=="CZE"&gdp$year==1950]
+  
+csk.gl.growth.48 <- (1/2)*csk.gl.growth.49 + (1/3)*csk.gl.growth.50 + (1/6)*csk.gl.growth.51
+csk.gl.growth.47 <- (1/2)*csk.gl.growth.48 + (1/3)*csk.gl.growth.49 + (1/6)*csk.gl.growth.50
+
+# add 1947
+gdp <- gdp %>%
+  tibble::add_row(iso3c = "CZE",
+                  country = "Czechia",
+                  year = 1947,
+                  gdp.pwt = NA,
+                  gdp.gl = NA,
+                  gdp.pwt.est = gdp$gdp.pwt.est[gdp$iso3c=="CZE"&gdp$year==1948]/csk.pwt.growth.48,
+                  gdp.gl.est = gdp$gdp.gl.est[gdp$iso3c=="CZE"&gdp$year==1948]/csk.gl.growth.48)
+  
+# add 1946
+gdp <- gdp %>%
+  tibble::add_row(iso3c = "CZE",
+                  country = "Czechia",
+                  year = 1946,
+                  gdp.pwt = NA,
+                  gdp.gl = NA,
+                  gdp.pwt.est = gdp$gdp.pwt.est[gdp$iso3c=="CZE"&gdp$year==1947]/csk.pwt.growth.47,
+                  gdp.gl.est = gdp$gdp.gl.est[gdp$iso3c=="CZE"&gdp$year==1947]/csk.gl.growth.47)
+
 #### DEU/BRD/DDR(4) ----------------------------------------------------------------------
 # pwt data combines East and West Germany, while gl separates East and West Germany through
 # to 1990 (inclusive)
 # East and West Germany are coded as existing through 1989 (inclusive), with a unified
 # Germany coded as beginning starting in 1990
+# gl data for 1950-1970 and for 1988-1990 is the same
 
-# calculate ratio between gl's East and West Germany GDPs
+# recalculate gl DDR estimates for 1950-1969
+## (1) combine gl BRD and gl DDR 1970 gdp estimates
+## (2) calculate pwt combined DEU growth estimates for 1950-1970
+## (3) apply pwt combined DEU growth estimates to gl combined 1970 estimate
+## (4) subtract gl BRD estimates from combined gl estimates
+
+gl.deu.combined.70 <- gdp$gdp.gl.est[gdp$iso3c=="BRD"&gdp$year==1970] +
+                        gdp$gdp.gl.est[gdp$iso3c=="DDR"&gdp$year==1970]
+
+pwt.deu.growth.estimates <- gdp %>%
+  dplyr::filter(iso3c=="DEU") %>%
+  dplyr::select(year,gdp.pwt.est)
+
+pwt.deu.growth.estimates.plus1 <- pwt.deu.growth.estimates %>%
+  dplyr::mutate(year = year + 1) %>%
+  dplyr::rename(gdp.pwt.est.plus1 = gdp.pwt.est)
+
+pwt.deu.growth.estimates <- pwt.deu.growth.estimates %>%
+  dplyr::left_join(pwt.deu.growth.estimates.plus1,by="year") %>%
+  dplyr::mutate(pwt.combined.growth = (gdp.pwt.est-gdp.pwt.est.plus1)/gdp.pwt.est.plus1)
+
+pwt.deu.growth.estimates$gl.combined.estimate[pwt.deu.growth.estimates$year==1970] <- gl.deu.combined.70
+
+for(g in 1969:1950){
+  
+  pwt.deu.growth.estimates$gl.combined.estimate[pwt.deu.growth.estimates$year==g] <- pwt.deu.growth.estimates$gl.combined.estimate[pwt.deu.growth.estimates$year==(g+1)]/
+                                                                                       (1+pwt.deu.growth.estimates$pwt.combined.growth[pwt.deu.growth.estimates$year==(g+1)])
+  
+}
+
+gl.deu.combined.estimates <- pwt.deu.growth.estimates %>%
+  dplyr::select(year,gl.combined.estimate)
+
+gl.brd <- gdp %>%
+  dplyr::filter(iso3c=="BRD") %>%
+  dplyr::select(year,gdp.gl.est) %>%
+  dplyr::rename(gdp.gl.brd.est = gdp.gl.est)
+
+gl.deu.combined.estimates <- gl.deu.combined.estimates %>%
+  dplyr::left_join(gl.brd,by="year") %>%
+  dplyr::mutate(gdp.gl.ddr.est = gl.combined.estimate - gdp.gl.brd.est,
+                iso3c = "DDR",
+                country = "East Germany") %>%
+  dplyr::select(iso3c,country,year,gdp.gl.ddr.est) %>%
+  dplyr::filter(year <= 1970)
+
+# merge 1950-1969 DDR estimates with main gdp dataset and replace old values
+gdp <- gdp %>%
+  dplyr::full_join(gl.deu.combined.estimates,by=c("iso3c","country","year")) %>%
+  dplyr::mutate(gdp.gl.est = ifelse(iso3c=="DDR"&year<1970,gdp.gl.ddr.est,gdp.gl.est)) %>%
+  dplyr::select(-gdp.gl.ddr.est)
+
+# recalculate gl DDR estimates for 1989-1990
+## (1) combine gl BRD and gl DDR 1988 gdp estimates
+## (2) calculate pwt combined DEU growth estimates for 1988-1990
+## (3) apply pwt combined DEU growth estimates to gl combined 1988 estimate
+## (4) subtract gl BRD estimates from combined gl estimates
+
+gl.deu.combined.88 <- gdp$gdp.gl.est[gdp$iso3c=="BRD"&gdp$year==1988] +
+                        gdp$gdp.gl.est[gdp$iso3c=="DDR"&gdp$year==1988]
+
+pwt.deu.growth.estimates <- gdp %>%
+  dplyr::filter(iso3c=="DEU") %>%
+  dplyr::select(year,gdp.pwt.est)
+
+pwt.deu.growth.estimates.plus1 <- pwt.deu.growth.estimates %>%
+  dplyr::mutate(year = year + 1) %>%
+  dplyr::rename(gdp.pwt.est.plus1 = gdp.pwt.est)
+
+pwt.deu.growth.estimates <- pwt.deu.growth.estimates %>%
+  dplyr::left_join(pwt.deu.growth.estimates.plus1,by="year") %>%
+  dplyr::mutate(pwt.combined.growth = (gdp.pwt.est-gdp.pwt.est.plus1)/gdp.pwt.est.plus1)
+
+pwt.deu.growth.estimates$gl.combined.estimate[pwt.deu.growth.estimates$year==1988] <- gl.deu.combined.88
+
+for(g in 1989:1990){
+  
+  pwt.deu.growth.estimates$gl.combined.estimate[pwt.deu.growth.estimates$year==g] <- pwt.deu.growth.estimates$gl.combined.estimate[pwt.deu.growth.estimates$year==(g-1)]*
+                                                                                       (1+pwt.deu.growth.estimates$pwt.combined.growth[pwt.deu.growth.estimates$year==g])
+  
+}
+
+gl.deu.combined.estimates <- pwt.deu.growth.estimates %>%
+  dplyr::select(year,gl.combined.estimate)
+
+gl.brd <- gdp %>%
+  dplyr::filter(iso3c=="BRD") %>%
+  dplyr::select(year,gdp.gl.est) %>%
+  dplyr::rename(gdp.gl.brd.est = gdp.gl.est)
+
+gl.deu.combined.estimates <- gl.deu.combined.estimates %>%
+  dplyr::left_join(gl.brd,by="year") %>%
+  dplyr::mutate(gdp.gl.ddr.est = gl.combined.estimate - gdp.gl.brd.est,
+                iso3c = "DDR",
+                country = "East Germany") %>%
+  dplyr::select(iso3c,country,year,gdp.gl.ddr.est) %>%
+  dplyr::filter(year < 1991)
+
+# merge 1988-1990 DDR estimates with main gdp dataset and replace old values
+gdp <- gdp %>%
+  dplyr::full_join(gl.deu.combined.estimates,by=c("iso3c","country","year")) %>%
+  dplyr::mutate(gdp.gl.est = ifelse(iso3c=="DDR"&year>1988&year<1991,gdp.gl.ddr.est,gdp.gl.est)) %>%
+  dplyr::select(-gdp.gl.ddr.est)
+
+# split pwt estimate for East and West Germany
+# calculate ratio between gdp.gl.est's East and West Germany GDPs
 gdp_split_germany <- gdp %>%
-  dplyr::select(iso3c,year,gdp.gl) %>%
+  dplyr::select(iso3c,year,gdp.gl.est) %>%
   dplyr::filter(iso3c %in% c("BRD","DDR"),
                 # filter out 1990, which is coded as a unified Germany
                 year < 1990) %>%
   dplyr::group_by(year) %>%
-  dplyr::mutate(multiplier = gdp.gl / sum(gdp.gl,na.rm=TRUE)) %>%
+  dplyr::mutate(multiplier = gdp.gl.est / sum(gdp.gl.est,na.rm=TRUE)) %>%
   dplyr::ungroup()
 
 # pull pwt's unified German GDP data for before reunification
@@ -1119,17 +1379,16 @@ gdp_combined_germany <- gdp %>%
   dplyr::filter(iso3c == "DEU",
                 # filter out 1990, which is coded as a unified Germany
                 year < 1990) %>%
-  dplyr::select(-c(iso3c,gdp.gl)) %>%
+  dplyr::select(-c(iso3c,gdp.gl.est)) %>%
   # merge split East and West Germany ratios to combined Germany datasest
   dplyr::full_join(gdp_split_germany,by="year") %>%
-  dplyr::mutate(gdp.pwt.est = gdp.pwt * multiplier,
-                country = ifelse(iso3c=="BRD","West Germany","East Germany"),
-                gdp.gl.est = gdp.gl) %>%
+  dplyr::mutate(gdp.pwt.est = gdp.pwt.est * multiplier,
+                country = ifelse(iso3c=="BRD","West Germany","East Germany")) %>%
   dplyr::select(-multiplier)
 
 # calculate 1990 estimates for pwt and gl
-deu.1990.pwt <- gdp$gdp.pwt[gdp$iso3c=="DEU"&gdp$year==1990]
-deu.1990.gl <- gdp$gdp.gl[gdp$iso3c=="BRD"&gdp$year==1990] + gdp$gdp.gl[gdp$iso3c=="DDR"&gdp$year==1990]
+deu.1990.pwt <- gdp$gdp.pwt.est[gdp$iso3c=="DEU"&gdp$year==1990]
+deu.1990.gl <- gdp$gdp.gl.est[gdp$iso3c=="BRD"&gdp$year==1990] + gdp$gdp.gl.est[gdp$iso3c=="DDR"&gdp$year==1990]
 
 gdp <- gdp %>%
   # filter out entries for Germany 1950-1990
@@ -1145,6 +1404,34 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "DEU", 2011)
 
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "DEU")
+
+# 1946-1949: apply mpd's (combined) DEU growth rates to both BRD and DDR estimates
+# for pwt and gl
+for(b in 1949:1946){
+  
+  gdp <- gdp %>%
+    tibble::add_row(iso3c = "BRD",
+                    country = "West Germany",
+                    year = b,
+                    gdp.pwt = NA,
+                    gdp.gl = NA,
+                    gdp.pwt.est = gdp$gdp.pwt.est[gdp$iso3c=="BRD"&gdp$year==(b+1)]/
+                                    (1+(growth.rate.datasets$mpd.rgdpna.growth[growth.rate.datasets$iso3c=="DEU"&growth.rate.datasets$year==(b+1)]/100)),
+                    gdp.gl.est = gdp$gdp.gl.est[gdp$iso3c=="BRD"&gdp$year==(b+1)]/
+                                    (1+(growth.rate.datasets$mpd.rgdpna.growth[growth.rate.datasets$iso3c=="DEU"&growth.rate.datasets$year==(b+1)]/100)))
+  
+  gdp <- gdp %>%
+    tibble::add_row(iso3c = "DDR",
+                    country = "East Germany",
+                    year = b,
+                    gdp.pwt = NA,
+                    gdp.gl = NA,
+                    gdp.pwt.est = gdp$gdp.pwt.est[gdp$iso3c=="DDR"&gdp$year==(b+1)]/
+                                    (1+(growth.rate.datasets$mpd.rgdpna.growth[growth.rate.datasets$iso3c=="DEU"&growth.rate.datasets$year==(b+1)]/100)),
+                    gdp.gl.est = gdp$gdp.gl.est[gdp$iso3c=="DDR"&gdp$year==(b+1)]/
+                                    (1+(growth.rate.datasets$mpd.rgdpna.growth[growth.rate.datasets$iso3c=="DEU"&growth.rate.datasets$year==(b+1)]/100)))
+
+}
 
 #### DJI ----------------------------------------------------------------------
 # 1970-1976: DJI coded as gaining independence in 1977
@@ -1177,7 +1464,7 @@ gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "DNK")
 # 1946-1949: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_prior_rate_func(gdp, growth.rate.datasets, "DNK")
 
-#### DOM(4) ----------------------------------------------------------------------
+#### DOM ----------------------------------------------------------------------
 # 1950: apply gdp.gl proportion to 1951 gdp.gl estimate and use that ratio
 # on gdp.pwt estimate
 gdp <- gdp_growth_estimator_pwt_func(gdp, "DOM", 1951)
@@ -1189,6 +1476,9 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "DOM", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "DOM")
 
+# 1946-1949: apply 3-year moving average weighted growth rates
+gdp <- gdp_growth_estimator_no_data_func(gdp, "DOM")
+
 #### DZA ----------------------------------------------------------------------
 # 1960-1961: DZA coded as gaining independence in 1962
 
@@ -1199,7 +1489,7 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "DZA", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "DZA")
 
-#### ECU(4) ----------------------------------------------------------------------
+#### ECU ----------------------------------------------------------------------
 # 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
 # on gdp.gl estimate
 gdp <- gdp_growth_estimator_gl_func(gdp, "ECU", 2011)
@@ -1210,7 +1500,10 @@ gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "ECU")
 # 1946-1949: apply mpd growth rates
 gdp <- gdp_growth_estimator_mpd_prior_rate_func(gdp, growth.rate.datasets, "ECU")
 
-#### EGY(4) ----------------------------------------------------------------------
+# 1946-1949: apply 3-year moving average weighted growth rates
+gdp <- gdp_growth_estimator_no_data_func(gdp, "ECU")
+
+#### EGY ----------------------------------------------------------------------
 # 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
 # on gdp.gl estimate
 gdp <- gdp_growth_estimator_gl_func(gdp, "EGY", 2011)
@@ -1218,7 +1511,10 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "EGY", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "EGY")
 
-#### ERI(p) ----------------------------------------------------------------------
+# 1946-1949: apply 3-year moving average weighted growth rates
+gdp <- gdp_growth_estimator_no_data_func(gdp, "EGY")
+
+#### ERI(p/x) ----------------------------------------------------------------------
 # no gdp.pwt data, so use gdp.gl data as an estimate
 gdp$gdp.pwt.est[gdp$iso3c=="ERI"] <- gdp$gdp.gl[gdp$iso3c=="ERI"]
 
@@ -1246,13 +1542,16 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "EST", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "EST")
 
-#### ETH(4) ----------------------------------------------------------------------
+#### ETH(x) ----------------------------------------------------------------------
 # 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
 # on gdp.gl estimate
 gdp <- gdp_growth_estimator_gl_func(gdp, "ETH", 2011)
 
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "ETH")
+
+# 1946-1949: apply 3-year moving average weighted growth rates
+gdp <- gdp_growth_estimator_no_data_func(gdp, "ETH")
 
 #### FIN ----------------------------------------------------------------------
 # 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
@@ -1399,7 +1698,7 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "GRD", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "GRD")
 
-#### GTM(4) ----------------------------------------------------------------------
+#### GTM ----------------------------------------------------------------------
 # 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
 # on gdp.gl estimate
 gdp <- gdp_growth_estimator_gl_func(gdp, "GTM", 2011)
@@ -1454,7 +1753,7 @@ gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "HTI")
 # 1946-1949: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_prior_rate_func(gdp, growth.rate.datasets, "HTI")
 
-#### HUN(4) ----------------------------------------------------------------------
+#### HUN ----------------------------------------------------------------------
 # 1950-1969: apply gdp.gl proportion to 1970 gdp.gl estimate and use that ratio
 # on gdp.pwt estimate
 gdp <- gdp_growth_estimator_pwt_func(gdp, "HUN", 1970)
@@ -1515,7 +1814,7 @@ gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "IRL")
 # 1946-1949: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_prior_rate_func(gdp, growth.rate.datasets, "IRL")
 
-#### IRN(4) ----------------------------------------------------------------------
+#### IRN ----------------------------------------------------------------------
 # 1950-1954: apply gdp.gl proportion to 1955 gdp.gl estimate and use that ratio
 # on gdp.pwt estimate
 gdp <- gdp_growth_estimator_pwt_func(gdp, "IRN", 1955)
@@ -1527,7 +1826,10 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "IRN", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "IRN")
 
-#### IRQ(4) ----------------------------------------------------------------------
+# 1946-1949: apply 3-year moving average weighted growth rates
+gdp <- gdp_growth_estimator_no_data_func(gdp, "IRN")
+
+#### IRQ ----------------------------------------------------------------------
 # 1950-1969: apply gdp.gl proportion to 1970 gdp.gl estimate and use that ratio
 # on gdp.pwt estimate
 gdp <- gdp_growth_estimator_pwt_func(gdp, "IRQ", 1970)
@@ -1539,7 +1841,10 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "IRQ", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "IRQ")
 
-#### ISL(4) ----------------------------------------------------------------------
+# 1946-1949: apply 3-year moving average weighted growth rates
+gdp <- gdp_growth_estimator_no_data_func(gdp, "IRQ")
+
+#### ISL ----------------------------------------------------------------------
 # 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
 # on gdp.gl estimate
 gdp <- gdp_growth_estimator_gl_func(gdp, "ISL", 2011)
@@ -1547,7 +1852,10 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "ISL", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "ISL")
 
-#### ISR/PSE(g/4) ----------------------------------------------------------------------
+# 1946-1949: apply 3-year moving average weighted growth rates
+gdp <- gdp_growth_estimator_no_data_func(gdp, "ISL")
+
+#### ISR/PSE(g) ----------------------------------------------------------------------
 # For purposes of this analysis, conflict between the Israeli government / Israeli groups
 # and Palestinian officials / Palestinian groups operating in Israeli/Palestinian territories
 # are considered domestic conflicts. As such, the GDP of both Israel and Palestinian territories
@@ -1570,6 +1878,10 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "ISR", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "ISR")
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "PSE")
+
+# 1946-1949: apply 3-year moving average weighted growth rates
+gdp <- gdp_growth_estimator_no_data_func(gdp, "ISR")
+gdp <- gdp_growth_estimator_no_data_func(gdp, "PSE")
 
 # combined ISR/PSE code
 gdp.isr.pse <- gdp %>%
@@ -1607,7 +1919,7 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "JAM", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "JAM")
 
-#### JOR(x/4) ----------------------------------------------------------------------
+#### JOR(x) ----------------------------------------------------------------------
 # 1950-1953: apply gdp.gl proportion to 1954 gdp.gl estimate and use that ratio
 # on gdp.pwt estimate
 gdp <- gdp_growth_estimator_pwt_func(gdp, "JOR", 1970)
@@ -1618,6 +1930,9 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "JOR", 2011)
 
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "JOR")
+
+# 1946-1949: apply 3-year moving average weighted growth rates
+gdp <- gdp_growth_estimator_no_data_func(gdp, "JOR")
 
 #### JPN ----------------------------------------------------------------------
 # 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
@@ -1704,7 +2019,7 @@ gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "KOR")
 # 1946-1949: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_prior_rate_func(gdp, growth.rate.datasets, "KOR")
 
-#### KSV/MNE/SRB/YUG(x/4) ----------------------------------------------------------------------
+#### KSV/MNE/SRB/YUG(p/x) ----------------------------------------------------------------------
 # Data time frames (note all gl data extends only through 2011, inclusive):
 ## BIH - pwt 1990-; gl 1992-; coded as starting 1992
 ## HRV - pwt 1990-; gl 1991-; coded as starting 1992
@@ -1714,11 +2029,6 @@ gdp <- gdp_growth_estimator_imf_prior_rate_func(gdp, growth.rate.datasets, "KOR"
 ## MNE - pwt 1990-; gl 2006-; coded as starting in 2006
 ## SRB - pwt 1990-; gl 2006-; coded as starting in 1992
 ## YUG - pwt no data; gl 1950-2006; coded as ending 1991
-
-
-
-
-
 
 ## YUG 1992-2005 gl data is for Serbia and Montenegro
 ## SRB 2008- pwt data is for both Serbia and Kosovo
@@ -1759,7 +2069,7 @@ gdp <- gdp %>%
 ## note gl has YUG, SRB, and MNE values for 2006, though SRB alone is larger than YUG
 gdp.srb.mne <- gdp %>%
   dplyr::filter(iso3c %in% c("YUG","SRB","MNE")) %>%
-  dplyr::filter(year %in% c(1991:2005)) %>%
+  dplyr::filter(year %in% c(1990:2005)) %>%
   dplyr::group_by(year) %>%
   dplyr::summarise(gdp.pwt.est = sum(gdp.pwt,na.rm=TRUE),
                    gdp.gl.est = sum(gdp.gl,na.rm=TRUE)) %>%
@@ -1770,9 +2080,40 @@ gdp.srb.mne <- gdp %>%
                 gdp.gl = gdp.gl.est)
 
 gdp <- gdp %>%
-  # filter out YUG/SRB/MNE for 1991-2005
-  dplyr::filter(iso3c %!in% c("YUG","SRB","MNE") | year %!in% c(1991:2005)) %>%
+  # filter out YUG/SRB/MNE for 1990-2005
+  dplyr::filter(iso3c %!in% c("YUG","SRB","MNE") | year %!in% c(1990:2005),
+                # filter out YUG 2006
+                iso3c != "YUG" | year != 2006) %>%
   rbind(gdp.srb.mne)
+
+# YUG 1990-1991: reestimate gdp.pwt.est and gdp.gl.est as sums of republics for each year
+yug.90.91.est <- gdp %>%
+  dplyr::filter(iso3c %in% c("SVN","HRV","BIH","SRB","MKD")) %>%
+  dplyr::group_by(year) %>%
+  dplyr::summarise(gdp.pwt.est = sum(gdp.pwt.est,na.rm=TRUE),
+                   gdp.gl.est = sum(gdp.gl.est,na.rm=TRUE))
+
+# add rows for YUG 1990 and 1991
+gdp <- gdp %>%
+  tibble::add_row(iso3c = "YUG",
+                  country = "Yugoslavia",
+                  year = 1990,
+                  gdp.pwt = NA,
+                  gdp.gl = NA,
+                  gdp.pwt.est = yug.90.91.est$gdp.pwt.est[yug.90.91.est$year==1990],
+                  gdp.gl.est = yug.90.91.est$gdp.gl.est[yug.90.91.est$year==1990]) %>%
+  tibble::add_row(iso3c = "YUG",
+                  country = "Yugoslavia",
+                  year = 1991,
+                  gdp.pwt = NA,
+                  gdp.gl = NA,
+                  gdp.pwt.est = yug.90.91.est$gdp.pwt.est[yug.90.91.est$year==1991],
+                  gdp.gl.est = yug.90.91.est$gdp.gl.est[yug.90.91.est$year==1991]) 
+
+# recode gdp.pwt.est and gdp.gl.est 1990 and 1991 as NAs for the republics
+# gdp <- gdp %>%
+#   dplyr::mutate(gdp.pwt.est = ifelse(iso3c %in% c("SVN","HRV","BIH","SRB","MKD")&year %in% c(1990:1991),NA,gdp.pwt.est),
+#                 gdp.gl.est = ifelse(iso3c %in% c("SVN","HRV","BIH","SRB","MKD")&year %in% c(1990:1991),NA,gdp.gl.est))
 
 # 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
 # on gdp.gl estimate
@@ -1800,6 +2141,32 @@ gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "SRB")
 # 1947-1949: apply mpd growth rates
 gdp <- gdp_growth_estimator_mpd_prior_rate_func(gdp, growth.rate.datasets, "YUG")
 gdp$country[gdp$iso3c=="YUG"] <- "Yugoslavia"
+
+# 1946: apply 3-year moving average weighted growth rates
+
+# calculate growth rates - gl
+yug.gl.growth.48 <- gdp$gdp.gl.est[gdp$iso3c=="YUG"&gdp$year==1948]/gdp$gdp.gl.est[gdp$iso3c=="YUG"&gdp$year==1947]
+yug.gl.growth.49 <- gdp$gdp.gl.est[gdp$iso3c=="YUG"&gdp$year==1949]/gdp$gdp.gl.est[gdp$iso3c=="YUG"&gdp$year==1948]
+yug.gl.growth.50 <- gdp$gdp.gl.est[gdp$iso3c=="YUG"&gdp$year==1950]/gdp$gdp.gl.est[gdp$iso3c=="YUG"&gdp$year==1949]
+
+yug.gl.growth.47 <- (1/2)*yug.gl.growth.48 + (1/3)*yug.gl.growth.49 + (1/6)*yug.gl.growth.50
+
+# add 1946
+gdp$gdp.gl.est[gdp$iso3c=="YUG"&gdp$year==1946] <- gdp$gdp.gl.est[gdp$iso3c=="YUG"&gdp$year==1947]/yug.gl.growth.47
+
+# YUG 1946-1989 gdp.pwt.est aply gdp.gl.est proportion to 1990 gdp.gl.est estimate and use that
+# ratio on gdp.pwt.estimate
+
+# the gdp.gl.est baseline to estimate the proportions from
+yug.baseline <- gdp$gdp.gl.est[gdp$iso3c=="YUG"&gdp$year==1990]
+
+# the gdp.pwt.est relative gdp to apply the proportions to
+yug.relative <- gdp$gdp.pwt.est[gdp$iso3c=="YUG"&gdp$year==1990]
+
+gdp <- gdp %>%
+  dplyr::mutate(prop = yug.relative * gdp.gl.est / yug.baseline,
+                gdp.pwt.est = ifelse(iso3c=="YUG"&year %in% c(1946:1989),prop,gdp.pwt.est)) %>%
+  dplyr::select(-prop)
 
 #### KWT ----------------------------------------------------------------------
 # 1961-1969: apply gdp.gl proportion to 1970 gdp.gl estimate and use that ratio
@@ -1834,7 +2201,7 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "LAO", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "LAO")
 
-#### LBN(4) ----------------------------------------------------------------------
+#### LBN(x) ----------------------------------------------------------------------
 # 1950-1969: apply gdp.gl proportion to 1970 gdp.gl estimate and use that ratio
 # on gdp.pwt estimate
 gdp <- gdp_growth_estimator_pwt_func(gdp, "LBN", 1970)
@@ -1846,7 +2213,10 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "LBN", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "LBN")
 
-#### LBR(4) ----------------------------------------------------------------------
+# 1946-1949: apply 3-year moving average weighted growth rates
+gdp <- gdp_growth_estimator_no_data_func(gdp, "LBN")
+
+#### LBR ----------------------------------------------------------------------
 # 1950-1963: apply gdp.gl proportion to 1964 gdp.gl estimate and use that ratio
 # on gdp.pwt estimate
 gdp <- gdp_growth_estimator_pwt_func(gdp, "LBR", 1964)
@@ -1857,6 +2227,9 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "LBR", 2011)
 
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "LBR")
+
+# 1946-1949: apply 3-year moving average weighted growth rates
+gdp <- gdp_growth_estimator_no_data_func(gdp, "LBR")
 
 #### LBY(p) ----------------------------------------------------------------------
 # LBY gl 2008-2011 estimates are the same
@@ -1893,11 +2266,14 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "LCA", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "LCA")
 
-#### LIE(p/x/4) ----------------------------------------------------------------------
+#### LIE(p/x) ----------------------------------------------------------------------
 # no gdp.pwt data, so use gdp.gl data as an estimate
 gdp$gdp.pwt.est[gdp$iso3c=="LIE"] <- gdp$gdp.gl[gdp$iso3c=="LIE"]
 
-#### LKA(4) ----------------------------------------------------------------------
+# 1946-1949: apply 3-year moving average weighted growth rates
+gdp <- gdp_growth_estimator_no_data_func(gdp, "LIE")
+
+#### LKA ----------------------------------------------------------------------
 # 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
 # on gdp.gl estimate
 gdp <- gdp_growth_estimator_gl_func(gdp, "LKA", 2011)
@@ -1928,13 +2304,16 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "LTU", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "LTU")
 
-#### LUX(4) ----------------------------------------------------------------------
+#### LUX ----------------------------------------------------------------------
 # 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
 # on gdp.gl estimate
 gdp <- gdp_growth_estimator_gl_func(gdp, "LUX", 2011)
 
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "LUX")
+
+# 1946-1949: apply 3-year moving average weighted growth rates
+gdp <- gdp_growth_estimator_no_data_func(gdp, "LUX")
 
 #### LVA ----------------------------------------------------------------------
 # 1990: LVA coded as gaining independence in 1991
@@ -1956,12 +2335,15 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "MAR", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "MAR")
 
-#### MCO(p/x/4) ----------------------------------------------------------------------
+#### MCO(p/x) ----------------------------------------------------------------------
 # no gdp.pwt data, so use gdp.gl data as an estimate
 gdp$gdp.pwt.est[gdp$iso3c=="MCO"] <- gdp$gdp.gl[gdp$iso3c=="MCO"]
 
 # 2012-2018: apply wb growth rates
 gdp <- gdp_growth_estimator_wb_rate_func(gdp, growth.rate.datasets, "MCO", 2012)
+
+# 1946-1949: apply 3-year moving average weighted growth rates
+gdp <- gdp_growth_estimator_no_data_func(gdp, "MCO")
 
 #### MDA ----------------------------------------------------------------------
 # 1990: MDA coded as gaining independence in 1991
@@ -2041,7 +2423,7 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "MLT", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "MLT")
 
-#### MMR(4) ----------------------------------------------------------------------
+#### MMR ----------------------------------------------------------------------
 # 1950-1961: apply gdp.gl proportion to 1962 gdp.gl estimate and use that ratio
 # on gdp.pwt estimate
 gdp <- gdp_growth_estimator_pwt_func(gdp, "MMR", 1962)
@@ -2053,7 +2435,11 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "MMR", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "MMR")
 
-#### MNG(4) ----------------------------------------------------------------------
+# 1946-1949: apply 3-year moving average weighted growth rates (MMR coded as gaining
+# independence in 1948)
+gdp <- gdp_growth_estimator_no_data_func(gdp, "MMR")
+
+#### MNG ----------------------------------------------------------------------
 # 1950-1969: apply gdp.gl proportion to 1970 gdp.gl estimate and use that ratio
 # on gdp.pwt estimate
 gdp <- gdp_growth_estimator_pwt_func(gdp, "MNG", 1970)
@@ -2064,6 +2450,9 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "MNG", 2011)
 
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "MNG")
+
+# 1946-1949: apply 3-year moving average weighted growth rates
+gdp <- gdp_growth_estimator_no_data_func(gdp, "MNG")
 
 #### MOZ ----------------------------------------------------------------------
 # 1960-1974: MOZ coded as gaining independence in 1975
@@ -2136,7 +2525,7 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "SGP", 2011)
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "MYS")
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "SGP")
 
-#### NAM/ZAF(4) ----------------------------------------------------------------------
+#### NAM/ZAF ----------------------------------------------------------------------
 # Note: both pwt and gl code NAM as separate throughout its pre-independence period
 # gl data starts in 1990, pwt data starts in 1960
 # NAM coded as gaining independence in 1990
@@ -2197,6 +2586,10 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "ZAF", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "NAM")
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "ZAF")
+
+# 1946-1949: apply 3-year moving average weighted growth rates
+gdp <- gdp_growth_estimator_no_data_func(gdp, "NAM")
+gdp <- gdp_growth_estimator_no_data_func(gdp, "ZAF")
 
 # combine pre-independence NAM (-1989) gdp with ZAF
 for(z in 1946:1989){
@@ -2260,7 +2653,7 @@ gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "NOR")
 # 1946-1949: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_prior_rate_func(gdp, growth.rate.datasets, "NOR")
 
-#### NPL(4) ----------------------------------------------------------------------
+#### NPL ----------------------------------------------------------------------
 # 1950-1959: apply gdp.gl proportion to 1960 gdp.gl estimate and use that ratio
 # on gdp.pwt estimate
 gdp <- gdp_growth_estimator_pwt_func(gdp, "NPL", 1960)
@@ -2271,6 +2664,9 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "NPL", 2011)
 
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "NPL")
+
+# 1946-1949: apply 3-year moving average weighted growth rates
+gdp <- gdp_growth_estimator_no_data_func(gdp, "NPL")
 
 #### NRU(p) ----------------------------------------------------------------------
 # no gdp.pwt data, so use gdp.gl data as an estimate
@@ -2305,6 +2701,9 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "OMN", 2011)
 
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "OMN")
+
+# 1946-1949: apply 3-year moving average weighted growth rates
+gdp <- gdp_growth_estimator_no_data_func(gdp, "OMN")
 
 #### PAN ----------------------------------------------------------------------
 # 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
@@ -2383,7 +2782,10 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "POL", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "POL")
 
-#### PRK(p/4) ----------------------------------------------------------------------
+# 1946-1949: apply 3-year moving average weighted growth rates
+gdp <- gdp_growth_estimator_no_data_func(gdp, "POL")
+
+#### PRK(p/x) ----------------------------------------------------------------------
 # 2012-2018: use Bank of Korea's estimated PRK growth rates for 2012-2018 applied to gl's 2011 estimate
 # https://www.bok.or.kr/eng/bbs/E0000634/view.do?nttId=10053001&menuNo=400069
 gdp$gdp.gl.est[gdp$iso3c=="PRK"&gdp$year==2012] <- gdp$gdp.gl.est[gdp$iso3c=="PRK"&gdp$year==2011]*(1+0.013)
@@ -2399,6 +2801,9 @@ gdp$gdp.gl.est[gdp$iso3c=="PRK"&gdp$year==2019] <- 1.023*gdp$gdp.gl.est[gdp$iso3
 
 # no gdp.pwt data, so use gdp.gl data as an estimate
 gdp$gdp.pwt.est[gdp$iso3c=="PRK"] <- gdp$gdp.gl[gdp$iso3c=="PRK"]
+
+# 1946-1949: apply 3-year moving average weighted growth rates
+gdp <- gdp_growth_estimator_no_data_func(gdp, "PRK")
 
 #### PRT ----------------------------------------------------------------------
 # 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
@@ -2436,11 +2841,32 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "QAT", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "QAT")
 
-#### ROU(x) ----------------------------------------------------------------------
+#### ROU ----------------------------------------------------------------------
+# gl values constant 1950-1960
+# recalculate gl 1950-1959 estimates based on IMF growth rates
+for(r in 1959:1950){
+  gdp$gdp.gl.est[gdp$iso3c=="ROU"&gdp$year==r] <- gdp$gdp.gl.est[gdp$iso3c=="ROU"&gdp$year==(r+1)]/
+                                                    (1+(growth.rate.datasets$imf.growth.rate.extend[growth.rate.datasets$iso3c=="ROU"&growth.rate.datasets$year==(r+1)]/100))
+    
+}
+
 # 1950-1959: apply gdp.gl proportion to 1960 gdp.gl estimate and use that ratio
 # on gdp.pwt estimate
-# gl values constant 1950-1960
-gdp <- gdp_growth_estimator_pwt_func(gdp, "ROU", 1960)
+# not using function so the gdp.gl.est estimates are used instead of the gdp.gl estimates
+
+# this function is used to estimate pwt gdp data based on the relative difference in the size of the economy
+# between two years within the gl gdp data and applying the proportion to the pwt gdp data
+
+# the gdp.gl baseline to estimate the proportions from
+baseline.rou <- gdp$gdp.gl[gdp$iso3c=="ROU"&gdp$year==1960]
+  
+# the gdp.pwt relative gdp to apply the proportions to
+relative.rou <- gdp$gdp.pwt[gdp$iso3c=="ROU"&gdp$year==1960]
+
+gdp <- gdp %>%
+  dplyr::mutate(prop = relative.rou * gdp.gl.est / baseline.rou,
+                gdp.pwt.est = ifelse(iso3c=="ROU"&is.na(gdp.pwt.est),prop,gdp.pwt.est)) %>%
+  dplyr::select(-prop)
 
 # 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
 # on gdp.gl estimate
@@ -2515,7 +2941,7 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "RWA", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "RWA")
 
-#### SAU(4) ----------------------------------------------------------------------
+#### SAU ----------------------------------------------------------------------
 # 1950-1969: apply gdp.gl proportion to 1970 gdp.gl estimate and use that ratio
 # on gdp.pwt estimate
 gdp <- gdp_growth_estimator_pwt_func(gdp, "SAU", 1970)
@@ -2526,6 +2952,9 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "SAU", 2011)
 
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "SAU")
+
+# 1946-1949: apply 3-year moving average weighted growth rates
+gdp <- gdp_growth_estimator_no_data_func(gdp, "SAU")
 
 #### SDN ----------------------------------------------------------------------
 # 1956-1969: apply gdp.gl proportion to 1970 gdp.gl estimate and use that ratio
@@ -2573,12 +3002,15 @@ gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "SLV")
 # 1946-1949: apply mpd growth rates
 gdp <- gdp_growth_estimator_mpd_prior_rate_func(gdp, growth.rate.datasets, "SLV")
 
-#### SMR(p/4) ----------------------------------------------------------------------
+#### SMR(p) ----------------------------------------------------------------------
 # no gdp.pwt data, so use gdp.gl data as an estimate
 gdp$gdp.pwt.est[gdp$iso3c=="SMR"] <- gdp$gdp.gl[gdp$iso3c=="SMR"]
 
 # 2012-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "SMR", 2012)
+
+# 1946-1949: apply 3-year moving average weighted growth rates
+gdp <- gdp_growth_estimator_no_data_func(gdp, "SMR")
 
 #### SOM(p) ----------------------------------------------------------------------
 # no gdp.pwt data, so use gdp.gl data as an estimate
@@ -2690,7 +3122,7 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "SYC", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "SYC")
 
-#### SYR(p/x/4) ----------------------------------------------------------------------
+#### SYR(p/x) ----------------------------------------------------------------------
 # 1950-1959: apply gdp.gl proportion to 1960 gdp.gl estimate and use that ratio
 # on gdp.pwt estimate
 gdp <- gdp_growth_estimator_pwt_func(gdp, "SYR", 1960)
@@ -2704,6 +3136,9 @@ gdp$gdp.gl.est[gdp$iso3c=="SYR"&gdp$year==2018] <- gdp$gdp.gl.est[gdp$iso3c=="SY
 
 # The EIU estimated 2.3% growth in 2019
 gdp$gdp.gl.est[gdp$iso3c=="SYR"&gdp$year==2019] <- gdp$gdp.gl.est[gdp$iso3c=="SYR"&gdp$year==2018]*1.023
+
+# 1946-1949: apply 3-year moving average weighted growth rates
+gdp <- gdp_growth_estimator_no_data_func(gdp, "SYR")
 
 #### TCD ----------------------------------------------------------------------
 # 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
@@ -2721,13 +3156,16 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "TGO", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "TGO")
 
-#### THA(4) ----------------------------------------------------------------------
+#### THA ----------------------------------------------------------------------
 # 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
 # on gdp.gl estimate
 gdp <- gdp_growth_estimator_gl_func(gdp, "THA", 2011)
 
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "THA")
+
+# 1946-1949: apply 3-year moving average weighted growth rates
+gdp <- gdp_growth_estimator_no_data_func(gdp, "THA")
 
 #### TJK ----------------------------------------------------------------------
 # 1990: TJK coded as gaining independence in 1991
@@ -2805,7 +3243,7 @@ gdp$gdp.pwt.est[gdp$iso3c=="TUV"] <- gdp$gdp.gl[gdp$iso3c=="TUV"]
 # 2012-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "TUV", 2012)
 
-#### TWN(4) ----------------------------------------------------------------------
+#### TWN ----------------------------------------------------------------------
 # 1950: apply gdp.gl proportion to 1951 gdp.gl estimate and use that ratio
 # on gdp.pwt estimate
 gdp <- gdp_growth_estimator_pwt_func(gdp, "TWN", 1951)
@@ -2816,6 +3254,9 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "TWN", 2011)
 
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "TWN")
+
+# 1946-1949: apply 3-year moving average weighted growth rates
+gdp <- gdp_growth_estimator_no_data_func(gdp, "TWN")
 
 #### TZA/ZAN ----------------------------------------------------------------------
 # Tanganyika gained independence 1961; Zanzibar in 1963; unification in 1964
@@ -2987,7 +3428,7 @@ gdp$gdp.pwt.est[gdp$iso3c=="WSM"] <- gdp$gdp.gl[gdp$iso3c=="WSM"]
 # 2012-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "WSM", 2012)
 
-#### YEM/YAR/YPR(4) ----------------------------------------------------------------------
+#### YEM/YAR/YPR ----------------------------------------------------------------------
 # pwt data contains combined Yemen beginning in 1989, while gl separates North and South Yemen from
 # 1950 / 1967 (respectively) through to 1990 (inclusive)
 # Yemen coded as beginning starting in 1991
@@ -3049,6 +3490,9 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "YEM", 2011)
 
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "YEM")
+
+# 1946-1949: apply 3-year moving average weighted growth rates
+gdp <- gdp_growth_estimator_no_data_func(gdp, "YAR")
 
 # original estimates - appear to be different methodology for calculating than what is done above
 # # YEM
@@ -3143,34 +3587,8 @@ gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "ZWE")
 #### formatting ----------------------------------------------------------------------
 gdp <- gdp %>%
   dplyr::rename(gdp.pwt.original = gdp.pwt,
-                gdp.gl.original = gdp.gl)
-
-### add workbook estimates ----------------------------------------------------------------------
-# adds gdp estimates for countries in the 1940s (file notes sources of estimates)
-gdp_40s <- readxl::read_excel("Data files/Workbooks/gdp_estimates_40s.xlsx", sheet = 1) %>%
-  dplyr::select(-method) %>%
-  dplyr::rename(gdp.pwt.est = gdp) %>%
-  # using the countrycode package, add country name based on iso3c code
-  dplyr::mutate(country = countrycode::countrycode(iso3c,"iso3c","country.name"),
-                gdp.pwt.original = NA,
-                gdp.gl.original = NA,
-                gdp.gl.est = NA)
-
-gdp <- gdp %>%
-  rbind(gdp_40s) %>%
-  # using the countrycode package, add country name based on iso3c code
-  dplyr::mutate(country = countrycode::countrycode(iso3c,"iso3c","country.name"))  %>%
-  dplyr::relocate(country,.after = iso3c)
-
-gdp$country[gdp$iso3c=="BRD"] <- "West Germany"
-gdp$country[gdp$iso3c=="DDR"] <- "East Germany"
-gdp$country[gdp$iso3c=="KSV"] <- "Kosovo"
-gdp$country[gdp$iso3c=="RVN"] <- "South Vietnam"
-gdp$country[gdp$iso3c=="SOV"] <- "Soviet Union"
-gdp$country[gdp$iso3c=="YAR"] <- "North Yemen"
-gdp$country[gdp$iso3c=="YPR"] <- "South Yemen"
-gdp$country[gdp$iso3c=="YUG"] <- "Yugoslavia"
-gdp$country[gdp$iso3c=="ZAN"] <- "Zanzibar"
+                gdp.gl.original = gdp.gl) %>%
+  dplyr::full_join(cyears2,by=c("iso3c","year"))
 
 ### calculate growth rates ----------------------------------------------------------------------
 gdp_year_prior <- gdp %>%
