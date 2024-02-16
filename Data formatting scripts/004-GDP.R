@@ -10,14 +10,11 @@
 ### YUG
 ### MAR - Western Sahara included?
 ### ETH/ERI - ERI in ETH pre-independence?
-### ROU - values same for select years
 ### DOM, LBN, PRK 1940s estimates look off
 ## (4) means 1940s gdp estimates not complete [excluding workbook]
 ### AFG, ALB, AND, PAK, CHN, CZE, DEU, DOM, ECU, EGY, ETH, GTM, HUN, IRN, IRQ, ISL, ISR/PSE,
 ## JOR, YUG, LBN, LBR, LBY, LIE, LKA, LUX, MCO, MMR, MNG, NAM/ZAF, NPL, PHL, PRK, SAU, SMR,
 ### SYR, THA, TWN, YAR
-
-## MCO, LIE, YUG 1991, PRK, SYR
 
 ### load libraries ----------------------------------------------------------------------
 library(readxl)
@@ -490,6 +487,119 @@ gdp_growth_estimator_no_data_func <- function(df = gdp, iso){
                     gdp.pwt.est = df$gdp.pwt.est[df$iso3c==iso&df$year==1947]/pwt.growth.47,
                     gdp.gl.est = df$gdp.gl.est[df$iso3c==iso&df$year==1947]/gl.growth.47)
   
+}
+
+# this function approximates the 2012-2019 gdp of a country based on its growth rates the prior years.
+# the function applies weighted growth rates of 1/2 year-1, 1/3 year-2, and 1/6 year-3
+gdp_growth_estimator_no_data_future_func <- function(df = gdp, iso){
+  
+  # calculate growth rates - pwt
+  pwt.growth.11 <- df$gdp.pwt.est[df$iso3c==iso&df$year==2011]/df$gdp.pwt.est[df$iso3c==iso&df$year==2010]
+  pwt.growth.10 <- df$gdp.pwt.est[df$iso3c==iso&df$year==2010]/df$gdp.pwt.est[df$iso3c==iso&df$year==2009]
+  pwt.growth.09 <- df$gdp.pwt.est[df$iso3c==iso&df$year==2009]/df$gdp.pwt.est[df$iso3c==iso&df$year==2008]
+  
+  pwt.growth.12 <- (1/2)*pwt.growth.11 + (1/3)*pwt.growth.10 + (1/6)*pwt.growth.09
+  pwt.growth.13 <- (1/2)*pwt.growth.12 + (1/3)*pwt.growth.11 + (1/6)*pwt.growth.10
+  pwt.growth.14 <- (1/2)*pwt.growth.13 + (1/3)*pwt.growth.12 + (1/6)*pwt.growth.11
+  pwt.growth.15 <- (1/2)*pwt.growth.14 + (1/3)*pwt.growth.13 + (1/6)*pwt.growth.12
+  pwt.growth.16 <- (1/2)*pwt.growth.15 + (1/3)*pwt.growth.14 + (1/6)*pwt.growth.13
+  pwt.growth.17 <- (1/2)*pwt.growth.16 + (1/3)*pwt.growth.15 + (1/6)*pwt.growth.14
+  pwt.growth.18 <- (1/2)*pwt.growth.17 + (1/3)*pwt.growth.16 + (1/6)*pwt.growth.15
+  pwt.growth.19 <- (1/2)*pwt.growth.18 + (1/3)*pwt.growth.17 + (1/6)*pwt.growth.16
+  
+  # calculate growth rates - gl
+  gl.growth.11 <- df$gdp.gl.est[df$iso3c==iso&df$year==2011]/df$gdp.gl.est[df$iso3c==iso&df$year==2010]
+  gl.growth.10 <- df$gdp.gl.est[df$iso3c==iso&df$year==2010]/df$gdp.gl.est[df$iso3c==iso&df$year==2009]
+  gl.growth.09 <- df$gdp.gl.est[df$iso3c==iso&df$year==2009]/df$gdp.gl.est[df$iso3c==iso&df$year==2008]
+  
+  gl.growth.12 <- (1/2)*gl.growth.11 + (1/3)*gl.growth.10 + (1/6)*gl.growth.09
+  gl.growth.13 <- (1/2)*gl.growth.12 + (1/3)*gl.growth.11 + (1/6)*gl.growth.10
+  gl.growth.14 <- (1/2)*gl.growth.13 + (1/3)*gl.growth.12 + (1/6)*gl.growth.11
+  gl.growth.15 <- (1/2)*gl.growth.14 + (1/3)*gl.growth.13 + (1/6)*gl.growth.12
+  gl.growth.16 <- (1/2)*gl.growth.15 + (1/3)*gl.growth.14 + (1/6)*gl.growth.13
+  gl.growth.17 <- (1/2)*gl.growth.16 + (1/3)*gl.growth.15 + (1/6)*gl.growth.14
+  gl.growth.18 <- (1/2)*gl.growth.17 + (1/3)*gl.growth.16 + (1/6)*gl.growth.15
+  gl.growth.19 <- (1/2)*gl.growth.18 + (1/3)*gl.growth.17 + (1/6)*gl.growth.16
+  
+  # add 2012
+  df <- df %>%
+    tibble::add_row(iso3c = iso,
+                    country = countrycode::countrycode(iso3c,"iso3c","country.name"),
+                    year = 2012,
+                    gdp.pwt = NA,
+                    gdp.gl = NA,
+                    gdp.pwt.est = df$gdp.pwt.est[df$iso3c==iso&df$year==2011]*pwt.growth.12,
+                    gdp.gl.est = df$gdp.gl.est[df$iso3c==iso&df$year==2011]*gl.growth.12)
+  
+  # add 2013
+  df <- df %>%
+    tibble::add_row(iso3c = iso,
+                    country = countrycode::countrycode(iso3c,"iso3c","country.name"),
+                    year = 2013,
+                    gdp.pwt = NA,
+                    gdp.gl = NA,
+                    gdp.pwt.est = df$gdp.pwt.est[df$iso3c==iso&df$year==2012]*pwt.growth.13,
+                    gdp.gl.est = df$gdp.gl.est[df$iso3c==iso&df$year==2012]*gl.growth.13)
+  
+  # add 2014
+  df <- df %>%
+    tibble::add_row(iso3c = iso,
+                    country = countrycode::countrycode(iso3c,"iso3c","country.name"),
+                    year = 2014,
+                    gdp.pwt = NA,
+                    gdp.gl = NA,
+                    gdp.pwt.est = df$gdp.pwt.est[df$iso3c==iso&df$year==2013]*pwt.growth.14,
+                    gdp.gl.est = df$gdp.gl.est[df$iso3c==iso&df$year==2013]*gl.growth.14)
+  
+  # add 2015
+  df <- df %>%
+    tibble::add_row(iso3c = iso,
+                    country = countrycode::countrycode(iso3c,"iso3c","country.name"),
+                    year = 2015,
+                    gdp.pwt = NA,
+                    gdp.gl = NA,
+                    gdp.pwt.est = df$gdp.pwt.est[df$iso3c==iso&df$year==2014]*pwt.growth.15,
+                    gdp.gl.est = df$gdp.gl.est[df$iso3c==iso&df$year==2014]*gl.growth.15)
+  
+  # add 2016
+  df <- df %>%
+    tibble::add_row(iso3c = iso,
+                    country = countrycode::countrycode(iso3c,"iso3c","country.name"),
+                    year = 2016,
+                    gdp.pwt = NA,
+                    gdp.gl = NA,
+                    gdp.pwt.est = df$gdp.pwt.est[df$iso3c==iso&df$year==2015]*pwt.growth.16,
+                    gdp.gl.est = df$gdp.gl.est[df$iso3c==iso&df$year==2015]*gl.growth.16)
+  
+  # add 2017
+  df <- df %>%
+    tibble::add_row(iso3c = iso,
+                    country = countrycode::countrycode(iso3c,"iso3c","country.name"),
+                    year = 2017,
+                    gdp.pwt = NA,
+                    gdp.gl = NA,
+                    gdp.pwt.est = df$gdp.pwt.est[df$iso3c==iso&df$year==2016]*pwt.growth.17,
+                    gdp.gl.est = df$gdp.gl.est[df$iso3c==iso&df$year==2016]*gl.growth.17)
+  
+  # add 2018
+  df <- df %>%
+    tibble::add_row(iso3c = iso,
+                    country = countrycode::countrycode(iso3c,"iso3c","country.name"),
+                    year = 2018,
+                    gdp.pwt = NA,
+                    gdp.gl = NA,
+                    gdp.pwt.est = df$gdp.pwt.est[df$iso3c==iso&df$year==2017]*pwt.growth.18,
+                    gdp.gl.est = df$gdp.gl.est[df$iso3c==iso&df$year==2017]*gl.growth.18)
+  
+  # add 2019
+  df <- df %>%
+    tibble::add_row(iso3c = iso,
+                    country = countrycode::countrycode(iso3c,"iso3c","country.name"),
+                    year = 2019,
+                    gdp.pwt = NA,
+                    gdp.gl = NA,
+                    gdp.pwt.est = df$gdp.pwt.est[df$iso3c==iso&df$year==2018]*pwt.growth.19,
+                    gdp.gl.est = df$gdp.gl.est[df$iso3c==iso&df$year==2018]*gl.growth.19)
 }
 
 ### calculate estimates ----------------------------------------------------------------------
@@ -2266,12 +2376,15 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "LCA", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "LCA")
 
-#### LIE(p/x) ----------------------------------------------------------------------
+#### LIE(p) ----------------------------------------------------------------------
 # no gdp.pwt data, so use gdp.gl data as an estimate
 gdp$gdp.pwt.est[gdp$iso3c=="LIE"] <- gdp$gdp.gl[gdp$iso3c=="LIE"]
 
 # 1946-1949: apply 3-year moving average weighted growth rates
 gdp <- gdp_growth_estimator_no_data_func(gdp, "LIE")
+
+# 2012-2019: apply 3-year moving average weighted growth rates
+gdp <- gdp_growth_estimator_no_data_future_func(gdp, "LIE")
 
 #### LKA ----------------------------------------------------------------------
 # 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
@@ -2336,11 +2449,24 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "MAR", 2011)
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "MAR")
 
 #### MCO(p/x) ----------------------------------------------------------------------
-# no gdp.pwt data, so use gdp.gl data as an estimate
-gdp$gdp.pwt.est[gdp$iso3c=="MCO"] <- gdp$gdp.gl[gdp$iso3c=="MCO"]
-
 # 2012-2018: apply wb growth rates
 gdp <- gdp_growth_estimator_wb_rate_func(gdp, growth.rate.datasets, "MCO", 2012)
+
+# no gdp.pwt data, so use gdp.gl data as an estimate
+gdp$gdp.pwt.est[gdp$iso3c=="MCO"] <- gdp$gdp.gl.est[gdp$iso3c=="MCO"]
+
+# 2019: apply 3-year moving average weighted growth rates
+# calculate growth rates
+mco.pwt.growth.19 <- (1/2)*gdp$gdp.pwt.est[gdp$iso3c=="MCO"&gdp$year==2018]/gdp$gdp.pwt.est[gdp$iso3c=="MCO"&gdp$year==2017] +
+                      (1/3)*gdp$gdp.pwt.est[gdp$iso3c=="MCO"&gdp$year==2017]/gdp$gdp.pwt.est[gdp$iso3c=="MCO"&gdp$year==2016] +
+                      (1/6)*gdp$gdp.pwt.est[gdp$iso3c=="MCO"&gdp$year==2016]/gdp$gdp.pwt.est[gdp$iso3c=="MCO"&gdp$year==2015]
+mco.gl.growth.19 <- (1/2)*gdp$gdp.gl.est[gdp$iso3c=="MCO"&gdp$year==2018]/gdp$gdp.gl.est[gdp$iso3c=="MCO"&gdp$year==2017] +
+                      (1/3)*gdp$gdp.gl.est[gdp$iso3c=="MCO"&gdp$year==2017]/gdp$gdp.gl.est[gdp$iso3c=="MCO"&gdp$year==2016] +
+                      (1/6)*gdp$gdp.gl.est[gdp$iso3c=="MCO"&gdp$year==2016]/gdp$gdp.gl.est[gdp$iso3c=="MCO"&gdp$year==2015]
+
+# add 2019 estimates
+gdp$gdp.pwt.est[gdp$iso3c=="MCO"&gdp$year==2019] <- gdp$gdp.pwt.est[gdp$iso3c=="MCO"&gdp$year==2018]*mco.pwt.growth.19
+gdp$gdp.gl.est[gdp$iso3c=="MCO"&gdp$year==2019] <- gdp$gdp.gl.est[gdp$iso3c=="MCO"&gdp$year==2018]*mco.gl.growth.19
 
 # 1946-1949: apply 3-year moving average weighted growth rates
 gdp <- gdp_growth_estimator_no_data_func(gdp, "MCO")
@@ -2785,7 +2911,7 @@ gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "POL")
 # 1946-1949: apply 3-year moving average weighted growth rates
 gdp <- gdp_growth_estimator_no_data_func(gdp, "POL")
 
-#### PRK(p/x) ----------------------------------------------------------------------
+#### PRK(p) ----------------------------------------------------------------------
 # 2012-2018: use Bank of Korea's estimated PRK growth rates for 2012-2018 applied to gl's 2011 estimate
 # https://www.bok.or.kr/eng/bbs/E0000634/view.do?nttId=10053001&menuNo=400069
 gdp$gdp.gl.est[gdp$iso3c=="PRK"&gdp$year==2012] <- gdp$gdp.gl.est[gdp$iso3c=="PRK"&gdp$year==2011]*(1+0.013)
@@ -2804,6 +2930,8 @@ gdp$gdp.pwt.est[gdp$iso3c=="PRK"] <- gdp$gdp.gl[gdp$iso3c=="PRK"]
 
 # 1946-1949: apply 3-year moving average weighted growth rates
 gdp <- gdp_growth_estimator_no_data_func(gdp, "PRK")
+
+gdp$gdp.pwt.est[gdp$iso3c=="PRK"] <- gdp$gdp.gl.est[gdp$iso3c=="PRK"]
 
 #### PRT ----------------------------------------------------------------------
 # 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
@@ -3122,7 +3250,7 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "SYC", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "SYC")
 
-#### SYR(p/x) ----------------------------------------------------------------------
+#### SYR(p) ----------------------------------------------------------------------
 # 1950-1959: apply gdp.gl proportion to 1960 gdp.gl estimate and use that ratio
 # on gdp.pwt estimate
 gdp <- gdp_growth_estimator_pwt_func(gdp, "SYR", 1960)
@@ -3132,10 +3260,24 @@ gdp <- gdp_growth_estimator_pwt_func(gdp, "SYR", 1960)
 gdp <- gdp_growth_estimator_gl_func(gdp, "SYR", 2011)
 
 # 2018: The Heritage Foundation estimated 5.0% growth in 2018
-gdp$gdp.gl.est[gdp$iso3c=="SYR"&gdp$year==2018] <- gdp$gdp.gl.est[gdp$iso3c=="SYR"&gdp$year==2017]*1.05
+gdp <- gdp %>%
+  tibble::add_row(iso3c = "SYR",
+                  country = "Syria",
+                  year = 2018,
+                  gdp.pwt = NA,
+                  gdp.gl = NA,
+                  gdp.pwt.est = gdp$gdp.pwt.est[gdp$iso3c=="SYR"&gdp$year==2017]*1.05,
+                  gdp.gl.est = gdp$gdp.gl.est[gdp$iso3c=="SYR"&gdp$year==2017]*1.05)
 
 # The EIU estimated 2.3% growth in 2019
-gdp$gdp.gl.est[gdp$iso3c=="SYR"&gdp$year==2019] <- gdp$gdp.gl.est[gdp$iso3c=="SYR"&gdp$year==2018]*1.023
+gdp <- gdp %>%
+  tibble::add_row(iso3c = "SYR",
+                  country = "Syria",
+                  year = 2019,
+                  gdp.pwt = NA,
+                  gdp.gl = NA,
+                  gdp.pwt.est = gdp$gdp.pwt.est[gdp$iso3c=="SYR"&gdp$year==2018]*1.023,
+                  gdp.gl.est = gdp$gdp.gl.est[gdp$iso3c=="SYR"&gdp$year==2018]*1.023)
 
 # 1946-1949: apply 3-year moving average weighted growth rates
 gdp <- gdp_growth_estimator_no_data_func(gdp, "SYR")
@@ -3587,8 +3729,7 @@ gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "ZWE")
 #### formatting ----------------------------------------------------------------------
 gdp <- gdp %>%
   dplyr::rename(gdp.pwt.original = gdp.pwt,
-                gdp.gl.original = gdp.gl) %>%
-  dplyr::full_join(cyears2,by=c("iso3c","year"))
+                gdp.gl.original = gdp.gl)
 
 ### calculate growth rates ----------------------------------------------------------------------
 gdp_year_prior <- gdp %>%
