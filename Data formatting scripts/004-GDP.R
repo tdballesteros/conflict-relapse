@@ -1610,9 +1610,6 @@ gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "ECU")
 # 1946-1949: apply mpd growth rates
 gdp <- gdp_growth_estimator_mpd_prior_rate_func(gdp, growth.rate.datasets, "ECU")
 
-# 1946-1949: apply 3-year moving average weighted growth rates
-gdp <- gdp_growth_estimator_no_data_func(gdp, "ECU")
-
 #### EGY ----------------------------------------------------------------------
 # 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
 # on gdp.gl estimate
@@ -3747,11 +3744,10 @@ gdp2 <- gdp %>%
                 gdp.gl.est.growth.rate = (gdp.gl.est / gdp.gl.est.plus1)-1) %>%
   dplyr::select(-c(gdp.pwt.original.plus1,gdp.gl.original.plus1,gdp.pwt.est.plus1,gdp.gl.est.plus1))
 
-### growth dataset ----------------------------------------------------------------------
-gdp.growth.calculated <- gdp2 %>%
-  dplyr::select(iso3c,country,year,gdp.pwt.original.growth.rate,gdp.gl.original.growth.rate,gdp.pwt.est.growth.rate,gdp.gl.est.growth.rate)
-
-gdp.growth.compare <- dplyr::full_join(gdp.growth.calculated,growth.rate.datasets,by=c("iso3c","country","year")) %>%
+### merge growth dataset ----------------------------------------------------------------------
+gdp2 <- gdp2 %>%
+  dplyr::left_join(growth.rate.datasets,by=c("iso3c","country","year")) %>%
+  # compare and flag growth rates that differ by 5 percentage points
   dplyr::mutate(pwt.vs.imf = (100*gdp.pwt.est.growth.rate)-imf.growth.rate,
                 gl.vs.imf = (100*gdp.gl.est.growth.rate)-imf.growth.rate,
                 pwt.flag = ifelse(abs(pwt.vs.imf)>=5,1,0),
