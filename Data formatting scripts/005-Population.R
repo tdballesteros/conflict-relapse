@@ -930,7 +930,7 @@ pd <- pd %>%
   dplyr::filter(iso3c %!in% c("VNM","RVN") | year %!in% c(1954:1975)) %>%
   rbind(pd.vnm.ratios)
 
-#### YUG/SRB/MNE/KSV(x) ----------------------------------------------------------------------
+#### YUG/SRB/MNE/KSV ----------------------------------------------------------------------
 # BIH: UN estimates 1950-2019; COW 1992-2012
 # HRV: UN estimates 1950-2019; COW 1992-2012
 # MKD: UN estimates 1950-2019; COW 1993-2012
@@ -1102,6 +1102,10 @@ pd <- pd %>%
   dplyr::filter(iso3c %!in% c("SRB","KSV") | year %!in% 2009:2019) %>%
   rbind(pd.srb.ksv)
 
+# apply COW's 2008-2009 growth rate to UN's 2009 estimate to approximate UN's 2008 estimate
+pd$un.pop[pd$iso3c=="KSV"&pd$year==2008] <- pd$un.pop[pd$iso3c=="KSV"&pd$year==2009] /
+                                               (pd$cow.pop[pd$iso3c=="KSV"&pd$year==2009]/pd$cow.pop[pd$iso3c=="KSV"&pd$year==2008])
+
 #### ZAF/NAM ----------------------------------------------------------------------
 # Both UN and COW ZAF populations do not include NAM prior to NAM independence
 # NAM coded as independent beginning in 1990
@@ -1167,8 +1171,7 @@ estimate.cow.2010s <- c("AFG", "AGO", "ALB", "AND", "ARE", "ARG", "ARM", "ATG", 
                         "MAR", "MCO", "MDA", "MDG", "MDV", "MEX", "MHL", "MKD", "MLI", "MLT", "MMR", "MNE", "MNG", "MOZ", "MRT",
                         "MUS", "MWI", "MYS", "NAM", "NER", "NGA", "NIC", "NLD", "NOR", "NPL", "NRU", "NZL", "OMN", "PAK", "PAN",
                         "PER", "PHL", "PLW", "PNG", "POL", "PRK", "PRT", "PRY", "QAT", "ROU", "RUS", "RWA", "SAU", "SDN", "SEN",
-                        "SGP", "SLB", "SLE", "SLV", "SMR", "SOM", # "SRB",
-                        "SSD", "STP", "SUR", "SVK", "SVN", "SWE", "SWZ", "SYC", "SYR",
+                        "SGP", "SLB", "SLE", "SLV", "SMR", "SOM", "SSD", "STP", "SUR", "SVK", "SVN", "SWE", "SWZ", "SYC", "SYR",
                         "TCD", "TGO", "THA", "TJK", "TKM", "TLS", "TON", "TTO", "TUN", "TUR", "TUV", "TWN", "TZA", "UGA", "UKR",
                         "URY", "USA", "UZB", "VCT", "VEN", "VNM", "VUT", "WSM", "YEM", "ZAF", "ZMB", "ZWE")
 
@@ -1179,7 +1182,6 @@ for(iso in estimate.cow.2010s){
   
 }
 
-
 pd.count <- pd %>%
   dplyr::group_by(iso3c,year) %>%
   dplyr::tally() %>%
@@ -1188,25 +1190,6 @@ pd.count <- pd %>%
 pd2 <- pd %>%
   dplyr::full_join(cyears2,by=c("iso3c","country","year")) %>%
   dplyr::filter(cn == 1)
-
-### add workbook estimates ----------------------------------------------------------------------
-# adds population estimates for countries in the 1940s (file notes sources of estimates)
-pop_40s <- readxl::read_excel("Data files/Workbooks/pop_estimates.xlsx", sheet = 1) %>%
-  dplyr::select(-method) %>%
-  dplyr::rename(value = pop.pd) %>%
-  # using the countrycode package, add country name based on iso3c value
-  dplyr::mutate(country = countrycode::countrycode(iso3c,"iso3c","country.name"))
-
-# codes country name values missing from the countrycode package: BRD, DDR, SOV, YAR, YUG
-pop_40s$country[pop_40s$iso3c=="BRD"] <- "West Germany"
-pop_40s$country[pop_40s$iso3c=="DDR"] <- "East Germany"
-pop_40s$country[pop_40s$iso3c=="SOV"] <- "Soviet Union"
-pop_40s$country[pop_40s$iso3c=="YAR"] <- "North Yemen"
-pop_40s$country[pop_40s$iso3c=="YUG"] <- "Yugoslavia"
-
-pd <- pd %>%
-  rbind(pop_40s) %>%
-  dplyr::rename(population = value)
 
 ### write data ----------------------------------------------------------------------
 # writes formatted dataframe as csv files
