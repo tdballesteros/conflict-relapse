@@ -132,7 +132,7 @@ cyears2 <- cyears2 %>%
   # YUG is coded as Yugoslavia and Serbia
   dplyr::mutate(iso3c = ifelse(iso3c=="YUG"&year>=1992,"SRB",iso3c),
                 # RUS is coded as USSR and Russia
-                iso3c = ifelse(iso3c=="RUS"&year %in% c(1922:1991),"SOV",iso3c)) %>%
+                iso3c = ifelse(iso3c=="RUS"&year %in% c(1922:1990),"SOV",iso3c)) %>%
   # expands the dataset to include all iso3c codes for 1946 - 2019, if not present already
   dplyr::full_join(expand.grid(iso3c = unique(cyears2$iso3c), year = c(1946:2019))) %>%
   dplyr::mutate(cn = ifelse(is.na(cn),0,cn),

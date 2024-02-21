@@ -6,6 +6,7 @@
 ### AFG, AND, CUB, ERI, FSM, GUY, KIR, LBY, LIE, MCO, MHL, NRU, PLW, PRK, SLB, SMR, SOM,
 ### TLS, TON, TUV
 ## (g) means gl estimates missing
+### ISR/PSE
 ## (x) means other issues to address
 ### YUG
 ### MAR - Western Sahara included?
@@ -283,7 +284,7 @@ growth.rate.datasets <- dplyr::full_join(imf.growth.modern,imf.growth.historical
 ### gdp growth estimator functions ----------------------------------------------------------------------
 # this function is used to estimate pwt gdp data based on the relative difference in the size of the economy
 # between two years within the gl gdp data and applying the proportion to the pwt gdp data
-gdp_growth_estimator_pwt_func <- function(df = gdp, iso, yr){
+gdp_growth_estimator_pwt_func <- function(df = gdp, iso, yr, restricted = c(1946:2019)){
   
   # the gdp.gl baseline to estimate the proportions from
   baseline <- df$gdp.gl[df$iso3c==iso&df$year==yr]
@@ -303,7 +304,7 @@ gdp_growth_estimator_pwt_func <- function(df = gdp, iso, yr){
   
   df <- df %>%
     dplyr::mutate(prop = relative * gdp.gl / baseline,
-                  gdp.pwt.est = ifelse(iso3c==iso&is.na(gdp.pwt.est),prop,gdp.pwt.est)) %>%
+                  gdp.pwt.est = ifelse(iso3c==iso&is.na(gdp.pwt.est)&year %in% restricted,prop,gdp.pwt.est)) %>%
     dplyr::select(-prop)
   
   return(df)
@@ -312,7 +313,7 @@ gdp_growth_estimator_pwt_func <- function(df = gdp, iso, yr){
 
 # this function is used to estimate gl gdp data based on the relative difference in the size of the economy
 # between two years within the pwt gdp data and applying the proportion to the gl gdp data
-gdp_growth_estimator_gl_func <- function(df = gdp, iso, yr){
+gdp_growth_estimator_gl_func <- function(df = gdp, iso, yr, restricted = c(1946:2019)){
   
   # the gdp.pwt baseline to estimate the proportions from
   baseline <- df$gdp.pwt[df$iso3c==iso&df$year==yr]
@@ -332,7 +333,7 @@ gdp_growth_estimator_gl_func <- function(df = gdp, iso, yr){
   
   df <- df %>%
     dplyr::mutate(prop = relative * gdp.pwt / baseline,
-                  gdp.gl.est = ifelse(iso3c==iso&is.na(gdp.gl.est),prop,gdp.gl.est)) %>%
+                  gdp.gl.est = ifelse(iso3c==iso&is.na(gdp.gl.est)&year %in% restricted,prop,gdp.gl.est)) %>%
     dplyr::select(-prop)
   
   return(df)
@@ -3736,31 +3737,32 @@ gdp_year_prior <- gdp %>%
                 gdp.pwt.est.plus1 = gdp.pwt.est,
                 gdp.gl.est.plus1 = gdp.gl.est)
 
-gdp2 <- gdp %>%
+gdp <- gdp %>%
   dplyr::left_join(gdp_year_prior,by=c("iso3c","country","year")) %>%
-  dplyr::mutate(gdp.pwt.original.growth.rate = (gdp.pwt.original-gdp.pwt.original.plus1) / gdp.pwt.original.plus1,
-                gdp.gl.original.growth.rate = (gdp.gl.original / gdp.gl.original.plus1)-1,
-                gdp.pwt.est.growth.rate = (gdp.pwt.est / gdp.pwt.est.plus1)-1,
-                gdp.gl.est.growth.rate = (gdp.gl.est / gdp.gl.est.plus1)-1) %>%
+  dplyr::mutate(gdp.growth.rate.pwt.original= 100 * (gdp.pwt.original - gdp.pwt.original.plus1) / gdp.pwt.original.plus1,
+                gdp.growth.rate.gl.original = 100 * (gdp.gl.original - gdp.gl.original.plus1) / gdp.gl.original.plus1,
+                gdp.growth.rate.pwt.est = 100 * (gdp.pwt.est - gdp.pwt.est.plus1) / gdp.pwt.est.plus1,
+                gdp.growth.rate.gl.est = 100 * (gdp.gl.est - gdp.gl.est.plus1) / gdp.gl.est.plus1) %>%
   dplyr::select(-c(gdp.pwt.original.plus1,gdp.gl.original.plus1,gdp.pwt.est.plus1,gdp.gl.est.plus1))
 
 ### merge growth dataset ----------------------------------------------------------------------
-gdp2 <- gdp2 %>%
+gdp <- gdp %>%
   dplyr::left_join(growth.rate.datasets,by=c("iso3c","country","year")) %>%
+  dplyr::select(-c(imf.growth.rate.extend,mpd.cgdp.growth,mpd.rgdpna.growth))
   # compare and flag growth rates that differ by 5 percentage points
-  dplyr::mutate(pwt.vs.imf = (100*gdp.pwt.est.growth.rate)-imf.growth.rate,
-                gl.vs.imf = (100*gdp.gl.est.growth.rate)-imf.growth.rate,
-                pwt.flag = ifelse(abs(pwt.vs.imf)>=5,1,0),
-                gl.flag = ifelse(abs(gl.vs.imf)>=5,1,0),
-                high.flag = ifelse(pwt.flag==1|gl.flag==1,1,0))
+  # dplyr::mutate(pwt.vs.imf = (100*gdp.pwt.est.growth.rate)-imf.growth.rate,
+  #               gl.vs.imf = (100*gdp.gl.est.growth.rate)-imf.growth.rate,
+  #               pwt.flag = ifelse(abs(pwt.vs.imf)>=5,1,0),
+  #               gl.flag = ifelse(abs(gl.vs.imf)>=5,1,0),
+  #               high.flag = ifelse(pwt.flag==1|gl.flag==1,1,0))
 
-gdp.flag.by.country <- gdp.growth.compare %>%
-  dplyr::group_by(iso3c,high.flag) %>%
-  dplyr::tally() %>%
-  dplyr::ungroup() %>%
-  dplyr::group_by(iso3c) %>%
-  dplyr::mutate(perc = n / sum(n,na.rm=TRUE)) %>%
-  dplyr::ungroup()
+# gdp.flag.by.country <- gdp.growth.compare %>%
+#   dplyr::group_by(iso3c,high.flag) %>%
+#   dplyr::tally() %>%
+#   dplyr::ungroup() %>%
+#   dplyr::group_by(iso3c) %>%
+#   dplyr::mutate(perc = n / sum(n,na.rm=TRUE)) %>%
+#   dplyr::ungroup()
 
 ### adjust growth estimates for countries uniting/dissolving ----------------------------------------------------------------------
 # CZE
