@@ -4,12 +4,12 @@
 ## BRD/DDR: capture growth rates
 ## SOV: 1946-1950 estimates; capture growth rates
 ## YAR: 1946-1950 estimates; capture growth rates
-## YUG et al: not finalized; capture growth rates
+## YUG et al: capture growth rates
 ## ZAF/NAM: 1946-1950 estimates for NAM + combine with ZAF
 ## Standardized 1946-1950 estimating: unlisted countries, CZE, ETH, PAK
 
 # UN: KSV 2013-2019
-# COW: DEU 2013-2019; KSV 2013-2019; SRB 1992-2019
+# COW: KSV 2013-2019; SRB 1992-2019
 
 ### load libraries ----------------------------------------------------------------------
 library(readxl)
@@ -975,158 +975,132 @@ pd <- pd %>%
 pd$cow.pop[pd$iso3c=="MKD"&pd$year==1992] <- pd$cow.pop[pd$iso3c=="MKD"&pd$year==1993]/
                                                 (pd$un.pop[pd$iso3c=="MKD"&pd$year==1993]/pd$un.pop[pd$iso3c=="MKD"&pd$year==1992])
 
+# COW: For YUG (SRB), subtract MNE (starting in 2006) and KSV (starting in 2008)
+# UN: For SRB, subtract COW's KSV (starting in 2008)
 
-
-
-
-
-
-
-
-# for COW YUG estimates [Serbia, Montenegro, Kosovo], subtract COW MNE estimates (2006-2012) and COW KSV estimates (2008-2012)
-for(m in 2006:2012){
+# subtract MNE from COW's estimate
+for(s in 2006:2007){
   
-  pd$cow.pop[pd$iso3c=="YUG"&pd$year==m] <- pd$cow.pop[pd$iso3c=="YUG"&pd$year==m] - pd$cow.pop[pd$iso3c=="MNE"&pd$year==m]
+  pd$cow.pop[pd$iso3c=="YUG"&pd$year==s] <- pd$cow.pop[pd$iso3c=="YUG"&pd$year==s] - pd$cow.pop[pd$iso3c=="MNE"&pd$year==s]
   
 }
-for(k in 2008:2012){
+
+# subtract KSV and MNE from COW's estimate and KSV from UN's estimate
+for(s in 2008:2012){
   
-  pd$cow.pop[pd$iso3c=="YUG"&pd$year==k] <- pd$cow.pop[pd$iso3c=="YUG"&pd$year==k] - pd$cow.pop[pd$iso3c=="KSV"&pd$year==k]
-  
+  pd$cow.pop[pd$iso3c=="YUG"&pd$year==s] <- pd$cow.pop[pd$iso3c=="YUG"&pd$year==s] - pd$cow.pop[pd$iso3c=="MNE"&pd$year==s] -
+                                              pd$cow.pop[pd$iso3c=="KSV"&pd$year==s]
+ 
+  pd$un.pop[pd$iso3c=="SRB"&pd$year==s] <- pd$un.pop[pd$iso3c=="SRB"&pd$year==s] - pd$cow.pop[pd$iso3c=="KSV"&pd$year==s]
+   
 }
 
 # recode YUG 1992-2012 as SRB
-pd$iso3c[pd$iso3c=="YUG"&pd$year %in% c(1992:2012)] <- "SRB"
-pd$country[pd$country=="Yugoslavia"&pd$year %in% c(1992:2005)] <- "Serbia and Montenegro"
-pd$country[pd$country=="Yugoslavia"&pd$year >= 2006] <- "Serbia"
+for(s in 1992:2012){
+  
+  pd$cow.pop[pd$iso3c=="SRB"&pd$year==s] <- pd$cow.pop[pd$iso3c=="YUG"&pd$year==s]
+  
+}
 
+# UN SRB/KSV 2013-2019: apply a three-year weighted growth rate to SRB and KSV (independently), then
+# calculate the annual alpha ratio between the estimated SRB+KSV sum and the UN estimate for a combined SRB+KSV,
+# then scale the SRB and KSV estimates annually by this alpha
 
-# pull tables for  SRB+KSV+MNE for use later
-pd.srb.ksv.mne2 <- pd %>%
-  dplyr::filter(iso3c == "YUG",
-                year >= 1992) %>%
-  dplyr::select(-un.pop) %>%
-  dplyr::mutate(country = "Serbia and Montenegro and Kosovo")
+# create blank dataframe to hold values calculated in the following for loop
+pd.srb.ksv <- data.frame(year = c(2009:2019),
+                                   ksv.growth = NA,
+                                   srb.growth = NA,
+                                   ksv.est = NA,
+                                   srb.est = NA)
 
-pd.srb.ksv.mne <- pd %>%
-  dplyr::filter(iso3c %in% c("YUG","SRB","MNE","KSV"),
-                year >= 1992) %>%
-  dplyr::mutate(country = ifelse(country=="Serbia","Serbia and Kosovo (UN)",country),
-                country = ifelse(country=="Yugoslavia","Serbia, Montenegro, and Kosovo (COW)",country))
+# add KSV and SRB 2009-2012 values to the table
+for(b in 2009:2012){
+  
+  pd.srb.ksv$ksv.est[pd.srb.ksv$year==b] <- pd$cow.pop[pd$iso3c=="KSV"&pd$year==b]
+  pd.srb.ksv$srb.est[pd.srb.ksv$year==b] <- pd$un.pop[pd$iso3c=="SRB"&pd$year==b&!is.na(pd$un.pop)]
+  
+}
 
+for(y in 2013:2019){
+  
+  # calculate growth estimates
+  srb.un.growth <- (1/2)*(pd.srb.ksv$srb.est[pd.srb.ksv$year==(y-1)]/
+                            pd.srb.ksv$srb.est[pd.srb.ksv$year==(y-2)]) +
+                   (1/3)*(pd.srb.ksv$srb.est[pd.srb.ksv$year==(y-2)]/
+                            pd.srb.ksv$srb.est[pd.srb.ksv$year==(y-3)]) +
+                   (1/6)*(pd.srb.ksv$srb.est[pd.srb.ksv$year==(y-3)]/
+                            pd.srb.ksv$srb.est[pd.srb.ksv$year==(y-4)])
+  
+  ksv.cow.growth <- (1/2)*(pd.srb.ksv$ksv.est[pd.srb.ksv$year==(y-1)]/
+                            pd.srb.ksv$ksv.est[pd.srb.ksv$year==(y-2)]) +
+                   (1/3)*(pd.srb.ksv$ksv.est[pd.srb.ksv$year==(y-2)]/
+                            pd.srb.ksv$ksv.est[pd.srb.ksv$year==(y-3)]) +
+                   (1/6)*(pd.srb.ksv$ksv.est[pd.srb.ksv$year==(y-3)]/
+                            pd.srb.ksv$ksv.est[pd.srb.ksv$year==(y-4)])
+  
+  # add growth estimates to placeholder dataframe
+  pd.srb.ksv$ksv.growth[pd.srb.ksv$year==y] <- ksv.cow.growth
+  pd.srb.ksv$srb.growth[pd.srb.ksv$year==y] <- srb.un.growth
+  
+  # calculate population estimates and add to placeholder dataframe
+  pd.srb.ksv$ksv.est[pd.srb.ksv$year==y] <- pd.srb.ksv$ksv.est[pd.srb.ksv$year==(y-1)] * ksv.cow.growth
+  pd.srb.ksv$srb.est[pd.srb.ksv$year==y] <- pd.srb.ksv$srb.est[pd.srb.ksv$year==(y-1)] * srb.un.growth
 
-pd.yug <- pd %>%
-  dplyr::filter(iso3c %in% c("SVN","HRV","MKD","BIH","SRB","MNE","KSV","YUG")) 
+}
 
-# pd.yug.test2 <- pd.yug %>%
-#   dplyr::mutate(cow.pop = ifelse(iso3c %in% c("KSV","MNE"),NA,cow.pop)) %>%
-#   dplyr::group_by(year) %>%
-#   dplyr::summarise(un.pop = sum(un.pop,na.rm=TRUE),
-#                    cow.pop = sum(cow.pop,na.rm=TRUE)) %>%
-#   dplyr::ungroup() %>%
-#   dplyr::mutate(diff = un.pop - cow.pop)
-# 
-# 
-# pd.yug.test <- pd.yug %>%
-#   dplyr::group_by(year) %>%
-#   dplyr::summarise(un.sum = sum(un.pop,na.rm=TRUE),
-#                    cow.sum = sum(cow.pop,na.rm=TRUE)) %>%
-#   dplyr::ungroup()
-# 
-# 
-# yug <- pd %>%
-#   # select the 6 fully recognized successor states
-#   dplyr::filter(iso3c %in% c("SVN","HRV","MKD","BIH","SRB","MNE")) %>%
-#   dplyr::group_by(year) %>%
-#   # sums the populations of the 6 fully recognized successor states
-#   dplyr::summarise(value = sum(value)) %>%
-#   dplyr::ungroup() %>%
-#   dplyr::mutate(iso3c = "YUG",
-#                 country = "Yugoslavia") %>%
-#   # Yugoslavia broke apart starting in 1992 for purposes of this dataset
-#   dplyr::filter(year <= 1991)
-# 
-# # filter out the 6 fully recognized successor states during the period of Yugoslavia
-# pd <- pd %>%
-#   dplyr::filter(iso3c %!in% c("SVN","HRV","MKD","BIH","SRB","MNE") | year >= 1992) %>%
-#   # merge Yugoslavia dataset
-#   rbind(yug)
-# 
-# # SME
-# # coded as SRB / Serbia, but includes Montenegro's population 1992 - 2005, with Montenegro
-# # being a separate country in this dataset beginning in 2006
-# srb_mne <- pd %>%
-#   dplyr::select(-country) %>%
-#   # select Serbia and Montenegro
-#   dplyr::filter(iso3c %in% c("SRB","MNE")) %>%
-#   dplyr::group_by(year) %>%
-#   # sums the populations of Serbia and Montenegro
-#   dplyr::summarise(value = sum(value,na.rm=TRUE)) %>%
-#   dplyr::ungroup() %>%
-#   # Montenegro regained independence starting in 2006 for purposes of this dataset
-#   dplyr::filter(year < 2006) %>%
-#   dplyr::mutate(iso3c = "SRB",
-#                 country = "Serbia and Montenegro")
-# 
-# # filter out Serbia and Montenegro from the main dataset during their period of unification
-# pd <- pd %>%
-#   dplyr::filter(iso3c %!in% c("SRB","MNE") | year >= 2006) %>%
-#   # merge Serbia and Montenegro dataset
-#   rbind(srb_mne)
-# 
-# # KSV
-# cow.pop.srb <- cow.pop %>%
-#   # select Yugoslavia (Serbia shares YUG as its coding) and Kosovo
-#   dplyr::filter(stateabb %in% c("YUG","KOS"),
-#                 # Kosovo declared and gained (de facto) independence in 2008 for purposes of this dataset
-#                 year >= 2008) %>%
-#   # convert both countries to having a column, with each year being a row
-#   tidyr::pivot_wider(names_from = "stateabb", values_from = "tpop") %>%
-#   # Serbia appears to include both Serbia and Kosovo, while Kosovo includes just Kosovo
-#   # calculate a Serbia without Kosovo population and the proportion of the population in each part relative to the total population
-#   dplyr::mutate(SRB = YUG - KOS,
-#                 srb.p = SRB / YUG,
-#                 ksv.p = KOS / YUG)
-# 
-# # pull Serbia population data from the UN data source (Serbia + Kosovo)
-# srb <- pd %>%
-#   dplyr::select(-country) %>%
-#   dplyr::filter(iso3c == "SRB",
-#                 # Kosovo declared and gained (de facto) independence in 2008 for purposes of this dataset
-#                 year >= 2008) %>%
-#   dplyr::mutate(year = as.numeric(year)) %>%
-#   # merge UN and COW population data
-#   dplyr::full_join(cow.pop.srb,by="year")
-# 
-# # use proportions for last year of data available (2012) for both Serbia and Kosovo for subsequent years missing data
-# srb$srb.p[is.na(srb$srb.p)&srb$year>2012] <- 7748/9553
-# srb$ksv.p[is.na(srb$ksv.p)&srb$year>2012] <- 1805/9553
-# 
-# # calculate estimates for 2013 - 2019 based on UN population data and 2012 proportions of populations between
-# # Serbia and Kosovo
-# srb <- srb %>%
-#   dplyr::mutate(srb.e = value * srb.p,
-#                 ksv.e = value * ksv.p)
-# 
-# # create dataframe for Serbia (2013 - 2019)
-# srb2 <- srb %>%
-#   dplyr::select(iso3c,year,srb.e) %>%
-#   dplyr::rename(value = srb.e) %>%
-#   dplyr::mutate(country = "Serbia")
-# 
-# # create dataframe for Kosovo
-# ksv <- srb %>%
-#   dplyr::select(iso3c,year,ksv.e) %>%
-#   dplyr::mutate(iso3c = "KSV",
-#                 country = "Kosovo") %>%
-#   dplyr::rename(value = ksv.e)
-# 
-# # removes Serbia (2013 - 2019) from the main population dataframe and joins the
-# # new Serbia and Kosovo dataframes
-# pd <- pd %>%
-#   dplyr::filter(iso3c != "SRB" | year < 2008) %>%
-#   rbind(srb2) %>%
-#   rbind(ksv)
+pd.srb.ksv <- pd.srb.ksv %>%
+  # add original SRB 2013-2019 UN population estimates to table (representing SRB+KSV)
+  dplyr::left_join(pd %>%
+                     dplyr::filter(iso3c=="SRB") %>%
+                     dplyr::select(year,un.pop) %>%
+                     na.omit()) %>%
+  # calculate combined KSV+SRB estimate, annual alpha rate ((ksv.est+srb.est)/srb.un.combined),
+  # and readjusted estimates multiplied by the alpha rate
+  # the alpha rate multiplication ensures the combined KSV and SRB estimates line up with the official,
+  # combined UN estimates
+  dplyr::mutate(combined.est = ksv.est + srb.est,
+                alpha = un.pop / combined.est,
+                ksv.est.alpha = alpha * ksv.est,
+                srb.est.alpha = alpha * srb.est) %>%
+  dplyr::select(year,ksv.est.alpha,srb.est.alpha) %>%
+  tidyr::pivot_longer(2:3, names_to = "iso3c", values_to = "un.pop") %>%
+  dplyr::mutate(iso3c = ifelse(iso3c=="ksv.est.alpha","KSV","SRB"),
+                country = ifelse(iso3c=="KSV","Kosovo","Serbia"),
+                cow.pop = NA)
+
+# add KSV and SRB COW 2009-2012 estimates to the reformatted pd.srb.ksv dataset
+for(j in 2009:2012){
+  
+  pd.srb.ksv$cow.pop[pd.srb.ksv$iso3c=="KSV"&pd.srb.ksv$year==j] <- pd$cow.pop[pd$iso3c=="KSV"&pd$year==j]
+  pd.srb.ksv$cow.pop[pd.srb.ksv$iso3c=="SRB"&pd.srb.ksv$year==j] <- pd$cow.pop[pd$iso3c=="SRB"&pd$year==j]
+  
+}
+
+# 2013-2019 COW KSV/SRB: apply three-year weighted growth rates to 2012 population estimates
+
+for(k in 2013:2019){
+  
+  for(i in c("SRB","KSV")){
+    
+    # calculate growth rate
+    growth.estimate <- (1/2)*pd.srb.ksv$cow.pop[pd.srb.ksv$iso3c==i&pd.srb.ksv$year==(k-1)]/
+                                pd.srb.ksv$cow.pop[pd.srb.ksv$iso3c==i&pd.srb.ksv$year==(k-2)] +
+                       (1/3)*pd.srb.ksv$cow.pop[pd.srb.ksv$iso3c==i&pd.srb.ksv$year==(k-2)]/
+                                pd.srb.ksv$cow.pop[pd.srb.ksv$iso3c==i&pd.srb.ksv$year==(k-3)] +
+                       (1/6)*pd.srb.ksv$cow.pop[pd.srb.ksv$iso3c==i&pd.srb.ksv$year==(k-3)]/
+                                pd.srb.ksv$cow.pop[pd.srb.ksv$iso3c==i&pd.srb.ksv$year==(k-4)]
+    
+    # apply growth rate
+    pd.srb.ksv$cow.pop[pd.srb.ksv$iso3c==i&pd.srb.ksv$year==k] <- pd.srb.ksv$cow.pop[pd.srb.ksv$iso3c==i&pd.srb.ksv$year==(k-1)]*growth.estimate
+    
+  }
+
+}
+
+# filter 2009-2019 SRB and KSV entries from main dataset and rbind new estimates
+pd <- pd %>%
+  dplyr::filter(iso3c %!in% c("SRB","KSV") | year %!in% 2009:2019) %>%
+  rbind(pd.srb.ksv)
 
 #### ZAF/NAM ----------------------------------------------------------------------
 # Both UN and COW ZAF populations do not include NAM prior to NAM independence
@@ -1184,25 +1158,19 @@ for(iso in estimate.growth.1940s){
 ### calculate 2013-2019 estimates ----------------------------------------------------------------------
 # list of countries to estimate COW 2013-2019 populations using UN growth rates
 estimate.cow.2010s <- c("AFG", "AGO", "ALB", "AND", "ARE", "ARG", "ARM", "ATG", "AUS", "AUT", "AZE", "BDI", "BEL", "BEN", "BFA",
-                       "BGD", "BGR", "BHR", "BHS", "BIH", "BLR", "BLZ", "BOL", "BRA", "BRB", "BRN", "BTN", "BWA", "CAF", "CAN",
-                       "CHE", "CHL", "CHN", "CIV", "CMR", "COD", "COG", "COL", "COM", "CPV", "CRI", "CUB", "CYP", "CZE", "DJI",
-                       "DMA", "DNK", "DOM", "DZA", "ECU", "EGY", "ERI", "ESP", "EST", "ETH", "FIN", "FJI", "FRA", "FSM", "GAB",
-                       "GBR", "GEO", "GHA", "GIN", "GMB", "GNB", "GNQ", "GRC", "GRD", "GTM", "GUY", "HND", "HRV", "HTI", "HUN",
-                       "IDN", "IND", "IRL", "IRN", "IRQ", "ISL", "ITA", "JAM", "JOR", "JPN", "KAZ", "KEN", "KGZ", "KHM", "KIR",
-                       "KNA", "KOR", "KWT", "LAO", "LBN", "LBR", "LBY", "LCA", "LIE", "LKA", "LSO", "LTU", "LUX", "LVA", "MAR",
-                       "MCO", "MDA", "MDG", "MDV", "MEX", "MHL", "MKD", "MLI", "MLT", "MMR", "MNE", "MNG", "MOZ", "MRT", "MUS",
-                       "MWI", "MYS", "NAM", "NER", "NGA", "NIC", "NLD", "NOR", "NPL", "NRU", "NZL", "OMN", "PAK", "PAN", "PER",
-                       "PHL", "PLW", "PNG", "POL", "PRK", "PRT", "PRY", "QAT", "ROU", "RUS", "RWA", "SAU", "SDN", "SEN", "SGP",
-                       "SLB", "SLE", "SLV", "SMR", "SOM", # "SRB",
-                       "SSD", "STP", "SUR", "SVK", "SVN", "SWE", "SWZ", "SYC", "SYR",
-                       "TCD", "TGO", "THA", "TJK", "TKM", "TLS", "TON", "TTO", "TUN", "TUR", "TUV", "TWN", "TZA", "UGA", "UKR",
-                       "URY", "USA", "UZB", "VCT", "VEN", "VNM", "VUT", "WSM", "YEM", "ZAF", "ZMB", "ZWE")
-
-
-pd.count <- pd %>%
-  dplyr::group_by(iso3c,year) %>%
-  dplyr::tally() %>%
-  dplyr::ungroup()
+                        "BGD", "BGR", "BHR", "BHS", "BIH", "BLR", "BLZ", "BOL", "BRA", "BRB", "BRN", "BTN", "BWA", "CAF", "CAN",
+                        "CHE", "CHL", "CHN", "CIV", "CMR", "COD", "COG", "COL", "COM", "CPV", "CRI", "CUB", "CYP", "CZE", "DEU",
+                        "DJI", "DMA", "DNK", "DOM", "DZA", "ECU", "EGY", "ERI", "ESP", "EST", "ETH", "FIN", "FJI", "FRA", "FSM",
+                        "GAB", "GBR", "GEO", "GHA", "GIN", "GMB", "GNB", "GNQ", "GRC", "GRD", "GTM", "GUY", "HND", "HRV", "HTI",
+                        "HUN", "IDN", "IND", "IRL", "IRN", "IRQ", "ISL", "ITA", "JAM", "JOR", "JPN", "KAZ", "KEN", "KGZ", "KHM",
+                        "KIR", "KNA", "KOR", "KWT", "LAO", "LBN", "LBR", "LBY", "LCA", "LIE", "LKA", "LSO", "LTU", "LUX", "LVA",
+                        "MAR", "MCO", "MDA", "MDG", "MDV", "MEX", "MHL", "MKD", "MLI", "MLT", "MMR", "MNE", "MNG", "MOZ", "MRT",
+                        "MUS", "MWI", "MYS", "NAM", "NER", "NGA", "NIC", "NLD", "NOR", "NPL", "NRU", "NZL", "OMN", "PAK", "PAN",
+                        "PER", "PHL", "PLW", "PNG", "POL", "PRK", "PRT", "PRY", "QAT", "ROU", "RUS", "RWA", "SAU", "SDN", "SEN",
+                        "SGP", "SLB", "SLE", "SLV", "SMR", "SOM", # "SRB",
+                        "SSD", "STP", "SUR", "SVK", "SVN", "SWE", "SWZ", "SYC", "SYR",
+                        "TCD", "TGO", "THA", "TJK", "TKM", "TLS", "TON", "TTO", "TUN", "TUR", "TUV", "TWN", "TZA", "UGA", "UKR",
+                        "URY", "USA", "UZB", "VCT", "VEN", "VNM", "VUT", "WSM", "YEM", "ZAF", "ZMB", "ZWE")
 
 # 2013-2019: apply UN population growth rates to COW's 2012 population estimate
 for(iso in estimate.cow.2010s){
@@ -1210,6 +1178,12 @@ for(iso in estimate.cow.2010s){
   pd <- pop_growth_estimator_cow_func(pd, iso, yr = 2012, restricted = c(2013:2019))
   
 }
+
+
+pd.count <- pd %>%
+  dplyr::group_by(iso3c,year) %>%
+  dplyr::tally() %>%
+  dplyr::ungroup()
 
 pd2 <- pd %>%
   dplyr::full_join(cyears2,by=c("iso3c","country","year")) %>%
