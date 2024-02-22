@@ -1,13 +1,9 @@
 # This script formats a population estimate variable for all country-years.
 
 # TODO
-## CZE/SVK: capture COW growth rates
-
-## BRD/DDR: capture growth rates
 ## SOV: 1946-1950 estimates; capture growth rates
-## YAR: 1946-1950 estimates; capture growth rates
+## YAR: 1946-1950 estimates
 ## YUG et al: capture growth rates
-## ZAF/NAM: 1946-1950 estimates for NAM + combine with ZAF
 ## Standardized 1946-1950 estimating: unlisted countries, CZE, ETH, PAK
 
 # UN: KSV 2013-2019
@@ -389,6 +385,10 @@ pd <- pd %>%
   # replace 0s generated from summarising with NAs
   dplyr::mutate(un.pop = ifelse(un.pop==0,NA,un.pop),
                 cow.pop = ifelse(cow.pop==0,NA,cow.pop))
+
+# capture COW growth rates (Czechia + Slovakia combined / Czechoslovakia)
+cze.cow.growth.1992.1993 <- (pd$cow.pop[pd$iso3c=="CZE"&pd$year==1993]+pd$cow.pop[pd$iso3c=="SVK"&pd$year==1993])/pd$cow.pop[pd$iso3c=="CZE"&pd$year==1992]
+svk.cow.growth.1992.1993 <- (pd$cow.pop[pd$iso3c=="CZE"&pd$year==1993]+pd$cow.pop[pd$iso3c=="SVK"&pd$year==1993])/pd$cow.pop[pd$iso3c=="CZE"&pd$year==1992]
 
 #### DEU/BRD/DDR ----------------------------------------------------------------------
 # UN codes DEU as combined East and West Germany
@@ -1228,6 +1228,8 @@ pd <- pd %>%
 # Czechia/Slovakia
 pd$pop.growth.rate.un[pd$iso3c=="CZE"&pd$year==1993] <- cze.un.growth.1992.1993 - 1
 pd$pop.growth.rate.un[pd$iso3c=="SVK"&pd$year==1993] <- svk.un.growth.1992.1993 - 1
+pd$pop.growth.rate.cow[pd$iso3c=="CZE"&pd$year==1993] <- cze.cow.growth.1992.1993 - 1
+pd$pop.growth.rate.cow[pd$iso3c=="SVK"&pd$year==1993] <- svk.cow.growth.1992.1993 - 1
 
 # Germany
 pd$pop.growth.rate.un[pd$iso3c=="DEU"&pd$year==1990] <- deu.un.growth.1989.1990 - 1
@@ -1262,7 +1264,28 @@ pd$pop.growth.rate.cow[pd$iso3c=="VNM"&pd$year==1976] <- vnm.cow.growth.1975.197
 # Serbia/Kosovo
 
 # South Africa/Namibia
+pd$pop.growth.rate.un[pd$iso3c=="ZAF"&pd$year==1990] <- zaf.un.growth.1989.1990 - 1
+pd$pop.growth.rate.cow[pd$iso3c=="ZAF"&pd$year==1990] <- zaf.cow.growth.1989.1990 - 1
+pd$pop.growth.rate.un[pd$iso3c=="NAM"&pd$year==1990] <- nam.un.growth.1989.1990 - 1
+pd$pop.growth.rate.cow[pd$iso3c=="NAM"&pd$year==1990] <- nam.cow.growth.1989.1990 - 1
 
 ### write data ----------------------------------------------------------------------
 # writes formatted dataframe as csv files
 write.csv(pd,"Data files/Formatted data files/population.csv",row.names = FALSE)
+
+### codebook ----------------------------------------------------------------------
+# iso3c
+### A country's standardized iso3c code, with non-standard codes for West Germany, East Germany, North Yemen, South Yemen,
+### South Vietnam, the Netherlands Antilles, the Soviet Union, and Yugoslavia.
+# country
+### A country's commonly used English-language name.
+# year
+### The calendar year the specific variable is measured during.
+# un.pop
+### A population estimate based on United Nations data.
+# cow.pop
+### A population estimate based on Correlates of War data.
+# pop.growth.rate.un
+### Annual population growth rates based on the estimates based on the United Nations data.
+# pop.growth.rate.cow
+### Annual population growth rates based on the estimates based on the Correlates of War data.

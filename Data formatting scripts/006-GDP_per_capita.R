@@ -40,8 +40,18 @@ gdppc <- gdppc %>%
     gdppc.gl.un = gdp.gl.est / un.pop,
     # gl (gdp) - cow (population)
     gdppc.gl.cow = gdp.gl.est / cow.pop
-  )
+  ) %>%
+  dplyr::select(-c(gdp.pwt.est,gdp.gl.est,un.pop,cow.pop))
 
 ### write data ----------------------------------------------------------------------
 # writes formatted dataframe as csv files
 write.csv(gdppc,"Data files/Formatted data files/gdppc.csv",row.names = FALSE)
+
+### codebook ----------------------------------------------------------------------
+# iso3c
+### A country's standardized iso3c code, with non-standard codes for West Germany, East Germany, North Yemen, South Yemen,
+### South Vietnam, the Netherlands Antilles, the Soviet Union, and Yugoslavia.
+# country
+### A country's commonly used English-language name.
+# year
+### The calendar year the specific variable is measured during.
