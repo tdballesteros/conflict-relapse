@@ -3739,7 +3739,7 @@ gdp_year_prior <- gdp %>%
 
 gdp <- gdp %>%
   dplyr::left_join(gdp_year_prior,by=c("iso3c","country","year")) %>%
-  dplyr::mutate(gdp.growth.rate.pwt.original= 100 * (gdp.pwt.original - gdp.pwt.original.plus1) / gdp.pwt.original.plus1,
+  dplyr::mutate(gdp.growth.rate.pwt.original = 100 * (gdp.pwt.original - gdp.pwt.original.plus1) / gdp.pwt.original.plus1,
                 gdp.growth.rate.gl.original = 100 * (gdp.gl.original - gdp.gl.original.plus1) / gdp.gl.original.plus1,
                 gdp.growth.rate.pwt.est = 100 * (gdp.pwt.est - gdp.pwt.est.plus1) / gdp.pwt.est.plus1,
                 gdp.growth.rate.gl.est = 100 * (gdp.gl.est - gdp.gl.est.plus1) / gdp.gl.est.plus1) %>%
@@ -3765,16 +3765,33 @@ gdp <- gdp %>%
 #   dplyr::ungroup()
 
 ### adjust growth estimates for countries uniting/dissolving ----------------------------------------------------------------------
-# CZE
-# YEM
-# post-Soviet
-# post-Yugoslav
-# SRB 2006
-# SRB 2008
-# DEU
-# VNM
-# BGD / PAK
-# TZA / ZAN
+# Czechia/Slovakia
+
+# Germany
+
+# Ethiopia/Eritrea
+
+# Malaysia/Singapore
+
+# Pakistan/Bangladesh
+
+# Sudan/South Sudan
+
+# Soviet Union + Successors
+
+# Tanzania/Zanzibar
+
+# Yemen
+
+# Vietnam
+
+# Yugoslavia + Successors
+
+# Serbia/Montenegro
+
+# Serbia/Kosovo
+
+# South Africa/Namibia
 
 ### write data ----------------------------------------------------------------------
 # writes formatted dataframe as csv files

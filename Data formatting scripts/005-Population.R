@@ -1,6 +1,8 @@
 # This script formats a population estimate variable for all country-years.
 
 # TODO
+## CZE/SVK: capture COW growth rates
+
 ## BRD/DDR: capture growth rates
 ## SOV: 1946-1950 estimates; capture growth rates
 ## YAR: 1946-1950 estimates; capture growth rates
@@ -371,6 +373,10 @@ pd <- pop_growth_estimator_mpd_func(pd, mpd, "AUT", yr = 1950, restricted = c(19
 
 # Czechia and Slovakia coded as separate beginning in 1993
 
+# capture UN growth rates
+cze.un.growth.1992.1993 <- pd$un.pop[pd$iso3c=="CZE"&pd$year==1993]/pd$un.pop[pd$iso3c=="CZE"&pd$year==1992]
+svk.un.growth.1992.1993 <- pd$un.pop[pd$iso3c=="SVK"&pd$year==1993]/pd$un.pop[pd$iso3c=="SVK"&pd$year==1992]
+
 # 1950-1992: Combine UN pop CZE and SVK
 # recode SVK 1950-1992 as CZE, group by iso3c-year, and sum
 pd <- pd %>%
@@ -489,6 +495,12 @@ for(y in 1949:1946){
                     cow.pop = pd$cow.pop[pd$iso3c=="DDR"&pd$year==(y+1)]/(mpd$pop[mpd$iso3c=="DEU"&mpd$year==(y+1)]/mpd$pop[mpd$iso3c=="DEU"&mpd$year==y]))
   
 }
+
+# capture growth rates
+deu.un.growth.1989.1990 <- pd$un.pop[pd$iso3c=="DEU"&pd$year==1990] /
+                             (pd$un.pop[pd$iso3c=="BRD"&pd$year==1989] + pd$un.pop[pd$iso3c=="DDR"&pd$year==1989])
+deu.cow.growth.1989.1990 <- pd$cow.pop[pd$iso3c=="DEU"&pd$year==1990] /
+                             (pd$cow.pop[pd$iso3c=="BRD"&pd$year==1989] + pd$cow.pop[pd$iso3c=="DDR"&pd$year==1989])
 
 #### ETH/ERI ----------------------------------------------------------------------
 # COW codes ETH as ETH+ERI through 1992 (inclusive), with no ERI estimates before 1993
@@ -835,6 +847,12 @@ for(t in 1961:1964){
   
 }
 
+# capture growth rates
+tza.un.growth.1963.1964 <- pd$un.pop[pd$iso3c=="TZA"&pd$year==1964] /
+  (pd$un.pop[pd$iso3c=="TZA"&pd$year==1963] + pd$un.pop[pd$iso3c=="ZAN"&pd$year==1963])
+tza.cow.growth.1963.1964 <- pd$cow.pop[pd$iso3c=="TZA"&pd$year==1964] /
+  (pd$cow.pop[pd$iso3c=="TZA"&pd$year==1963] + pd$cow.pop[pd$iso3c=="ZAN"&pd$year==1963])
+
 #### YEM/YAR/YPR ----------------------------------------------------------------------
 # COW contains estimates for YAR (1946-1990), YPR (1967-1990), and YEM (1990-2012)
 # UN contains combined estimates for YAR/YPR starting in 1950
@@ -887,6 +905,12 @@ for(y in 1950:1966){
 pd <- pd %>%
   dplyr::filter(iso3c != "YEM" | year %!in% c(1950:1966))
 
+# capture growth rates
+yem.un.growth.1990.1991 <- pd$un.pop[pd$iso3c=="YEM"&pd$year==1991] /
+  (pd$un.pop[pd$iso3c=="YAR"&pd$year==1990] + pd$un.pop[pd$iso3c=="YPR"&pd$year==1990])
+yem.cow.growth.1990.1991 <- pd$cow.pop[pd$iso3c=="YEM"&pd$year==1991] /
+  (pd$cow.pop[pd$iso3c=="YAR"&pd$year==1990] + pd$cow.pop[pd$iso3c=="YPR"&pd$year==1990])
+
 #### VNM/RVN ----------------------------------------------------------------------
 # UN codes VNM for both North and South Vietnam 1950-2019
 # COW codes VNM for North Vietnam and RVN for South Vietnam 1954-1975, with VNM
@@ -929,6 +953,12 @@ pd.vnm.ratios <- pd.vnm.ratios %>%
 pd <- pd %>%
   dplyr::filter(iso3c %!in% c("VNM","RVN") | year %!in% c(1954:1975)) %>%
   rbind(pd.vnm.ratios)
+
+# capture growth rates
+vnm.un.growth.1975.1976 <- pd$un.pop[pd$iso3c=="VNM"&pd$year==1976] /
+  (pd$un.pop[pd$iso3c=="VNM"&pd$year==1975] + pd$un.pop[pd$iso3c=="RVN"&pd$year==1975])
+vnm.cow.growth.1975.1976 <- pd$cow.pop[pd$iso3c=="VNM"&pd$year==1976] /
+  (pd$cow.pop[pd$iso3c=="VNM"&pd$year==1975] + pd$cow.pop[pd$iso3c=="RVN"&pd$year==1975])
 
 #### YUG/SRB/MNE/KSV ----------------------------------------------------------------------
 # BIH: UN estimates 1950-2019; COW 1992-2012
@@ -1182,14 +1212,56 @@ for(iso in estimate.cow.2010s){
   
 }
 
-pd.count <- pd %>%
-  dplyr::group_by(iso3c,year) %>%
-  dplyr::tally() %>%
-  dplyr::ungroup()
+### calculate growth rates ----------------------------------------------------------------------
+pd_year_prior <- pd %>%
+  dplyr::mutate(year = year + 1) %>%
+  dplyr::rename(un.pop.plus1 = un.pop,
+                cow.pop.plus1 = cow.pop)
 
-pd2 <- pd %>%
-  dplyr::full_join(cyears2,by=c("iso3c","country","year")) %>%
-  dplyr::filter(cn == 1)
+pd <- pd %>%
+  dplyr::left_join(pd_year_prior,by=c("iso3c","country","year")) %>%
+  dplyr::mutate(pop.growth.rate.un = 100 * (un.pop - un.pop.plus1) / un.pop.plus1,
+                pop.growth.rate.cow = 100 * (cow.pop - cow.pop.plus1)/ cow.pop.plus1) %>%
+  dplyr::select(-c(un.pop.plus1,cow.pop.plus1))
+
+#### modify growth rates for country unification/dissolution ----------------------------------------------------------------------
+# Czechia/Slovakia
+pd$pop.growth.rate.un[pd$iso3c=="CZE"&pd$year==1993] <- cze.un.growth.1992.1993 - 1
+pd$pop.growth.rate.un[pd$iso3c=="SVK"&pd$year==1993] <- svk.un.growth.1992.1993 - 1
+
+# Germany
+pd$pop.growth.rate.un[pd$iso3c=="DEU"&pd$year==1990] <- deu.un.growth.1989.1990 - 1
+pd$pop.growth.rate.cow[pd$iso3c=="DEU"&pd$year==1990] <- deu.cow.growth.1989.1990 - 1
+
+# Ethiopia/Eritrea
+
+# Malaysia/Singapore
+
+# Pakistan/Bangladesh
+
+# Sudan/South Sudan
+
+# Soviet Union + Successors
+
+# Tanzania/Zanzibar
+pd$pop.growth.rate.un[pd$iso3c=="TZA"&pd$year==1964] <- tza.un.growth.1963.1964 - 1
+pd$pop.growth.rate.cow[pd$iso3c=="TZA"&pd$year==1964] <- tza.cow.growth.1963.1964 - 1
+
+# Yemen
+pd$pop.growth.rate.un[pd$iso3c=="YEM"&pd$year==1991] <- yem.un.growth.1990.1991 - 1
+pd$pop.growth.rate.cow[pd$iso3c=="YEM"&pd$year==1991] <- yem.cow.growth.1990.1991 - 1
+
+# Vietnam
+pd$pop.growth.rate.un[pd$iso3c=="VNM"&pd$year==1976] <- vnm.un.growth.1975.1976 - 1
+pd$pop.growth.rate.cow[pd$iso3c=="VNM"&pd$year==1976] <- vnm.cow.growth.1975.1976 - 1
+
+# Yugoslavia + Successors
+
+# Serbia/Montenegro
+
+# Serbia/Kosovo
+
+# South Africa/Namibia
 
 ### write data ----------------------------------------------------------------------
 # writes formatted dataframe as csv files

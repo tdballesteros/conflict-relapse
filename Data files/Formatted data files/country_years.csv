@@ -6256,7 +6256,6 @@
 "TZA","Tanzania",2015,1,54
 "TZA","Tanzania",2016,1,55
 "ZAN","Zanzibar",1963,1,0
-"ZAN","Zanzibar",1964,1,1
 "BDI","Burundi",1962,1,0
 "BDI","Burundi",1963,1,1
 "BDI","Burundi",1964,1,2
@@ -13322,6 +13321,7 @@
 "GNB","Guinea-Bissau",1964,0,0
 "GNQ","Equatorial Guinea",1964,0,0
 "GMB","Gambia",1964,0,0
+"ZAN","Zanzibar",1964,0,1
 "DJI","Djibouti",1964,0,0
 "ERI","Eritrea",1964,0,0
 "AGO","Angola",1964,0,0
