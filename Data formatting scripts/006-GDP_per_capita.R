@@ -55,3 +55,15 @@ write.csv(gdppc,"Data files/Formatted data files/gdppc.csv",row.names = FALSE)
 ### A country's commonly used English-language name.
 # year
 ### The calendar year the specific variable is measured during.
+# gdppc.pwt.un
+### An estimate for gross domestic product per capita using estimates for GDP and population built off of Penn World Tables
+### and United Nations data, respectively.
+# gdppc.pwt.cow
+### An estimate for gross domestic product per capita using estimates for GDP and population built off of Penn World Tables
+### and Correlates of War data, respectively.
+# gdppc.gl.un
+### An estimate for gross domestic product per capita using estimates for GDP and population built off of Gleditsch
+### and United Nations data, respectively.
+# gdppc.gl.cow
+### An estimate for gross domestic product per capita using estimates for GDP and population built off of Gleditsch
+### and Correlates of War data, respectively.
