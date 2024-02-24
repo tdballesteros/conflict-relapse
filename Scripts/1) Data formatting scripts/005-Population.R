@@ -508,6 +508,10 @@ deu.cow.growth.1989.1990 <- pd$cow.pop[pd$iso3c=="DEU"&pd$year==1990] /
 
 # ERI coded as independent beginning in 1993
 
+# capture UN growth rates
+eth.un.growth.1992.1993 <- pd$un.pop[pd$iso3c=="ETH"&pd$year==1993]/pd$un.pop[pd$iso3c=="ETH"&pd$year==1992]
+eri.un.growth.1992.1993 <- pd$un.pop[pd$iso3c=="ERI"&pd$year==1993]/pd$un.pop[pd$iso3c=="ERI"&pd$year==1992]
+
 # estimate 1992 ERI and ETH (excluding ERI) populations to capture growth rates
 # estimate proportion of ERI and ETH 1993 populations
 eri.1993.prop <- pd$cow.pop[pd$iso3c=="ERI"&pd$year==1993]/(pd$cow.pop[pd$iso3c=="ERI"&pd$year==1993]+pd$cow.pop[pd$iso3c=="ETH"&pd$year==1993])
@@ -527,6 +531,10 @@ for(e in 1950:1992){
   pd$un.pop[pd$iso3c=="ETH"&pd$year==e] <- pd$un.pop[pd$iso3c=="ETH"&pd$year==e] + pd$un.pop[pd$iso3c=="ERI"&pd$year==e]
   
 }
+
+# capture COW growth rates
+eth.cow.growth.1992.1993 <- (pd$cow.pop[pd$iso3c=="ETH"&pd$year==1993]+pd$cow.pop[pd$iso3c=="ERI"&pd$year==1993])/pd$cow.pop[pd$iso3c=="ETH"&pd$year==1992]
+eri.cow.growth.1992.1993 <- (pd$cow.pop[pd$iso3c=="ETH"&pd$year==1993]+pd$cow.pop[pd$iso3c=="ERI"&pd$year==1993])/pd$cow.pop[pd$iso3c=="ETH"&pd$year==1992]
 
 #### ISR/PSE ----------------------------------------------------------------------
 # UN codes ISR and PSE separately 1950-2019
@@ -651,6 +659,12 @@ pd <- pop_growth_estimator_cow_func(pd, "MCO", yr = 1993, restricted = c(1950:19
 # SGP coded as gaining independence in 1965
 # SGP part of MYS 1963-1964
 
+# capture UN growth rates
+mys.un.growth.1962.1963 <- (pd$un.pop[pd$iso3c=="MYS"&pd$year==1963]+pd$un.pop[pd$iso3c=="SGP"&pd$year==1963])/
+                               (pd$un.pop[pd$iso3c=="MYS"&pd$year==1962]+pd$un.pop[pd$iso3c=="SGP"&pd$year==1962])
+mys.un.growth.1964.1965 <- pd$un.pop[pd$iso3c=="MYS"&pd$year==1965]/pd$un.pop[pd$iso3c=="MYS"&pd$year==1964]
+sgp.un.growth.1964.1965 <- pd$un.pop[pd$iso3c=="SGP"&pd$year==1965]/pd$un.pop[pd$iso3c=="SGP"&pd$year==1964]
+
 # 1957-1964: use UN proportions to separate COW's MYS/SGP estimates
 pd.mys.sgp <- pd %>%
   dplyr::filter(iso3c %in% c("MYS","SGP"),
@@ -681,6 +695,15 @@ for(s in 1963:1964){
   pd$cow.pop[pd$iso3c=="MYS"&pd$year==s] <- pd$cow.pop[pd$iso3c=="MYS"&pd$year==s] + pd$cow.pop[pd$iso3c=="SGP"&pd$year==s]
   
 }
+
+# capture COW growth rates
+mys.cow.growth.1962.1963 <- pd$cow.pop[pd$iso3c=="MYS"&pd$year==1963]/
+                               (pd$cow.pop[pd$iso3c=="MYS"&pd$year==1962]+pd$cow.pop[pd$iso3c=="SGP"&pd$year==1962])
+mys.cow.growth.1964.1965 <- (pd$cow.pop[pd$iso3c=="MYS"&pd$year==1965]+pd$cow.pop[pd$iso3c=="SGP"&pd$year==1965])/
+                               pd$cow.pop[pd$iso3c=="MYS"&pd$year==1964]
+sgp.cow.growth.1964.1965 <- (pd$cow.pop[pd$iso3c=="MYS"&pd$year==1965]+pd$cow.pop[pd$iso3c=="SGP"&pd$year==1965])/
+                               pd$cow.pop[pd$iso3c=="MYS"&pd$year==1964]
+
 
 #### OMN ----------------------------------------------------------------------
 # 1950-1970: apply UN population growth rates to COW's 1971 population estimate
@@ -1236,12 +1259,31 @@ pd$pop.growth.rate.un[pd$iso3c=="DEU"&pd$year==1990] <- deu.un.growth.1989.1990 
 pd$pop.growth.rate.cow[pd$iso3c=="DEU"&pd$year==1990] <- deu.cow.growth.1989.1990 - 1
 
 # Ethiopia/Eritrea
+pd$pop.growth.rate.un[pd$iso3c=="ETH"&pd$year==1993] <- eth.un.growth.1992.1993 - 1
+pd$pop.growth.rate.un[pd$iso3c=="ERI"&pd$year==1993] <- eri.un.growth.1992.1993 - 1
+pd$pop.growth.rate.cow[pd$iso3c=="ETH"&pd$year==1993] <- eth.cow.growth.1992.1993 - 1
+pd$pop.growth.rate.cow[pd$iso3c=="ERI"&pd$year==1993] <- eri.cow.growth.1992.1993 - 1
 
 # Malaysia/Singapore
+pd$pop.growth.rate.un[pd$iso3c=="MYS"&pd$year==1963] <- mys.un.growth.1962.1963 - 1
+pd$pop.growth.rate.cow[pd$iso3c=="MYS"&pd$year==1963] <- mys.cow.growth.1962.1963 - 1
+
+pd$pop.growth.rate.un[pd$iso3c=="MYS"&pd$year==1965] <- mys.un.growth.1964.1965 - 1
+pd$pop.growth.rate.un[pd$iso3c=="SGP"&pd$year==1965] <- sgp.un.growth.1964.1965 - 1
+pd$pop.growth.rate.cow[pd$iso3c=="MYS"&pd$year==1965] <- mys.cow.growth.1964.1965 - 1
+pd$pop.growth.rate.cow[pd$iso3c=="SGP"&pd$year==1965] <- sgp.cow.growth.1964.1965 - 1
 
 # Pakistan/Bangladesh
+pd$pop.growth.rate.un[pd$iso3c=="PAK"&pd$year==1971] <- pak.un.growth.1970.1971 - 1
+pd$pop.growth.rate.un[pd$iso3c=="BGD"&pd$year==1971] <- bgd.un.growth.1970.1971 - 1
+pd$pop.growth.rate.cow[pd$iso3c=="PAK"&pd$year==1971] <- pak.cow.growth.1970.1971 - 1
+pd$pop.growth.rate.cow[pd$iso3c=="BGD"&pd$year==1971] <- bgd.cow.growth.1970.1971 - 1
 
 # Sudan/South Sudan
+pd$pop.growth.rate.un[pd$iso3c=="SDN"&pd$year==2011] <- sdn.un.growth.2010.2011 - 1
+pd$pop.growth.rate.un[pd$iso3c=="SSD"&pd$year==2011] <- ssd.un.growth.2010.2011 - 1
+pd$pop.growth.rate.cow[pd$iso3c=="SDN"&pd$year==2011] <- sdn.cow.growth.2010.2011 - 1
+pd$pop.growth.rate.cow[pd$iso3c=="SSD"&pd$year==2011] <- ssd.cow.growth.2010.2011 - 1
 
 # Soviet Union + Successors
 

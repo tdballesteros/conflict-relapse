@@ -43,6 +43,9 @@ gdppc <- gdppc %>%
   ) %>%
   dplyr::select(-c(gdp.pwt.est,gdp.gl.est,un.pop,cow.pop))
 
+### calculate change in gdp per capita estimates ----------------------------------------------------------------------
+
+
 ### write data ----------------------------------------------------------------------
 # writes formatted dataframe as csv files
 write.csv(gdppc,"Data files/Formatted data files/gdppc.csv",row.names = FALSE)
