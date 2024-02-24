@@ -4,6 +4,7 @@
 ## SOV: 1946-1950 estimates; capture growth rates
 ## YAR: 1946-1950 estimates
 ## YUG et al: capture growth rates
+## SRB + KSV UN needs modifying
 ## Standardized 1946-1950 estimating: unlisted countries, CZE, ETH, PAK
 
 # UN: KSV 2013-2019
@@ -804,6 +805,11 @@ pd <- pd %>%
 # remove cow's SOV estimates coded as RUS
 pd$cow.pop[pd$iso3c=="RUS"&pd$year<1991] <- NA
 
+# estimate COW growth rates for successor states
+sov.successors.cow.growth.1990.1991 <- sum(pd$cow.pop[pd$iso3c %in% c("EST","LVA","LTU","BLR","UKR","MDA","RUS",
+                                                                      "GEO","ARM","AZE","KAZ","KGZ","TKM","TJK",
+                                                                      "UZB")&pd$year==1991]) / pd$cow.pop[pd$iso3c=="SOV"&pd$year==1990]
+
 #### SYR ----------------------------------------------------------------------
 # COW missing 1959-1960 estimates
 
@@ -1159,6 +1165,22 @@ pd <- pd %>%
 pd$un.pop[pd$iso3c=="KSV"&pd$year==2008] <- pd$un.pop[pd$iso3c=="KSV"&pd$year==2009] /
                                                (pd$cow.pop[pd$iso3c=="KSV"&pd$year==2009]/pd$cow.pop[pd$iso3c=="KSV"&pd$year==2008])
 
+# remove YUG 1992-2012 from main dataset
+pd <- pd %>%
+  dplyr::filter(iso3c != "YUG" | year %!in% c(1992:2012))
+
+# estimate COW growth rates for YUG successor states
+yug.successors.cow.growth.1991.1992 <- sum(pd$cow.pop[pd$iso3c %in% c("SVN","HRV","BIH","SRB","MKD")&pd$year==1992]) /
+                                          pd$cow.pop[pd$iso3c=="YUG"&pd$year==1991]
+
+# estimate COW SRB and MNE growth rates for 2006
+srb.cow.growth.2005.2006 <- (pd$un.pop[pd$iso3c=="SRB"&pd$year==2006]+pd$un.pop[pd$iso3c=="MNE"&pd$year==2006])/pd$un.pop[pd$iso3c=="SRB"&pd$year==2005]
+mne.cow.growth.2005.2006 <- (pd$un.pop[pd$iso3c=="SRB"&pd$year==2006]+pd$un.pop[pd$iso3c=="MNE"&pd$year==2006])/pd$un.pop[pd$iso3c=="SRB"&pd$year==2005]
+
+# estimate COW SRB and KSV growth rates for 2008
+srb.cow.growth.2007.2008 <- (pd$un.pop[pd$iso3c=="SRB"&pd$year==2008]+pd$un.pop[pd$iso3c=="KSV"&pd$year==2008])/pd$un.pop[pd$iso3c=="SRB"&pd$year==2007]
+ksv.cow.growth.2007.2008 <- (pd$un.pop[pd$iso3c=="SRB"&pd$year==2008]+pd$un.pop[pd$iso3c=="KSV"&pd$year==2008])/pd$un.pop[pd$iso3c=="SRB"&pd$year==2007]
+
 #### ZAF/NAM ----------------------------------------------------------------------
 # Both UN and COW ZAF populations do not include NAM prior to NAM independence
 # NAM coded as independent beginning in 1990
@@ -1285,7 +1307,9 @@ pd$pop.growth.rate.un[pd$iso3c=="SSD"&pd$year==2011] <- ssd.un.growth.2010.2011 
 pd$pop.growth.rate.cow[pd$iso3c=="SDN"&pd$year==2011] <- sdn.cow.growth.2010.2011 - 1
 pd$pop.growth.rate.cow[pd$iso3c=="SSD"&pd$year==2011] <- ssd.cow.growth.2010.2011 - 1
 
-# Soviet Union + Successors
+# Soviet Union Successors
+pd$pop.growth.rate.cow[pd$iso3c %in% c("EST","LVA","LTU","BLR","UKR","MDA","RUS","GEO",
+                                       "ARM","AZE","KAZ","KGZ","TKM","TJK","UZB")&pd$year==1991] <- sov.successors.cow.growth.1990.1991 - 1
 
 # Tanzania/Zanzibar
 pd$pop.growth.rate.un[pd$iso3c=="TZA"&pd$year==1964] <- tza.un.growth.1963.1964 - 1
@@ -1299,11 +1323,16 @@ pd$pop.growth.rate.cow[pd$iso3c=="YEM"&pd$year==1991] <- yem.cow.growth.1990.199
 pd$pop.growth.rate.un[pd$iso3c=="VNM"&pd$year==1976] <- vnm.un.growth.1975.1976 - 1
 pd$pop.growth.rate.cow[pd$iso3c=="VNM"&pd$year==1976] <- vnm.cow.growth.1975.1976 - 1
 
-# Yugoslavia + Successors
+# Yugoslavia Successors
+pd$pop.growth.rate.cow[pd$iso3c %in% c("SVN","HRV","BIH","SRB","MKD")&pd$year==1992] <- yug.successors.cow.growth.1991.1992 - 1
 
 # Serbia/Montenegro
+pd$pop.growth.rate.cow[pd$iso3c=="SRB"&pd$year==2006] <- srb.cow.growth.2005.2006 - 1
+pd$pop.growth.rate.cow[pd$iso3c=="MNE"&pd$year==2006] <- mne.cow.growth.2005.2006 - 1
 
 # Serbia/Kosovo
+pd$pop.growth.rate.cow[pd$iso3c=="SRB"&pd$year==2008] <- srb.cow.growth.2007.2008 - 1
+pd$pop.growth.rate.cow[pd$iso3c=="KSV"&pd$year==2008] <- ksv.cow.growth.2007.2008 - 1
 
 # South Africa/Namibia
 pd$pop.growth.rate.un[pd$iso3c=="ZAF"&pd$year==1990] <- zaf.un.growth.1989.1990 - 1
