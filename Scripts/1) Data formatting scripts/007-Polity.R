@@ -6,6 +6,16 @@
 
 # Polity component scores of XCONST, XRCOMP, and XROPEN are used, while PARCOMP and PARREG are dropped.
 
+# Center for Systemic Peace's codebook for Polity V: https://www.systemicpeace.org/inscr/p5manualv2018.pdf
+# XRCOMP - Competitiveness of Executive Recruitment
+# XROPEN - Openness of Executive Recruitment
+# XCONST - Constraints on Chief Executive
+# PARREG - Regulation of Participation
+# PARCOMP - Competitiveness of pParticipation
+
+# NOTE: fragmentation metric coded for 2000-2018; not available for historic data, though conceptually aligns
+# with several concepts of state capacity
+
 ### load libraries ----------------------------------------------------------------------
 library(readxl)
 library(stats)
@@ -46,9 +56,9 @@ polity$xropen[polity$xropen %in% c(-66,-77,-88)] <- NA
 # alters some entries to correct countries breaking apart or unifying
 polity <- polity %>%
   dplyr::filter(country != "Serbia and Montenegro" | year != 2006) # remove 2006 Serbia and Montenegro country-year (they are coded separately)
-polity$iso3c[polity$iso3c=="RUS"&polity$year<=1991] <- "SOV" # code Russia as USSR for 1991 and before
-polity$iso3c[polity$iso3c=="YUG"&polity$year>=1992] <- "SRB" # code Yugoslavia as Serbia for 1992 and after
-polity$iso3c[polity$iso3c=="DEU"&polity$year<=1990] <- "BRD" # code Germany as West German for 1990 and before
+polity$iso3c[polity$iso3c=="RUS"&polity$year<=1991] <- "SOV" # Soviet Union is coded as RUS; code Russia as USSR for 1991 and before
+polity$iso3c[polity$iso3c=="YUG"&polity$year %in% c(1992:2002)] <- "SRB" # code Yugoslavia (Serbia and Montenegro) as Serbia for 1992-2002
+polity$iso3c[polity$iso3c=="DEU"&polity$year<=1990] <- "BRD" # West Germany is codes as DEU; code Germany as West German for 1990 and before
 
 # duplicates 2018 values for 2019, as 2019 values have yet to be published
 polity <- rbind(polity,
@@ -126,9 +136,10 @@ polity$polity.pca.sq[is.na(polity$polity.pca.sq)] <- 0
 polity$xpolity[is.na(polity$xpolity)] <- 0
 polity$polity2[is.na(polity$polity2)] <- 0
 
-# selects only the iso3c, county, year, three constructed polity variables, and CSP's polity2 variable
+# selects only the iso3c, county, year, three constructed polity variables, and CSP's five component and
+# ovcerall polity2 variables
 polity <- polity %>%
-  dplyr::select(iso3c,country,year,polity.pca,polity.pca.sq,xpolity,polity2)
+  dplyr::select(iso3c,country,year,polity.pca,polity.pca.sq,xpolity,parcomp,parreg,xconst,xrcomp,xropen,polity2)
 
 ### write data ----------------------------------------------------------------------
 # writes formatted dataframe as csv files
