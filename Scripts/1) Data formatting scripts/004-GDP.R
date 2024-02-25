@@ -403,9 +403,9 @@ gdp_growth_estimator_imf_prior_rate_func <- function(df = gdp, growth.df = growt
 }
 
 # this function uses MPD growth estimates (mpd.rgdpna.growth) to extend both pwt and gl estimates back through 1946
-gdp_growth_estimator_mpd_prior_rate_func <- function(df = gdp, growth.df = growth.rate.datasets, iso){
+gdp_growth_estimator_mpd_prior_rate_func <- function(df = gdp, growth.df = growth.rate.datasets, iso, startyr = 1949, endyr = 1946){
   
-  for(y in 1949:1946){
+  for(y in startyr:endyr){
     
     df <- df %>%
       tibble::add_row(iso3c = iso,
@@ -725,7 +725,7 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "BFA", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "BFA")
 
-#### BGD/PAK(4) ----------------------------------------------------------------------
+#### BGD/PAK ----------------------------------------------------------------------
 # pwt codes PAK and BGD separate prior to 1971; gl codes PAK as unified until 1971,
 # with PAK not including East Pakistan/Bangladesh starting that year
 
@@ -1175,7 +1175,10 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "CYP", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "CYP")
 
-#### CZE ----------------------------------------------------------------------
+#### CZE/SVK ----------------------------------------------------------------------
+# both pwt and gl code CZE as solely Czechia throughout the timeseries
+
+# CZE
 # 1950-89: apply gdp.gl proportion to 1990 gdp.gl estimate and use that ratio
 # on gdp.pwt estimate
 gdp <- gdp_growth_estimator_pwt_func(gdp, "CZE", 1990)
@@ -1188,67 +1191,109 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "CZE", 2011)
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "CZE")
 
 # 1948-1949: apply mpd growth rates (coded as CSK)
-gdp <- gdp %>%
-  tibble::add_row(iso3c = "CZE",
-                  country = "Czechia",
-                  year = 1949,
-                  gdp.pwt = NA,
-                  gdp.gl = NA,
-                  gdp.pwt.est = gdp$gdp.pwt.est[gdp$iso3c=="CZE"&gdp$year==1950]/
-                    (1+(growth.rate.datasets$mpd.rgdpna.growth[growth.rate.datasets$iso3c=="CSK"&growth.rate.datasets$year==1950]/100)),
-                  gdp.gl.est = gdp$gdp.gl.est[gdp$iso3c=="CZE"&gdp$year==1950]/
-                    (1+(growth.rate.datasets$mpd.rgdpna.growth[growth.rate.datasets$iso3c=="CSK"&growth.rate.datasets$year==1950]/100)))
+for(y in 1949:1948){
+  
+  gdp <- gdp %>%
+    tibble::add_row(iso3c = "CZE",
+                    country = "Czechia",
+                    year = y,
+                    gdp.pwt = NA,
+                    gdp.gl = NA,
+                    gdp.pwt.est = gdp$gdp.pwt.est[gdp$iso3c=="CZE"&gdp$year==(y+1)]/
+                      (1+(growth.rate.datasets$mpd.rgdpna.growth[growth.rate.datasets$iso3c=="CSK"&growth.rate.datasets$year==(y+1)]/100)),
+                    gdp.gl.est = gdp$gdp.gl.est[gdp$iso3c=="CZE"&gdp$year==(y+1)]/
+                      (1+(growth.rate.datasets$mpd.rgdpna.growth[growth.rate.datasets$iso3c=="CSK"&growth.rate.datasets$year==(y+1)]/100)))
 
-gdp <- gdp %>%
-  tibble::add_row(iso3c = "CZE",
-                  country = "Czechia",
-                  year = 1948,
-                  gdp.pwt = NA,
-                  gdp.gl = NA,
-                  gdp.pwt.est = gdp$gdp.pwt.est[gdp$iso3c=="CZE"&gdp$year==1949]/
-                    (1+(growth.rate.datasets$mpd.rgdpna.growth[growth.rate.datasets$iso3c=="CSK"&growth.rate.datasets$year==1949]/100)),
-                  gdp.gl.est = gdp$gdp.gl.est[gdp$iso3c=="CZE"&gdp$year==1949]/
-                    (1+(growth.rate.datasets$mpd.rgdpna.growth[growth.rate.datasets$iso3c=="CSK"&growth.rate.datasets$year==1949]/100)))
+}
 
 # 1946-1947: apply 3-year moving average weighted growth rates
+gdp <- gdp_growth_estimator_no_data_func(gdp, "CZE", startyr = 1947)
 
-# calculate growth rates - pwt
-csk.pwt.growth.49 <- gdp$gdp.pwt.est[gdp$iso3c=="CZE"&gdp$year==1949]/gdp$gdp.pwt.est[gdp$iso3c=="CZE"&gdp$year==1948]
-csk.pwt.growth.50 <- gdp$gdp.pwt.est[gdp$iso3c=="CZE"&gdp$year==1950]/gdp$gdp.pwt.est[gdp$iso3c=="CZE"&gdp$year==1949]
-csk.pwt.growth.51 <- gdp$gdp.pwt.est[gdp$iso3c=="CZE"&gdp$year==1951]/gdp$gdp.pwt.est[gdp$iso3c=="CZE"&gdp$year==1950]
+# SVK
+# SVK coded as gaining independence in 1993
 
-csk.pwt.growth.48 <- (1/2)*csk.pwt.growth.49 + (1/3)*csk.pwt.growth.50 + (1/6)*csk.pwt.growth.51
-csk.pwt.growth.47 <- (1/2)*csk.pwt.growth.48 + (1/3)*csk.pwt.growth.49 + (1/6)*csk.pwt.growth.50
-
-# calculate growth rates - gl
-csk.gl.growth.49 <- gdp$gdp.gl.est[gdp$iso3c=="CZE"&gdp$year==1949]/gdp$gdp.gl.est[gdp$iso3c=="CZE"&gdp$year==1948]
-csk.gl.growth.50 <- gdp$gdp.gl.est[gdp$iso3c=="CZE"&gdp$year==1950]/gdp$gdp.gl.est[gdp$iso3c=="CZE"&gdp$year==1949]
-csk.gl.growth.51 <- gdp$gdp.gl.est[gdp$iso3c=="CZE"&gdp$year==1951]/gdp$gdp.gl.est[gdp$iso3c=="CZE"&gdp$year==1950]
+# 1985-1992: calculate mpd growth rates and apply to gl estimates
+for(y in 1992:1985){
   
-csk.gl.growth.48 <- (1/2)*csk.gl.growth.49 + (1/3)*csk.gl.growth.50 + (1/6)*csk.gl.growth.51
-csk.gl.growth.47 <- (1/2)*csk.gl.growth.48 + (1/3)*csk.gl.growth.49 + (1/6)*csk.gl.growth.50
+  # calculate growth rates - gl
+  gl.growth <- (1/2)*gdp$gdp.gl.est[gdp$iso3c=="SVK"&gdp$year==(y+2)]/gdp$gdp.gl.est[gdp$iso3c=="SVK"&gdp$year==(y+1)] +
+               (1/3)*gdp$gdp.gl.est[gdp$iso3c=="SVK"&gdp$year==(y+3)]/gdp$gdp.gl.est[gdp$iso3c=="SVK"&gdp$year==(y+2)] +
+               (1/6)*gdp$gdp.gl.est[gdp$iso3c=="SVK"&gdp$year==(y+4)]/gdp$gdp.gl.est[gdp$iso3c=="SVK"&gdp$year==(y+3)]
+    
+    gdp$gdp.gl.est[gdp$iso3c=="SVK"&gdp$year==y] <- gdp$gdp.gl.est[gdp$iso3c=="SVK"&gdp$year==(y+1)]/gl.growth
+    
+}
 
-# add 1947
-gdp <- gdp %>%
-  tibble::add_row(iso3c = "CZE",
-                  country = "Czechia",
-                  year = 1947,
-                  gdp.pwt = NA,
-                  gdp.gl = NA,
-                  gdp.pwt.est = gdp$gdp.pwt.est[gdp$iso3c=="CZE"&gdp$year==1948]/csk.pwt.growth.48,
-                  gdp.gl.est = gdp$gdp.gl.est[gdp$iso3c=="CZE"&gdp$year==1948]/csk.gl.growth.48)
+# 1985-1990: calculate mpd growth rates and apply to pwt estimates
+# change SVK 1990 estimate to NA, as it does not align with 1991- values
+gdp$gdp.pwt.est[gdp$iso3c=="SVK"&gdp$year==1990] <- NA
+
+for(y in 1990:1985){
   
-# add 1946
-gdp <- gdp %>%
-  tibble::add_row(iso3c = "CZE",
-                  country = "Czechia",
-                  year = 1946,
-                  gdp.pwt = NA,
-                  gdp.gl = NA,
-                  gdp.pwt.est = gdp$gdp.pwt.est[gdp$iso3c=="CZE"&gdp$year==1947]/csk.pwt.growth.47,
-                  gdp.gl.est = gdp$gdp.gl.est[gdp$iso3c=="CZE"&gdp$year==1947]/csk.gl.growth.47)
+  # calculate growth rates - pwt
+  pwt.growth <- (1/2)*gdp$gdp.pwt.est[gdp$iso3c=="SVK"&gdp$year==(y+2)]/gdp$gdp.pwt.est[gdp$iso3c=="SVK"&gdp$year==(y+1)] +
+                (1/3)*gdp$gdp.pwt.est[gdp$iso3c=="SVK"&gdp$year==(y+3)]/gdp$gdp.pwt.est[gdp$iso3c=="SVK"&gdp$year==(y+2)] +
+                (1/6)*gdp$gdp.pwt.est[gdp$iso3c=="SVK"&gdp$year==(y+4)]/gdp$gdp.pwt.est[gdp$iso3c=="SVK"&gdp$year==(y+3)]
+  
+  gdp$gdp.pwt.est[gdp$iso3c=="SVK"&gdp$year==y] <- gdp$gdp.pwt.est[gdp$iso3c=="SVK"&gdp$year==(y+1)]/pwt.growth
+  
+}
 
-#### DEU/BRD/DDR(4) ----------------------------------------------------------------------
+# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
+# on gdp.gl estimate
+gdp <- gdp_growth_estimator_gl_func(gdp, "SVK", 2011, restricted = c(2012:2017))
+
+# 2018-2019: apply imf growth rates
+gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "SVK", startyr = 2018)
+
+# capture growth rates
+cze.pwt.growth.1992.1993 <- gdp$gdp.pwt.est[gdp$iso3c=="CZE"&gdp$year==1993]/gdp$gdp.pwt.est[gdp$iso3c=="CZE"&gdp$year==1992]
+svk.pwt.growth.1992.1993 <- gdp$gdp.pwt.est[gdp$iso3c=="SVK"&gdp$year==1993]/gdp$gdp.pwt.est[gdp$iso3c=="SVK"&gdp$year==1992]
+cze.gl.growth.1992.1993 <- gdp$gdp.gl.est[gdp$iso3c=="CZE"&gdp$year==1993]/gdp$gdp.gl.est[gdp$iso3c=="CZE"&gdp$year==1992]
+svk.gl.growth.1992.1993 <- gdp$gdp.gl.est[gdp$iso3c=="SVK"&gdp$year==1993]/gdp$gdp.gl.est[gdp$iso3c=="SVK"&gdp$year==1992]
+
+# 1950-1984: apply CZE growth rates to SVK
+# pull CZE growth rates
+cze.growth <- gdp %>%
+  dplyr::filter(iso3c == "CZE",
+                year < 1993) %>%
+  dplyr::select(-c(gdp.pwt,gdp.gl))
+
+cze.growth.plus1 <- cze.growth %>%
+  dplyr::mutate(year = year + 1) %>%
+  dplyr::rename(gdp.pwt.est.plus1 = gdp.pwt.est,
+                gdp.gl.est.plus1 = gdp.gl.est)
+
+cze.growth <- cze.growth %>%
+  dplyr::left_join(cze.growth.plus1,by=c("iso3c","country","year")) %>%
+  dplyr::mutate(gdp.growth.pwt = gdp.pwt.est / gdp.pwt.est.plus1,
+                gdp.growth.gl = gdp.gl.est / gdp.gl.est.plus1) %>%
+  dplyr::select(iso3c,year,gdp.growth.pwt,gdp.growth.gl)
+
+for(s in 1984:1950){
+  
+  gdp$gdp.pwt.est[gdp$iso3c=="SVK"&gdp$year==s] <- gdp$gdp.pwt.est[gdp$iso3c=="SVK"&gdp$year==(s+1)]/
+                                                     cze.growth$gdp.growth.pwt[cze.growth$year==(s+1)]
+  gdp$gdp.gl.est[gdp$iso3c=="SVK"&gdp$year==s] <- gdp$gdp.gl.est[gdp$iso3c=="SVK"&gdp$year==(s+1)]/
+                                                     cze.growth$gdp.growth.gl[cze.growth$year==(s+1)]
+  
+}
+
+# 1946-1949: apply 3-year moving average weighted growth rates
+gdp <- gdp_growth_estimator_no_data_func(gdp, "SVK", startyr = 1949)
+
+# 1946-1992: add SVK estimates to CZE estimates
+for(i in 1946:1992){
+  
+  gdp$gdp.pwt.est[gdp$iso3c=="CZE"&gdp$year==i] <- gdp$gdp.pwt.est[gdp$iso3c=="CZE"&gdp$year==i] +
+                                                    gdp$gdp.pwt.est[gdp$iso3c=="SVK"&gdp$year==i]
+  gdp$gdp.gl.est[gdp$iso3c=="CZE"&gdp$year==i] <- gdp$gdp.gl.est[gdp$iso3c=="CZE"&gdp$year==i] +
+                                                    gdp$gdp.gl.est[gdp$iso3c=="SVK"&gdp$year==i]
+  
+}
+
+
+#### DEU/BRD/DDR ----------------------------------------------------------------------
 # pwt data combines East and West Germany, while gl separates East and West Germany through
 # to 1990 (inclusive)
 # East and West Germany are coded as existing through 1989 (inclusive), with a unified
@@ -1507,13 +1552,6 @@ gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "EGY")
 # 1946-1949: apply 3-year moving average weighted growth rates
 gdp <- gdp_growth_estimator_no_data_func(gdp, "EGY")
 
-#### ERI(p/x) ----------------------------------------------------------------------
-# no gdp.pwt data, so use gdp.gl data as an estimate
-gdp$gdp.pwt.est[gdp$iso3c=="ERI"] <- gdp$gdp.gl[gdp$iso3c=="ERI"]
-
-# 2012-2019: apply imf growth rates
-gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "ERI", 2012)
-
 #### ESP ----------------------------------------------------------------------
 # 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
 # on gdp.gl estimate
@@ -1535,7 +1573,9 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "EST", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "EST")
 
-#### ETH(x) ----------------------------------------------------------------------
+#### ETH/ERI(x) ----------------------------------------------------------------------
+
+# ETH
 # 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
 # on gdp.gl estimate
 gdp <- gdp_growth_estimator_gl_func(gdp, "ETH", 2011)
@@ -1545,6 +1585,13 @@ gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "ETH")
 
 # 1946-1949: apply 3-year moving average weighted growth rates
 gdp <- gdp_growth_estimator_no_data_func(gdp, "ETH")
+
+# ERI
+# no gdp.pwt data, so use gdp.gl data as an estimate
+gdp$gdp.pwt.est[gdp$iso3c=="ERI"] <- gdp$gdp.gl[gdp$iso3c=="ERI"]
+
+# 2012-2019: apply imf growth rates
+gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "ERI", 2012)
 
 #### FIN ----------------------------------------------------------------------
 # 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
@@ -3080,16 +3127,6 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "SUR", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "SUR")
 
-#### SVK ----------------------------------------------------------------------
-# 1990-1992: SVK coded as gaining independence in 1993
-
-# 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
-# on gdp.gl estimate
-gdp <- gdp_growth_estimator_gl_func(gdp, "SVK", 2011)
-
-# 2018-2019: apply imf growth rates
-gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "SVK")
-
 #### SVN ----------------------------------------------------------------------
 # 1990-1991: SVN coded as gaining independence in 1992
 
@@ -3633,24 +3670,15 @@ gdp <- gdp %>%
 ### merge growth dataset ----------------------------------------------------------------------
 gdp <- gdp %>%
   dplyr::left_join(growth.rate.datasets,by=c("iso3c","country","year")) %>%
-  dplyr::select(-c(imf.growth.rate.extend,mpd.cgdp.growth,mpd.rgdpna.growth))
-  # compare and flag growth rates that differ by 5 percentage points
-  # dplyr::mutate(pwt.vs.imf = (100*gdp.pwt.est.growth.rate)-imf.growth.rate,
-  #               gl.vs.imf = (100*gdp.gl.est.growth.rate)-imf.growth.rate,
-  #               pwt.flag = ifelse(abs(pwt.vs.imf)>=5,1,0),
-  #               gl.flag = ifelse(abs(gl.vs.imf)>=5,1,0),
-  #               high.flag = ifelse(pwt.flag==1|gl.flag==1,1,0))
-
-# gdp.flag.by.country <- gdp.growth.compare %>%
-#   dplyr::group_by(iso3c,high.flag) %>%
-#   dplyr::tally() %>%
-#   dplyr::ungroup() %>%
-#   dplyr::group_by(iso3c) %>%
-#   dplyr::mutate(perc = n / sum(n,na.rm=TRUE)) %>%
-#   dplyr::ungroup()
+  dplyr::select(-c(imf.growth.rate.extend,mpd.cgdp.growth,mpd.rgdpna.growth)) %>%
+  dplyr::arrange(iso3c,year)
 
 ### adjust growth estimates for countries uniting/dissolving ----------------------------------------------------------------------
 # Czechia/Slovakia
+gdp$gdp.growth.rate.pwt.est[gdp$iso3c=="CZE"&gdp$year==1993] <- 100*(cze.pwt.growth.1992.1993 - 1)
+gdp$gdp.growth.rate.pwt.est[gdp$iso3c=="SVK"&gdp$year==1993] <- 100*(svk.pwt.growth.1992.1993 - 1)
+gdp$gdp.growth.rate.gl.est[gdp$iso3c=="CZE"&gdp$year==1993] <- 100*(cze.gl.growth.1992.1993 - 1)
+gdp$gdp.growth.rate.gl.est[gdp$iso3c=="SVK"&gdp$year==1993] <- 100*(cze.gl.growth.1992.1993 - 1)
 
 # Germany
 
