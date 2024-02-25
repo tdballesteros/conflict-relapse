@@ -44,7 +44,20 @@ gdppc <- gdppc %>%
   dplyr::select(-c(gdp.pwt.est,gdp.gl.est,un.pop,cow.pop))
 
 ### calculate change in gdp per capita estimates ----------------------------------------------------------------------
+gdppc.plus1 <- gdppc %>%
+  dplyr::mutate(year = year + 1) %>%
+  dplyr::rename(gdppc.pwt.un.plus1 = gdppc.pwt.un,
+                gdppc.pwt.cow.plus1 = gdppc.pwt.cow,
+                gdppc.gl.un.plus1 = gdppc.gl.un,
+                gdppc.gl.cow.plus1 = gdppc.gl.cow)
 
+gdppc <- gdppc %>%
+  dplyr::left_join(gdppc.plus1,by=c("iso3c","country","year")) %>%
+  dplyr::mutate(gdppc.growth.pwt.un = 100*(gdppc.pwt.un-gdppc.pwt.un.plus1)/gdppc.pwt.un.plus1,
+                gdppc.growth.pwt.cow = 100*(gdppc.pwt.cow-gdppc.pwt.cow.plus1)/gdppc.pwt.cow.plus1,
+                gdppc.growth.gl.un = 100*(gdppc.gl.un-gdppc.gl.un.plus1)/gdppc.gl.un.plus1,
+                gdppc.growth.gl.cow = 100*(gdppc.gl.cow-gdppc.gl.cow.plus1)/gdppc.gl.cow.plus1) %>%
+  dplyr::select(-c(gdppc.pwt.un.plus1,gdppc.pwt.cow.plus1,gdppc.gl.un.plus1,gdppc.gl.cow.plus1))
 
 ### write data ----------------------------------------------------------------------
 # writes formatted dataframe as csv files

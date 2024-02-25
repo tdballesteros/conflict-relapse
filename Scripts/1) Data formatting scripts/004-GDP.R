@@ -9,13 +9,8 @@
 ### ISR/PSE
 ## (x) means other issues to address
 ### YUG
-### MAR - Western Sahara included?
 ### ETH/ERI - ERI in ETH pre-independence?
 ### DOM, LBN, PRK 1940s estimates look off
-## (4) means 1940s gdp estimates not complete [excluding workbook]
-### AFG, ALB, AND, PAK, CHN, CZE, DEU, DOM, ECU, EGY, ETH, GTM, HUN, IRN, IRQ, ISL, ISR/PSE,
-## JOR, YUG, LBN, LBR, LBY, LIE, LKA, LUX, MCO, MMR, MNG, NAM/ZAF, NPL, PHL, PRK, SAU, SMR,
-### SYR, THA, TWN, YAR
 
 ### load libraries ----------------------------------------------------------------------
 library(readxl)
@@ -24,6 +19,7 @@ library(countrycode)
 library(tibble)
 library(dplyr)
 library(tidyr)
+library(stringr)
 
 ### not in function ----------------------------------------------------------------------
 '%!in%' <- function(x,y)!('%in%'(x,y))
@@ -207,7 +203,7 @@ wb.growth.data <- read.csv("Data files/Raw data files/API_NY.GDP.MKTP.KD_DS2_en_
                                      "British Virgin Islands","Virgin Islands (U.S.)")) %>%
   dplyr::select(-c("Indicator.Name","Indicator.Code")) %>%
   tidyr::pivot_longer(3:63, names_to = "year", values_to = "gdp") %>%
-  dplyr::mutate(year =  as.numeric(str_sub(year,start=2,end=5))) %>%
+  dplyr::mutate(year =  as.numeric(stringr::str_sub(year,start=2,end=5))) %>%
   dplyr::rename(country = Country.Name,
                 iso3c = Country.Code)
 
@@ -352,8 +348,10 @@ gdp_growth_estimator_imf_rate_func <- function(df = gdp, growth.df = growth.rate
                       year = y,
                       gdp.pwt = NA,
                       gdp.gl = NA,
-                      gdp.pwt.est = ((100+growth.df$imf.growth.rate.extend[growth.df$iso3c==iso&growth.df$year==y])*df$gdp.pwt.est[df$iso3c==iso&df$year==(y-1)])/100,
-                      gdp.gl.est = ((100+growth.df$imf.growth.rate.extend[growth.df$iso3c==iso&growth.df$year==y])*df$gdp.gl.est[df$iso3c==iso&df$year==(y-1)])/100)
+                      gdp.pwt.est = ((100+growth.df$imf.growth.rate.extend[growth.df$iso3c==iso&growth.df$year==y])*
+                                       df$gdp.pwt.est[df$iso3c==iso&df$year==(y-1)])/100,
+                      gdp.gl.est = ((100+growth.df$imf.growth.rate.extend[growth.df$iso3c==iso&growth.df$year==y])*
+                                      df$gdp.gl.est[df$iso3c==iso&df$year==(y-1)])/100)
     
   }
   
@@ -393,8 +391,10 @@ gdp_growth_estimator_imf_prior_rate_func <- function(df = gdp, growth.df = growt
                       year = y,
                       gdp.pwt = NA,
                       gdp.gl = NA,
-                      gdp.pwt.est = df$gdp.pwt.est[df$iso3c==iso&df$year==(y+1)]/(1+(growth.df$imf.growth.rate.extend[growth.df$iso3c==iso&growth.df$year==(y+1)]/100)),
-                      gdp.gl.est = df$gdp.gl.est[df$iso3c==iso&df$year==(y+1)]/(1+(growth.df$imf.growth.rate.extend[growth.df$iso3c==iso&growth.df$year==(y+1)]/100)))
+                      gdp.pwt.est = df$gdp.pwt.est[df$iso3c==iso&df$year==(y+1)]/
+                                      (1+(growth.df$imf.growth.rate.extend[growth.df$iso3c==iso&growth.df$year==(y+1)]/100)),
+                      gdp.gl.est = df$gdp.gl.est[df$iso3c==iso&df$year==(y+1)]/
+                                      (1+(growth.df$imf.growth.rate.extend[growth.df$iso3c==iso&growth.df$year==(y+1)]/100)))
     
   }
   
@@ -413,8 +413,10 @@ gdp_growth_estimator_mpd_prior_rate_func <- function(df = gdp, growth.df = growt
                       year = y,
                       gdp.pwt = NA,
                       gdp.gl = NA,
-                      gdp.pwt.est = df$gdp.pwt.est[df$iso3c==iso&df$year==(y+1)]/(1+(growth.df$mpd.rgdpna.growth[growth.df$iso3c==iso&growth.df$year==(y+1)]/100)),
-                      gdp.gl.est = df$gdp.gl.est[df$iso3c==iso&df$year==(y+1)]/(1+(growth.df$mpd.rgdpna.growth[growth.df$iso3c==iso&growth.df$year==(y+1)]/100)))
+                      gdp.pwt.est = df$gdp.pwt.est[df$iso3c==iso&df$year==(y+1)]/
+                                        (1+(growth.df$mpd.rgdpna.growth[growth.df$iso3c==iso&growth.df$year==(y+1)]/100)),
+                      gdp.gl.est = df$gdp.gl.est[df$iso3c==iso&df$year==(y+1)]/
+                                        (1+(growth.df$mpd.rgdpna.growth[growth.df$iso3c==iso&growth.df$year==(y+1)]/100)))
     
   }
   
@@ -424,183 +426,66 @@ gdp_growth_estimator_mpd_prior_rate_func <- function(df = gdp, growth.df = growt
 
 # this function approximates the 1946-1949 gdp of a country based on its growth rates the subsequent years.
 # the function applies weighted growth rates of 1/2 year+1, 1/3 year+2, and 1/6 year+3
-gdp_growth_estimator_no_data_func <- function(df = gdp, iso){
+gdp_growth_estimator_no_data_func <- function(df = gdp, iso, startyr = 1949){
   
-  # calculate growth rates - pwt
-  pwt.growth.51 <- df$gdp.pwt.est[df$iso3c==iso&df$year==1951]/df$gdp.pwt.est[df$iso3c==iso&df$year==1950]
-  pwt.growth.52 <- df$gdp.pwt.est[df$iso3c==iso&df$year==1952]/df$gdp.pwt.est[df$iso3c==iso&df$year==1951]
-  pwt.growth.53 <- df$gdp.pwt.est[df$iso3c==iso&df$year==1953]/df$gdp.pwt.est[df$iso3c==iso&df$year==1952]
+  for(y in startyr:1946){
+    
+    # calculate growth rates - pwt
+    pwt.growth <- (1/2)*df$gdp.pwt.est[df$iso3c==iso&df$year==(y+2)]/df$gdp.pwt.est[df$iso3c==iso&df$year==(y+1)] +
+                  (1/3)*df$gdp.pwt.est[df$iso3c==iso&df$year==(y+3)]/df$gdp.pwt.est[df$iso3c==iso&df$year==(y+2)] +
+                  (1/6)*df$gdp.pwt.est[df$iso3c==iso&df$year==(y+4)]/df$gdp.pwt.est[df$iso3c==iso&df$year==(y+3)]
+
+    # calculate growth rates - gl
+    gl.growth <- (1/2)*df$gdp.gl.est[df$iso3c==iso&df$year==(y+2)]/df$gdp.gl.est[df$iso3c==iso&df$year==(y+1)] +
+                 (1/3)*df$gdp.gl.est[df$iso3c==iso&df$year==(y+3)]/df$gdp.gl.est[df$iso3c==iso&df$year==(y+2)] +
+                 (1/6)*df$gdp.gl.est[df$iso3c==iso&df$year==(y+4)]/df$gdp.gl.est[df$iso3c==iso&df$year==(y+3)]
+    
+    # add entry
+    df <- df %>%
+      tibble::add_row(iso3c = iso,
+                      country = countrycode::countrycode(iso3c,"iso3c","country.name"),
+                      year = y,
+                      gdp.pwt = NA,
+                      gdp.gl = NA,
+                      gdp.pwt.est = df$gdp.pwt.est[df$iso3c==iso&df$year==(y+1)]/pwt.growth,
+                      gdp.gl.est = df$gdp.gl.est[df$iso3c==iso&df$year==(y+1)]/gl.growth)
+
+  }
   
-  pwt.growth.50 <- (1/2)*pwt.growth.51 + (1/3)*pwt.growth.52 + (1/6)*pwt.growth.53
-  pwt.growth.49 <- (1/2)*pwt.growth.50 + (1/3)*pwt.growth.51 + (1/6)*pwt.growth.52
-  pwt.growth.48 <- (1/2)*pwt.growth.49 + (1/3)*pwt.growth.50 + (1/6)*pwt.growth.51
-  pwt.growth.47 <- (1/2)*pwt.growth.48 + (1/3)*pwt.growth.49 + (1/6)*pwt.growth.50
-  pwt.growth.46 <- (1/2)*pwt.growth.47 + (1/3)*pwt.growth.48 + (1/6)*pwt.growth.49
-  
-  # calculate growth rates - gl
-  gl.growth.51 <- df$gdp.gl.est[df$iso3c==iso&df$year==1951]/df$gdp.gl.est[df$iso3c==iso&df$year==1950]
-  gl.growth.52 <- df$gdp.gl.est[df$iso3c==iso&df$year==1952]/df$gdp.gl.est[df$iso3c==iso&df$year==1951]
-  gl.growth.53 <- df$gdp.gl.est[df$iso3c==iso&df$year==1953]/df$gdp.gl.est[df$iso3c==iso&df$year==1952]
-  
-  gl.growth.50 <- (1/2)*gl.growth.51 + (1/3)*gl.growth.52 + (1/6)*gl.growth.53
-  gl.growth.49 <- (1/2)*gl.growth.50 + (1/3)*gl.growth.51 + (1/6)*gl.growth.52
-  gl.growth.48 <- (1/2)*gl.growth.49 + (1/3)*gl.growth.50 + (1/6)*gl.growth.51
-  gl.growth.47 <- (1/2)*gl.growth.48 + (1/3)*gl.growth.49 + (1/6)*gl.growth.50
-  gl.growth.46 <- (1/2)*gl.growth.47 + (1/3)*gl.growth.48 + (1/6)*gl.growth.49
-  
-  # add 1949
-  df <- df %>%
-    tibble::add_row(iso3c = iso,
-                    country = countrycode::countrycode(iso3c,"iso3c","country.name"),
-                    year = 1949,
-                    gdp.pwt = NA,
-                    gdp.gl = NA,
-                    gdp.pwt.est = df$gdp.pwt.est[df$iso3c==iso&df$year==1950]/pwt.growth.50,
-                    gdp.gl.est = df$gdp.gl.est[df$iso3c==iso&df$year==1950]/gl.growth.50)
-  
-  # add 1948
-  df <- df %>%
-    tibble::add_row(iso3c = iso,
-                    country = countrycode::countrycode(iso3c,"iso3c","country.name"),
-                    year = 1948,
-                    gdp.pwt = NA,
-                    gdp.gl = NA,
-                    gdp.pwt.est = df$gdp.pwt.est[df$iso3c==iso&df$year==1949]/pwt.growth.49,
-                    gdp.gl.est = df$gdp.gl.est[df$iso3c==iso&df$year==1949]/gl.growth.49)
- 
-  # add 1947
-  df <- df %>%
-    tibble::add_row(iso3c = iso,
-                    country = countrycode::countrycode(iso3c,"iso3c","country.name"),
-                    year = 1947,
-                    gdp.pwt = NA,
-                    gdp.gl = NA,
-                    gdp.pwt.est = df$gdp.pwt.est[df$iso3c==iso&df$year==1948]/pwt.growth.48,
-                    gdp.gl.est = df$gdp.gl.est[df$iso3c==iso&df$year==1948]/gl.growth.48)
-   
-  # add 1946
-  df <- df %>%
-    tibble::add_row(iso3c = iso,
-                    country = countrycode::countrycode(iso3c,"iso3c","country.name"),
-                    year = 1946,
-                    gdp.pwt = NA,
-                    gdp.gl = NA,
-                    gdp.pwt.est = df$gdp.pwt.est[df$iso3c==iso&df$year==1947]/pwt.growth.47,
-                    gdp.gl.est = df$gdp.gl.est[df$iso3c==iso&df$year==1947]/gl.growth.47)
+  return(df)
   
 }
 
 # this function approximates the 2012-2019 gdp of a country based on its growth rates the prior years.
 # the function applies weighted growth rates of 1/2 year-1, 1/3 year-2, and 1/6 year-3
-gdp_growth_estimator_no_data_future_func <- function(df = gdp, iso){
+gdp_growth_estimator_no_data_future_func <- function(df = gdp, iso, startyr = 2012){
   
-  # calculate growth rates - pwt
-  pwt.growth.11 <- df$gdp.pwt.est[df$iso3c==iso&df$year==2011]/df$gdp.pwt.est[df$iso3c==iso&df$year==2010]
-  pwt.growth.10 <- df$gdp.pwt.est[df$iso3c==iso&df$year==2010]/df$gdp.pwt.est[df$iso3c==iso&df$year==2009]
-  pwt.growth.09 <- df$gdp.pwt.est[df$iso3c==iso&df$year==2009]/df$gdp.pwt.est[df$iso3c==iso&df$year==2008]
+  for(y in startyr:2019){
+    
+    # calculate growth rates - pwt
+    pwt.growth <- (1/2)*df$gdp.pwt.est[df$iso3c==iso&df$year==(y-1)]/df$gdp.pwt.est[df$iso3c==iso&df$year==(y-2)] +
+                  (1/3)*df$gdp.pwt.est[df$iso3c==iso&df$year==(y-2)]/df$gdp.pwt.est[df$iso3c==iso&df$year==(y-3)] +
+                  (1/6)*df$gdp.pwt.est[df$iso3c==iso&df$year==(y-3)]/df$gdp.pwt.est[df$iso3c==iso&df$year==(y-4)]
+    
+    # calculate growth rates - gl
+    pwt.growth <- (1/2)*df$gdp.gl.est[df$iso3c==iso&df$year==(y-1)]/df$gdp.gl.est[df$iso3c==iso&df$year==(y-2)] +
+                  (1/3)*df$gdp.gl.est[df$iso3c==iso&df$year==(y-2)]/df$gdp.gl.est[df$iso3c==iso&df$year==(y-3)] +
+                  (1/6)*df$gdp.gl.est[df$iso3c==iso&df$year==(y-3)]/df$gdp.gl.est[df$iso3c==iso&df$year==(y-4)]
+    
+    # add entry
+    df <- df %>%
+      tibble::add_row(iso3c = iso,
+                      country = countrycode::countrycode(iso3c,"iso3c","country.name"),
+                      year = y,
+                      gdp.pwt = NA,
+                      gdp.gl = NA,
+                      gdp.pwt.est = df$gdp.pwt.est[df$iso3c==iso&df$year==(y-1)]*pwt.growth,
+                      gdp.gl.est = df$gdp.gl.est[df$iso3c==iso&df$year==(y-1)]*gl.growth)
+    
+  }
   
-  pwt.growth.12 <- (1/2)*pwt.growth.11 + (1/3)*pwt.growth.10 + (1/6)*pwt.growth.09
-  pwt.growth.13 <- (1/2)*pwt.growth.12 + (1/3)*pwt.growth.11 + (1/6)*pwt.growth.10
-  pwt.growth.14 <- (1/2)*pwt.growth.13 + (1/3)*pwt.growth.12 + (1/6)*pwt.growth.11
-  pwt.growth.15 <- (1/2)*pwt.growth.14 + (1/3)*pwt.growth.13 + (1/6)*pwt.growth.12
-  pwt.growth.16 <- (1/2)*pwt.growth.15 + (1/3)*pwt.growth.14 + (1/6)*pwt.growth.13
-  pwt.growth.17 <- (1/2)*pwt.growth.16 + (1/3)*pwt.growth.15 + (1/6)*pwt.growth.14
-  pwt.growth.18 <- (1/2)*pwt.growth.17 + (1/3)*pwt.growth.16 + (1/6)*pwt.growth.15
-  pwt.growth.19 <- (1/2)*pwt.growth.18 + (1/3)*pwt.growth.17 + (1/6)*pwt.growth.16
+  return(df)
   
-  # calculate growth rates - gl
-  gl.growth.11 <- df$gdp.gl.est[df$iso3c==iso&df$year==2011]/df$gdp.gl.est[df$iso3c==iso&df$year==2010]
-  gl.growth.10 <- df$gdp.gl.est[df$iso3c==iso&df$year==2010]/df$gdp.gl.est[df$iso3c==iso&df$year==2009]
-  gl.growth.09 <- df$gdp.gl.est[df$iso3c==iso&df$year==2009]/df$gdp.gl.est[df$iso3c==iso&df$year==2008]
-  
-  gl.growth.12 <- (1/2)*gl.growth.11 + (1/3)*gl.growth.10 + (1/6)*gl.growth.09
-  gl.growth.13 <- (1/2)*gl.growth.12 + (1/3)*gl.growth.11 + (1/6)*gl.growth.10
-  gl.growth.14 <- (1/2)*gl.growth.13 + (1/3)*gl.growth.12 + (1/6)*gl.growth.11
-  gl.growth.15 <- (1/2)*gl.growth.14 + (1/3)*gl.growth.13 + (1/6)*gl.growth.12
-  gl.growth.16 <- (1/2)*gl.growth.15 + (1/3)*gl.growth.14 + (1/6)*gl.growth.13
-  gl.growth.17 <- (1/2)*gl.growth.16 + (1/3)*gl.growth.15 + (1/6)*gl.growth.14
-  gl.growth.18 <- (1/2)*gl.growth.17 + (1/3)*gl.growth.16 + (1/6)*gl.growth.15
-  gl.growth.19 <- (1/2)*gl.growth.18 + (1/3)*gl.growth.17 + (1/6)*gl.growth.16
-  
-  # add 2012
-  df <- df %>%
-    tibble::add_row(iso3c = iso,
-                    country = countrycode::countrycode(iso3c,"iso3c","country.name"),
-                    year = 2012,
-                    gdp.pwt = NA,
-                    gdp.gl = NA,
-                    gdp.pwt.est = df$gdp.pwt.est[df$iso3c==iso&df$year==2011]*pwt.growth.12,
-                    gdp.gl.est = df$gdp.gl.est[df$iso3c==iso&df$year==2011]*gl.growth.12)
-  
-  # add 2013
-  df <- df %>%
-    tibble::add_row(iso3c = iso,
-                    country = countrycode::countrycode(iso3c,"iso3c","country.name"),
-                    year = 2013,
-                    gdp.pwt = NA,
-                    gdp.gl = NA,
-                    gdp.pwt.est = df$gdp.pwt.est[df$iso3c==iso&df$year==2012]*pwt.growth.13,
-                    gdp.gl.est = df$gdp.gl.est[df$iso3c==iso&df$year==2012]*gl.growth.13)
-  
-  # add 2014
-  df <- df %>%
-    tibble::add_row(iso3c = iso,
-                    country = countrycode::countrycode(iso3c,"iso3c","country.name"),
-                    year = 2014,
-                    gdp.pwt = NA,
-                    gdp.gl = NA,
-                    gdp.pwt.est = df$gdp.pwt.est[df$iso3c==iso&df$year==2013]*pwt.growth.14,
-                    gdp.gl.est = df$gdp.gl.est[df$iso3c==iso&df$year==2013]*gl.growth.14)
-  
-  # add 2015
-  df <- df %>%
-    tibble::add_row(iso3c = iso,
-                    country = countrycode::countrycode(iso3c,"iso3c","country.name"),
-                    year = 2015,
-                    gdp.pwt = NA,
-                    gdp.gl = NA,
-                    gdp.pwt.est = df$gdp.pwt.est[df$iso3c==iso&df$year==2014]*pwt.growth.15,
-                    gdp.gl.est = df$gdp.gl.est[df$iso3c==iso&df$year==2014]*gl.growth.15)
-  
-  # add 2016
-  df <- df %>%
-    tibble::add_row(iso3c = iso,
-                    country = countrycode::countrycode(iso3c,"iso3c","country.name"),
-                    year = 2016,
-                    gdp.pwt = NA,
-                    gdp.gl = NA,
-                    gdp.pwt.est = df$gdp.pwt.est[df$iso3c==iso&df$year==2015]*pwt.growth.16,
-                    gdp.gl.est = df$gdp.gl.est[df$iso3c==iso&df$year==2015]*gl.growth.16)
-  
-  # add 2017
-  df <- df %>%
-    tibble::add_row(iso3c = iso,
-                    country = countrycode::countrycode(iso3c,"iso3c","country.name"),
-                    year = 2017,
-                    gdp.pwt = NA,
-                    gdp.gl = NA,
-                    gdp.pwt.est = df$gdp.pwt.est[df$iso3c==iso&df$year==2016]*pwt.growth.17,
-                    gdp.gl.est = df$gdp.gl.est[df$iso3c==iso&df$year==2016]*gl.growth.17)
-  
-  # add 2018
-  df <- df %>%
-    tibble::add_row(iso3c = iso,
-                    country = countrycode::countrycode(iso3c,"iso3c","country.name"),
-                    year = 2018,
-                    gdp.pwt = NA,
-                    gdp.gl = NA,
-                    gdp.pwt.est = df$gdp.pwt.est[df$iso3c==iso&df$year==2017]*pwt.growth.18,
-                    gdp.gl.est = df$gdp.gl.est[df$iso3c==iso&df$year==2017]*gl.growth.18)
-  
-  # add 2019
-  df <- df %>%
-    tibble::add_row(iso3c = iso,
-                    country = countrycode::countrycode(iso3c,"iso3c","country.name"),
-                    year = 2019,
-                    gdp.pwt = NA,
-                    gdp.gl = NA,
-                    gdp.pwt.est = df$gdp.pwt.est[df$iso3c==iso&df$year==2018]*pwt.growth.19,
-                    gdp.gl.est = df$gdp.gl.est[df$iso3c==iso&df$year==2018]*gl.growth.19)
 }
 
 ### calculate estimates ----------------------------------------------------------------------
@@ -631,7 +516,7 @@ gdp <- gdp %>%
   dplyr::mutate(gdp.pwt.est = ifelse(iso3c=="AFG",gdp.gl.est,gdp.pwt.est))
 
 # 1946-1949: apply 3-year moving average weighted growth rates
-gdp <- gdp_growth_estimator_no_data_func(gdp, "AFG")
+gdp <- gdp_growth_estimator_no_data_func(gdp, "AFG", startyr = 1949)
 
 # # calculate the average differences (absolute differences and % differences) between
 # # pwt and gl data for countries most comparable to AFG: PAK, IRN, TJK, TKM, KGZ, UZB

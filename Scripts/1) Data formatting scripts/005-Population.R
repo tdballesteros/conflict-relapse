@@ -1,14 +1,5 @@
-# This script formats a population estimate variable for all country-years.
-
-# TODO
-## SOV: 1946-1950 estimates; capture growth rates
-## YAR: 1946-1950 estimates
-## YUG et al: capture growth rates
-## SRB + KSV UN needs modifying
-## Standardized 1946-1950 estimating: unlisted countries, CZE, ETH, PAK
-
-# UN: KSV 2013-2019
-# COW: KSV 2013-2019; SRB 1992-2019
+# This script formats two population estimate variables for all country-years and calculates annual population
+# growth rates for both estimate variables.
 
 ### load libraries ----------------------------------------------------------------------
 library(readxl)
@@ -809,6 +800,10 @@ pd$cow.pop[pd$iso3c=="RUS"&pd$year<1991] <- NA
 sov.successors.cow.growth.1990.1991 <- sum(pd$cow.pop[pd$iso3c %in% c("EST","LVA","LTU","BLR","UKR","MDA","RUS",
                                                                       "GEO","ARM","AZE","KAZ","KGZ","TKM","TJK",
                                                                       "UZB")&pd$year==1991]) / pd$cow.pop[pd$iso3c=="SOV"&pd$year==1990]
+
+# remove RUS 1946-1949 entries
+pd <- pd %>%
+  dplyr::filter(iso3c != "RUS" | year %!in% c(1946:1949))
 
 #### SRB/MNE/KSV ----------------------------------------------------------------------
 # BIH: UN estimates 1950-2019; COW 1992-2012
