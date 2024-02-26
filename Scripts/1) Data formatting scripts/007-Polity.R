@@ -29,7 +29,7 @@ polity <- readxl::read_excel("Data files/Raw data files/p5v2018.xls")
 polity <- polity %>%
   dplyr::select(country,year,polity2,parcomp,parreg,xconst,xrcomp,xropen) %>%
   dplyr::filter(year >= 1946) %>%
-  # using the countrycode package, add country name based on iso3c value
+  # using the countrycode package, add iso3c code based on country name
   dplyr::mutate(iso3c = countrycode::countrycode(country,"country.name","iso3c")) %>%
   # moves iso3c variable first
   dplyr::relocate(iso3c,.before = country)
