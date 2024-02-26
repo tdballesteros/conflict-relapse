@@ -1,12 +1,21 @@
 # This script creates an aid estimate variable.
 
+# TODO: is the aid in constant $?
+
 ### load libraries ----------------------------------------------------------------------
 library(countrycode)
 library(dplyr)
 
 ### load data file ----------------------------------------------------------------------
 # aid from aiddata.org through Quality of Government dataset
-qog <- read.csv("~/Downloads/qog_std_ts_jan20.csv")
+#qog <- read.csv("Data files/Raw data files/qog_std_ts_jan20.csv")
+#aiddata <- read.csv("Data files/Raw data files/AidDataCoreThin_ResearchRelease_Level1_v3.1.csv")
+aiddata_full <- read.csv("~/Downloads/AidDataCore_ResearchRelease_Level1_v3/AidDataCoreFull_ResearchRelease_Level1_v3.1.csv")
+
+### data formatting ----------------------------------------------------------------------
+aid <- aiddata_full %>%
+  dplyr::select(recipient,year,commitment_amount_usd_current,commitment_amount_usd_constant,received_amount_usd_nominal) %>%
+
 
 ### data formatting ----------------------------------------------------------------------
 aid2 <- qog %>%
@@ -32,7 +41,7 @@ aid2$iso3c[aid2$cname=="Vietnam, South"] <- "RVN"
 
 aid2 <- aid2 %>%
   # filter countries with limited or no aid data
-  dplyr::filter(iso3c %!in% c("AND","LIE","LUX","MCO","SMR","TBT"),
+  dplyr::filter(iso3c != "TBT",
                 # Cyprus is split into Cyprus (-1974) and Cyprus (1975-) but contains all years for both
                 cname != "Cyprus (1975-)" | year >= 1975,
                 cname != "Cyprus (-1974)" | year <= 1974,
@@ -74,45 +83,41 @@ aid2 <- aid2 %>%
   dplyr::filter(year < 2014)
 
 # duplicate 2013 aid data and code as same amount of aid for 2014 - 2019
-aid.2014 <- aid2 %>%
-  dplyr::filter(year == 2013) %>%
-  dplyr::mutate(year = 2014)
+for(y in 2014:2019){
+  
+  aid.x <- aid2 %>%
+    dplyr::filter(year == 2013) %>%
+    dplyr::mutate(year = y)
+  
+  aid2 <- aid2 %>%
+    rbind(aid.x)
+  
+}
 
-aid.2015 <- aid2 %>%
-  dplyr::filter(year == 2013) %>%
-  dplyr::mutate(year = 2015)
-
-aid.2016 <- aid2 %>%
-  dplyr::filter(year == 2013) %>%
-  dplyr::mutate(year = 2016)
-
-aid.2017 <- aid2 %>%
-  dplyr::filter(year == 2013) %>%
-  dplyr::mutate(year = 2017)
-
-aid.2018 <- aid2 %>%
-  dplyr::filter(year == 2013) %>%
-  dplyr::mutate(year = 2018)
-
-aid.2019 <- aid2 %>%
-  dplyr::filter(year == 2013) %>%
-  dplyr::mutate(year = 2019)
-
-# merge 2014 - 2019 datasets into main dataset
-aid2 <- aid2 %>%
-  rbind(aid.2014,aid.2015,aid.2016,aid.2017,aid.2018,aid.2019)
-
-### merge GDP data ----------------------------------------------------------------------
-# load formatted data output by script 003-GDP
+### merge GDP and population data ----------------------------------------------------------------------
+# load formatted data output by script 004-GDP
 gdp <- read.csv("Data files/Formatted data files/gdp.csv")
 
-# merges GDP dataset to calculate aid as % of GDP
+# load formatted data output by script 005-Population
+population <- read.csv("Data files/Formatted data files/population.csv")
+
+# merges GDP and population datasets to calculate aid as % of GDP and per capita
 aid2 <- aid2 %>%
   dplyr::full_join(gdp,by=c("iso3c","year")) %>%
-  dplyr::mutate(aidgdp = aid2 / gdp) %>%
-  # filter out countries missing gdp information
-  dplyr::filter(iso3c %!in% c("GUY","SYC","TON","KSV","PSE"))
+  dplyr::full_join(population,by=c("iso3c","country","year")) %>%
+  # drop growth rate variables
+  dplyr::select(-c(gdp.pwt.original,gdp.gl.original,gdp.growth.rate.pwt.original,gdp.growth.rate.gl.original,
+                   gdp.growth.rate.pwt.est,gdp.growth.rate.gl.est,imf.growth.rate.modern,
+                   imf.growth.rate.historical,wb.growth.rate,pop.growth.rate.un,pop.growth.rate.cow))
+  
+### calculate % of gdp and per capita metrics ----------------------------------------------------------------------
+aid2 <- aid2 %>%
+  dplyr::mutate(aid.perc.gdp.pwt = aid2 / gdp.pwt.est,
+                aid.perc.gdp.gl = aid2 / gdp.gl.est,
+                aid.per.capita.un = aid2 / un.pop,
+                aid.per.capita.cow = aid2 / cow.pop)
 
+### interpolate missing data ----------------------------------------------------------------------
 # check how many years each country has data for
 aid2.num.years <- aid2 %>%
   na.omit() %>%
@@ -123,7 +128,6 @@ aid2.num.years <- aid2 %>%
 # list countries with data for no years
 aid2.no.years <- unique(aid2$iso3c)[unique(aid2$iso3c) %!in% aid2.num.years$iso3c]
 
-### interpolate missing data ----------------------------------------------------------------------
 aid2 <- aid2 %>%
   # filter out countries with no data
   dplyr::filter(iso3c %!in% aid2.no.years) %>%
@@ -134,7 +138,7 @@ aid2 <- aid2 %>%
   dplyr::ungroup()
 
 ### remove if countries did not exist that year ----------------------------------------------------------------------
-# load formatted data output by script 005-Country_years
+# load formatted data output by script 003-Country_years
 cyears <- read.csv("Data files/Formatted data files/country_years.csv")
 
 # merge datasets and filter out if the country-year is not included in the cyears dataset
