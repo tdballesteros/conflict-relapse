@@ -34,7 +34,7 @@ pwt <- readxl::read_xlsx("Data files/Raw data files/pwt91.xlsx", sheet = 3) %>%
   dplyr::mutate(rgdpna = rgdpna * 1000000 * (1 + 0.14),
                 # using the countrycode package, add iso3c based on country name
                 iso3c = countrycode::countrycode(country,"country.name","iso3c"),
-                # using the countrycode package, add iso3c based on country name
+                # using the countrycode package, add country name based on iso3c code
                 country = countrycode::countrycode(iso3c,"iso3c","country.name"))  %>%
   # move iso3c variable first
   dplyr::relocate(iso3c, .before = country) %>%
