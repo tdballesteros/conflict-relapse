@@ -725,13 +725,13 @@ pd <- pop_growth_estimator_un_func(pd, "PRK", yr = 1950, restricted = c(1948:194
 # 1946-1947: apply MPD population growth rates to UN's and COW's 1949 population estimates
 for(p in 1947:1946){
   
-  un.growth.rate <- (1/2)*(df$un.pop[df$iso3c==iso&df$year==(p+2)]/df$un.pop[df$iso3c==iso&df$year==(p+1)]) +
-    (1/3)*(df$un.pop[df$iso3c==iso&df$year==(p+3)]/df$un.pop[df$iso3c==iso&df$year==(p+2)]) +
-    (1/6)*(df$un.pop[df$iso3c==iso&df$year==(p+4)]/df$un.pop[df$iso3c==iso&df$year==(p+3)])
+  un.growth.rate <- (1/2)*(pd$un.pop[pd$iso3c=="PRK"&pd$year==(p+2)]/pd$un.pop[pd$iso3c=="PRK"&pd$year==(p+1)]) +
+                    (1/3)*(pd$un.pop[pd$iso3c=="PRK"&pd$year==(p+3)]/pd$un.pop[pd$iso3c=="PRK"&pd$year==(p+2)]) +
+                    (1/6)*(pd$un.pop[pd$iso3c=="PRK"&pd$year==(p+4)]/pd$un.pop[pd$iso3c=="PRK"&pd$year==(p+3)])
   
-  cow.growth.rate <- (1/2)*(df$cow.pop[df$iso3c==iso&df$year==(p+2)]/df$cow.pop[df$iso3c==iso&df$year==(p+1)]) +
-    (1/3)*(df$cow.pop[df$iso3c==iso&df$year==(p+3)]/df$cow.pop[df$iso3c==iso&df$year==(p+2)]) +
-    (1/6)*(df$cow.pop[df$iso3c==iso&df$year==(p+4)]/df$cow.pop[df$iso3c==iso&df$year==(p+3)])              
+  cow.growth.rate <- (1/2)*(pd$cow.pop[pd$iso3c=="PRK"&pd$year==(p+2)]/pd$cow.pop[pd$iso3c=="PRK"&pd$year==(p+1)]) +
+                     (1/3)*(pd$cow.pop[pd$iso3c=="PRK"&pd$year==(p+3)]/pd$cow.pop[pd$iso3c=="PRK"&pd$year==(p+2)]) +
+                     (1/6)*(pd$cow.pop[pd$iso3c=="PRK"&pd$year==(p+4)]/pd$cow.pop[pd$iso3c=="PRK"&pd$year==(p+3)])              
   
   pd <- pd %>%
     tibble::add_row(iso3c = "PRK",
