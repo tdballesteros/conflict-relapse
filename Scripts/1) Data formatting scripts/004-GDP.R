@@ -1,5 +1,4 @@
-# This script formats two GDP estimates and multiple GDP growth estimates and approximates
-# missing values.
+# This script formats and extends two GDP estimates and multiple GDP growth estimates.
 
 # TODO
 ## (p) means pwt estimates missing
@@ -731,6 +730,10 @@ gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "BFA")
 
 # BGD coded as gaining independence in 1971
 
+# capture pwt 1970-1971 gdp growth
+pak.pwt.growth.1970.1971 <- gdp$gdp.pwt.est[gdp$iso3c=="PAK"&gdp$year==1971]/gdp$gdp.pwt.est[gdp$iso3c=="PAK"&gdp$year==1970]
+bgd.pwt.growth.1970.1971 <- gdp$gdp.pwt.est[gdp$iso3c=="BGD"&gdp$year==1971]/gdp$gdp.pwt.est[gdp$iso3c=="BGD"&gdp$year==1970]
+
 # pwt estimates code PAK and BGD separate through 1971, though BGD estimates only start in 1959
 # (Method 1) extend BGD estimates back based on PAK (pwt) growth rates
 # (Method 2) combine PAK and BGD, then extend back using PAK (gl) growth rates, removing 1950-1958 PAK pwt estimates
@@ -872,6 +875,12 @@ gdp <- gdp %>%
                   gdp.gl = NA,
                   gdp.pwt.est = gdp$gdp.pwt.est[gdp$iso3c=="PAK"&gdp$year==1947]/pak.pwt.growth.47,
                   gdp.gl.est = gdp$gdp.gl.est[gdp$iso3c=="PAK"&gdp$year==1947]/pak.gl.growth.47)
+
+# capture gl 1970-1971 gdp growth
+pak.gl.growth.1970.1971 <- (gdp$gdp.gl.est[gdp$iso3c=="PAK"&gdp$year==1971]+gdp$gdp.gl.est[gdp$iso3c=="BGD"&gdp$year==1971])/
+                                gdp$gdp.gl.est[gdp$iso3c=="PAK"&gdp$year==1970]
+bgd.gl.growth.1970.1971 <- (gdp$gdp.gl.est[gdp$iso3c=="PAK"&gdp$year==1971]+gdp$gdp.gl.est[gdp$iso3c=="BGD"&gdp$year==1971])/
+                                gdp$gdp.gl.est[gdp$iso3c=="PAK"&gdp$year==1970]
 
 #### BGR ----------------------------------------------------------------------
 # 1950-69: apply gdp.gl proportion to 1970 gdp.gl estimate and use that ratio
@@ -1292,7 +1301,6 @@ for(i in 1946:1992){
   
 }
 
-
 #### DEU/BRD/DDR ----------------------------------------------------------------------
 # pwt data combines East and West Germany, while gl separates East and West Germany through
 # to 1990 (inclusive)
@@ -1474,6 +1482,12 @@ for(b in 1949:1946){
 
 }
 
+# calculate 1989-1990 growth rate
+deu.pwt.growth.1989.1990 <- gdp$gdp.pwt.est[gdp$iso3c=="DEU"&gdp$year==1990]/
+                              (gdp$gdp.pwt.est[gdp$iso3c=="BRD"&gdp$year==1989]+gdp$gdp.pwt.est[gdp$iso3c=="DDR"&gdp$year==1989])
+deu.gl.growth.1989.1990 <- gdp$gdp.gl.est[gdp$iso3c=="DEU"&gdp$year==1990]/
+                              (gdp$gdp.gl.est[gdp$iso3c=="BRD"&gdp$year==1989]+gdp$gdp.gl.est[gdp$iso3c=="DDR"&gdp$year==1989])
+
 #### DJI ----------------------------------------------------------------------
 # 1970-1976: DJI coded as gaining independence in 1977
 
@@ -1574,7 +1588,6 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "EST", 2011)
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "EST")
 
 #### ETH/ERI(x) ----------------------------------------------------------------------
-
 # ETH
 # 2012-2017: apply gdp.pwt proportion to 2011 gdp.pwt estimate and use that ratio
 # on gdp.gl estimate
@@ -2588,12 +2601,21 @@ gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "SGP")
 
 # merge pre-independence NAM with ZAF
 
+# capture pwt + gl ZAF 1989-1990 growth rates
+nam.pwt.growth.1989.1990 <- gdp$gdp.pwt.est[gdp$iso3c=="NAM"&gdp$year==1990]/gdp$gdp.pwt.est[gdp$iso3c=="NAM"&gdp$year==1989]
+zaf.pwt.growth.1989.1990 <- gdp$gdp.pwt.est[gdp$iso3c=="ZAF"&gdp$year==1990]/gdp$gdp.pwt.est[gdp$iso3c=="ZAF"&gdp$year==1989]
+zaf.gl.growth.1989.1990 <- gdp$gdp.gl.est[gdp$iso3c=="ZAF"&gdp$year==1990]/gdp$gdp.gl.est[gdp$iso3c=="ZAF"&gdp$year==1989]
+
 # 1960-1989: apply gdp.pwt proportion to 1990 gdp.pwt estimate and use that ratio
 # on gdp.gl estimate
 gdp.nam.backdating <- gdp_growth_estimator_gl_func(gdp, "NAM", 1990) %>%
   dplyr::filter(iso3c == "NAM") %>%
   # 1950-1959: apply mpd growth estimates to gdp.pwt.est and gdp.gl.est
   left_join(growth.rate.datasets,by=c("iso3c","country","year"))
+
+# capture gl NAM 1989-1990 growth rates
+nam.gl.growth.1989.1990 <- gdp.nam.backdating$gdp.gl.est[gdp.nam.backdating$iso3c=="NAM"&gdp.nam.backdating$year==1990]/
+                             gdp.nam.backdating$gdp.gl.est[gdp.nam.backdating$iso3c=="NAM"&gdp.nam.backdating$year==1989]
 
 # mpd growth estimates
 for(n in 1959:1950){
@@ -3348,6 +3370,12 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "TZA", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "TZA")
 
+# calculate 1963-1964 growth rate
+tza.pwt.growth.1963.1964 <- gdp$gdp.pwt.est[gdp$iso3c=="TZA"&gdp$year==1964]/
+  (gdp$gdp.pwt.est[gdp$iso3c=="TZA"&gdp$year==1963]+gdp$gdp.pwt.est[gdp$iso3c=="ZAN"&gdp$year==1963])
+tza.gl.growth.1963.1964 <- gdp$gdp.gl.est[gdp$iso3c=="TZA"&gdp$year==1964]/
+  (gdp$gdp.gl.est[gdp$iso3c=="TZA"&gdp$year==1963]+gdp$gdp.gl.est[gdp$iso3c=="ZAN"&gdp$year==1963])
+
 #### UGA ----------------------------------------------------------------------
 # 1950-1961: UGA coded as gaining independence in 1962
 
@@ -3474,6 +3502,12 @@ gdp <- gdp_growth_estimator_gl_func(gdp, "VNM", 2011)
 # 2018-2019: apply imf growth rates
 gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "VNM")
 
+# calculate 1975-1976 growth rate
+vnm.pwt.growth.1975.1976 <- gdp$gdp.pwt.est[gdp$iso3c=="VNM"&gdp$year==1976]/
+  (gdp$gdp.pwt.est[gdp$iso3c=="VNM"&gdp$year==1975]+gdp$gdp.pwt.est[gdp$iso3c=="RVN"&gdp$year==1975])
+vnm.gl.growth.1975.1976 <- gdp$gdp.gl.est[gdp$iso3c=="VNM"&gdp$year==1976]/
+  (gdp$gdp.gl.est[gdp$iso3c=="VNM"&gdp$year==1975]+gdp$gdp.gl.est[gdp$iso3c=="RVN"&gdp$year==1975])
+
 #### VUT(p) ----------------------------------------------------------------------
 # no gdp.pwt data, so use gdp.gl data as an estimate
 # gl data starts in 1980
@@ -3556,6 +3590,12 @@ gdp <- gdp_growth_estimator_imf_rate_func(gdp, growth.rate.datasets, "YEM")
 # 1946-1949: apply 3-year moving average weighted growth rates
 gdp <- gdp_growth_estimator_no_data_func(gdp, "YAR")
 
+# calculate 1990-1991 growth rate
+yem.pwt.growth.1990.1991 <- gdp$gdp.pwt.est[gdp$iso3c=="YEM"&gdp$year==1991]/
+  (gdp$gdp.pwt.est[gdp$iso3c=="YAR"&gdp$year==1990]+gdp$gdp.pwt.est[gdp$iso3c=="YPR"&gdp$year==1990])
+yem.gl.growth.1990.1991 <- gdp$gdp.gl.est[gdp$iso3c=="YEM"&gdp$year==1991]/
+  (gdp$gdp.gl.est[gdp$iso3c=="YAR"&gdp$year==1990]+gdp$gdp.gl.est[gdp$iso3c=="YPR"&gdp$year==1990])
+
 # original estimates - appear to be different methodology for calculating than what is done above
 # # YEM
 # gdp$rgdpna[gdp$iso3c=="YEM"&gdp$year==1950] <- 36403208086*0.766175876
@@ -3624,8 +3664,6 @@ gdp <- gdp_growth_estimator_no_data_func(gdp, "YAR")
 # gdp$rgdpna[gdp$iso3c=="YPR"&gdp$year==1989] <- 36403208086*0.590778734
 # gdp$rgdpna[gdp$iso3c=="YPR"&gdp$year==1990] <- 36403208086*0.590778734 # rough estimate - double check
 
-# gdp$iso3c[gdp$iso3c=="YEM"&gdp$year<=1990] <- "YAR"
-
 #### ZMB ----------------------------------------------------------------------
 # 1955-1963: ZMB coded as gaining independence in 1964
 
@@ -3681,30 +3719,46 @@ gdp$gdp.growth.rate.gl.est[gdp$iso3c=="CZE"&gdp$year==1993] <- 100*(cze.gl.growt
 gdp$gdp.growth.rate.gl.est[gdp$iso3c=="SVK"&gdp$year==1993] <- 100*(cze.gl.growth.1992.1993 - 1)
 
 # Germany
+gdp$gdp.growth.rate.pwt.est[gdp$iso3c=="DEU"&gdp$year==1990] <- 100*(deu.pwt.growth.1989.1990 - 1)
+gdp$gdp.growth.rate.gl.est[gdp$iso3c=="DEU"&gdp$year==1990] <- 100*(deu.gl.growth.1989.1990 - 1)
 
 # Ethiopia/Eritrea
 
 # Malaysia/Singapore
 
 # Pakistan/Bangladesh
+gdp$gdp.growth.rate.pwt.est[gdp$iso3c=="PAK"&gdp$year==1971] <- 100*(pak.pwt.growth.1970.1971 - 1)
+gdp$gdp.growth.rate.pwt.est[gdp$iso3c=="BGD"&gdp$year==1971] <- 100*(bgd.pwt.growth.1970.1971 - 1)
+gdp$gdp.growth.rate.gl.est[gdp$iso3c=="PAK"&gdp$year==1971] <- 100*(pak.gl.growth.1970.1971 - 1)
+gdp$gdp.growth.rate.gl.est[gdp$iso3c=="BGD"&gdp$year==1971] <- 100*(bgd.gl.growth.1970.1971 - 1)
+
+# Serbia/Kosovo
+
+# Serbia/Montenegro
+
+# South Africa/Namibia
+gdp$gdp.growth.rate.pwt.est[gdp$iso3c=="NAM"&gdp$year==1990] <- 100*(nam.pwt.growth.1989.1990 - 1)
+gdp$gdp.growth.rate.pwt.est[gdp$iso3c=="ZAF"&gdp$year==1990] <- 100*(zaf.pwt.growth.1989.1990 - 1)
+gdp$gdp.growth.rate.gl.est[gdp$iso3c=="NAM"&gdp$year==1990] <- 100*(nam.gl.growth.1989.1990 - 1)
+gdp$gdp.growth.rate.gl.est[gdp$iso3c=="ZAF"&gdp$year==1990] <- 100*(zaf.gl.growth.1989.1990 - 1)
 
 # Sudan/South Sudan
 
 # Soviet Union + Successors
 
 # Tanzania/Zanzibar
-
-# Yemen
+gdp$gdp.growth.rate.pwt.est[gdp$iso3c=="TZA"&gdp$year==1964] <- 100*(tza.pwt.growth.1963.1964 - 1)
+gdp$gdp.growth.rate.gl.est[gdp$iso3c=="TZA"&gdp$year==1964] <- 100*(tza.gl.growth.1963.1964 - 1)
 
 # Vietnam
+gdp$gdp.growth.rate.pwt.est[gdp$iso3c=="VNM"&gdp$year==1976] <- 100*(vnm.pwt.growth.1975.1976 - 1)
+gdp$gdp.growth.rate.gl.est[gdp$iso3c=="VNM"&gdp$year==1976] <- 100*(vnm.gl.growth.1975.1976 - 1)
+
+# Yemen
+gdp$gdp.growth.rate.pwt.est[gdp$iso3c=="YEM"&gdp$year==1991] <- 100*(yem.pwt.growth.1990.1991 - 1)
+gdp$gdp.growth.rate.gl.est[gdp$iso3c=="YEM"&gdp$year==1991] <- 100*(yem.gl.growth.1990.1991 - 1)
 
 # Yugoslavia + Successors
-
-# Serbia/Montenegro
-
-# Serbia/Kosovo
-
-# South Africa/Namibia
 
 ### write data ----------------------------------------------------------------------
 # writes formatted dataframe as csv files
