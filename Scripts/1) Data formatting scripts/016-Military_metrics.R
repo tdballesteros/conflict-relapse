@@ -21,22 +21,22 @@ iiss.milper <- readxl::read_xlsx("Data files/Raw data files/iiss_milper.xlsx")
 iiss.milex <- readxl::read_xlsx("Data files/Raw data files/iiss_milex.xlsx")
 
 # load all sheets in the "Military Balance.xlsx" file
-military.balance <- lapply(excel_sheets("Data files/Raw data files/Military Balance.xlsx"),
+military.balance <- lapply(readxl::excel_sheets("Data files/Raw data files/Military Balance.xlsx"),
                            read_xlsx,
                            path = "Data files/Raw data files/Military Balance.xlsx")
 
 # WMEAT files
-wmeat.2005 <- lapply(excel_sheets("Data files/Raw data files/121777.xls"),
+wmeat.2005 <- lapply(readxl::excel_sheets("Data files/Raw data files/121777.xls"),
                      read_xls,
                      path = "Data files/Raw data files/121777.xls")
-wmeat.2012 <- lapply(excel_sheets("Data files/Raw data files/209509.xlsx"),
+wmeat.2012 <- lapply(readxl::excel_sheets("Data files/Raw data files/209509.xlsx"),
                      read_xlsx,
                      path = "Data files/Raw data files/209509.xlsx")
-wmeat.2016 <- lapply(excel_sheets("Data files/Raw data files/266013.xlsx"),
+wmeat.2016 <- lapply(readxl::excel_sheets("Data files/Raw data files/266013.xlsx"),
                      read_xlsx,
                      path = "Data files/Raw data files/266013.xlsx")
-wmeat.2019 <- lapply(excel_sheets("Data files/Raw data files/WMEAT-2019-Table-I-Military-Expenditures-and-Armed-Forces-Personnel-2007-2017.xlsx"),
-                     read_xlsx,
+wmeat.2019 <- lapply(readxl::excel_sheets("Data files/Raw data files/WMEAT-2019-Table-I-Military-Expenditures-and-Armed-Forces-Personnel-2007-2017.xlsx"),
+                     read_xlsx, skip = 6, na = "n/a",
                      path = "Data files/Raw data files/WMEAT-2019-Table-I-Military-Expenditures-and-Armed-Forces-Personnel-2007-2017.xlsx")
 
 ### format data ----------------------------------------------------------------------
@@ -121,8 +121,59 @@ military.balance.2019 <- military.balance.2019 %>%
                 year = stringr::str_sub(metric, start = -4, end = -1),
                 metric = stringr::str_sub(metric, start = 1, end = -6))
 
-
 #### WMEAT ----------------------------------------------------------------------
+# 2019
+names(wmeat.2019) <- readxl::excel_sheets("Data files/Raw data files/WMEAT-2019-Table-I-Military-Expenditures-and-Armed-Forces-Personnel-2007-2017.xlsx")
+
+# list of country tabs
+wmeat.2019.tab.list <- readxl::excel_sheets("Data files/Raw data files/WMEAT-2019-Table-I-Military-Expenditures-and-Armed-Forces-Personnel-2007-2017.xlsx")
+wmeat.2019.tab.list <- wmeat.2019.tab.list[wmeat.2019.tab.list %!in% c("Table of Contents","Overview","Geographic Groups","Geog. Groups 2",
+                                                                       "Political Groups","Economic Groups","Group Rankings & Trends",
+                                                                       "Country Rankings & Trends","Charts")]
+
+wmeat.2019.data <- data.frame()
+
+# format each country in the wmeat dataset list in long format and add to placeholder dataframe
+for(c in wmeat.2019.tab.list){
+  
+  df <- wmeat.2019[[c]]
+  
+  # remove blank rows
+  df <- df[rowSums(is.na(df)) != ncol(df),]
+  
+  # select variables of interest
+  ## Armed forces personnel (AF) (in thousands) and Military expenditure (ME) - Current dollars (millions) are variables of interest
+  ## Population (midyear, in millions) and Gross domestic product (GDP) - Current dollars (millions) are comparisons to test
+  ## the validity of population and GDP data
+  df <- df[c(2,5,29,34),] %>%
+    dplyr::select(-Mean)
+  
+  # rename variables
+  df$`Parameter / Year`[1] <- "armed.personnel" # in thousands
+  df$`Parameter / Year`[2] <- "population" # in millions
+  df$`Parameter / Year`[3] <- "military.expenditure.current.dollars" # in millions
+  df$`Parameter / Year`[4] <- "gdp.current.dollars" # in millions
+  
+  df <- df %>%
+    # convert to long data
+    tidyr::pivot_longer(2:12, names_to = "year", values_to = "value") %>%
+    dplyr::rowwise() %>%
+    # convert to full value - multiply by 1,000 if variable is armed.personnel, otherwise multiply by 1,000,000
+    dplyr::mutate(value = ifelse("Parameter / Year" == "armed.personnel",
+                                 value * 1000,
+                                 value * 1000000),
+                  country = c,
+                  # using the countrycode package, add iso3c code based on country name
+                  iso3c = countrycode::countrycode(country,"country.name","iso3c")) %>%
+    dplyr::rename(variable = "Parameter / Year") %>%
+    # reorder variables
+    dplyr::select(iso3c,country,year,variable,value)
+      
+  wmeat.2019.data <- rbind(wmeat.2019.data, df)
+  
+}
+
+
 
 
 #### merge datasets ----------------------------------------------------------------------
