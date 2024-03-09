@@ -22,7 +22,7 @@ iiss.milex <- readxl::read_xlsx("Data files/Raw data files/iiss_milex.xlsx")
 
 # load all sheets in the "Military Balance.xlsx" file
 military.balance <- lapply(readxl::excel_sheets("Data files/Raw data files/Military Balance.xlsx"),
-                           read_xlsx,
+                           read_xlsx, na = c("n.k.","n/a","n.k","n.a.","n.a"),
                            path = "Data files/Raw data files/Military Balance.xlsx")
 
 # WMEAT files
@@ -33,7 +33,7 @@ wmeat.2012 <- lapply(readxl::excel_sheets("Data files/Raw data files/209509.xlsx
                      read_xlsx,
                      path = "Data files/Raw data files/209509.xlsx")
 wmeat.2016 <- lapply(readxl::excel_sheets("Data files/Raw data files/266013.xlsx"),
-                     read_xlsx,
+                     read_xlsx, skip = 6, na = "n/a",
                      path = "Data files/Raw data files/266013.xlsx")
 wmeat.2019 <- lapply(readxl::excel_sheets("Data files/Raw data files/WMEAT-2019-Table-I-Military-Expenditures-and-Armed-Forces-Personnel-2007-2017.xlsx"),
                      read_xlsx, skip = 6, na = "n/a",
@@ -76,53 +76,140 @@ iiss.mil <- dplyr::full_join(iiss.milper,iiss.milex,by=c("iso3c","year")) %>%
   dplyr::select(-`...6`)
 
 #### Military Balance ----------------------------------------------------------------------
-# list of Military Balance datasets
-military_balance_list <- list(paste0("military.balance.",stringr::str_sub(military_balance_sheets,2,5)))
+# rename datasets as Y20XX, referring to the year the report was published
+names(military.balance) <- readxl::excel_sheets("Data files/Raw data files/Military Balance.xlsx")
 
-# for(m in military_balance_list){
-#   
-#   
-#   
-# }
+# create empty dataframe to compile all formatted sheets into
+military.balance.data <- data.frame()
 
+# format each dataset and combine into one complete dataset
+for(m in names(military.balance)){
+  
+  year <- as.numeric(stringr::str_sub(m, start = 2, end = 5))
+  
+  df <- military.balance[[m]]
+  
+  # remove footnotes column (column  14) if it exists
+  if(ncol(df) == 14){
+    
+    df <- df[,-14]
+    
+  }
+  
+  names(df) <- c("country",
+                 paste0("defense.spending.",year-3), # in current year USD
+                 paste0("defense.spending.",year-2),
+                 paste0("defense.spending.",year-1),
+                 paste0("defense.spending.percapita.",year-3), # in current year USD
+                 paste0("defense.spending.percapita.",year-2),
+                 paste0("defense.spending.percapita.",year-1),
+                 paste0("defense.spending.percgdp.",year-3), # as percentage of GDP
+                 paste0("defense.spending.percgdp.",year-2),
+                 paste0("defense.spending.percgdp.",year-1),
+                 paste0("active.armed.forces.",year),
+                 paste0("reservists.",year),
+                 paste0("active.paramilitary.",year))
+  
+  # remove first row (secondary header row containing years)
+  df <- df[-1,]
+  
+  # remove footnotes rows at the end, based on which year it is
+  number_of_footnote_rows <- ifelse(year == 2020, 4,
+                             ifelse(year == 2019, 5,
+                             ifelse(year == 2018, 6,
+                             ifelse(year == 2017, 5,
+                             ifelse(year == 2016, 3,
+                             ifelse(year == 2015, 4,
+                             ifelse(year == 2014, 14,
+                             ifelse(year == 2013, 28,
+                             ifelse(year == 2012, 4, 0)))))))))
+  
+  df <- df[-c((nrow(df)-number_of_footnote_rows+1):nrow(df)),]
+  
+  # recoding country names countrycode package could not identify
+  df$country[df$country=="UAE*"] <- "United Arab Emirates"
+  df$country[df$country=="Somali Republic"] <- "Somalia"
+  
+  df <- df %>%
+    # filter out headers (e.g., "North America") and total rows
+    dplyr::filter(country %!in% c("North America","Europe","Russia and Eurasia","Asia","Middle East and North Africa",
+                                  "Latin America and the Caribbean","Sub-Saharan Africa","Summary","Total","Total*","Total**",
+                                  "Global totals","US","NATO EX-US","Total NATO","Non-NATO Europe","Russia 2",
+                                  "South and Central Asia","East Asia and Australasia","Latin America and Caribbean",
+                                  "Total *","Total **","Nato Europe","Non-Nato Europe","Subtotal NATO Ex-US",
+                                  "Latin America & The Carribean","Latin America and the Carribean")) %>%
+    tidyr::pivot_longer(cols = 2:13, names_to = "metric", values_to = "value") %>%
+    # add variable denoting which year the data was published / which sheet the data is from
+    dplyr::mutate(data.pub.year = year,
+                  # add variable for the year the data is for, based on the end of the variable name
+                  year = stringr::str_sub(metric, start = -4, end = -1),
+                  # rename variables to remove the specific year the data is for
+                  metric = stringr::str_sub(metric, start = 1, end = -6),
+                  # modify values to be full values
+                  value = ifelse(metric %in% c("defense.spending","defense.spending.percapita", # multiply by 1,000,000
+                                               "defense.spending.percgdp"), value * 1000000,
+                                 ifelse(metric %in% c("active.armed.forces","reservists", # multiply by 1,000
+                                                      "active.paramilitary"), value * 1000,
+                                        value)),
+                  # using the countrycode package, add iso3c based on country name
+                  iso3c = countrycode::countrycode(country,"country.name","iso3c"))
+  
+  military.balance.data <- rbind(military.balance.data,df)
+  
+}
 
-names(military.balance.2019) <- c("country","defense.spending.current.usd.2016",
-                                  "defense.spending.current.usd.2017","defense.spending.current.usd.2018",
-                                  "defense.spending.per.capita.current.usd.2016",
-                                  "defense.spending.per.capita.current.usd.2017",
-                                  "defense.spending.per.capita.current.usd.2018",
-                                  "defense.spending.perc.gdp.2016","defense.spending.perc.gdp.2017",
-                                  "defense.spending.perc.gdp.2018","active.armed.forces.2019","reservists.2019",
-                                  "active.paramilitary.2019")
+#### WMEAT 2016 ----------------------------------------------------------------------
+names(wmeat.2016) <- readxl::excel_sheets("Data files/Raw data files/266013.xlsx")
 
-# remove first row (second header row containing years) and last row (containing notes)
-military.balance.2019 <- military.balance.2019[-c(1,nrow(military.balance.2019)),]
+# list of country tabs
+wmeat.2016.tab.list <- readxl::excel_sheets("Data files/Raw data files/266013.xlsx")
+wmeat.2016.tab.list <- wmeat.2016.tab.list[wmeat.2016.tab.list %!in% c("Table of Contents","Overview","Geographic Groups","Geog. Groups 2",
+                                                                       "Political Groups","Economic Groups","Group Rankings & Trends",
+                                                                       "Country Rankings & Trends","Charts")]
 
-military.balance.2019 <- military.balance.2019 %>%
-  # filter out region headings and total rows
-  dplyr::filter(country %!in% c("North America","Europe","Russia and Eurasia","Asia","Middle East and North Africa",
-                                "Latin America and the Caribbean","Sub-Saharan Africa","Summary","Total","Total**",
-                                "Global totals")) %>%
-  # converts all columns besides country name column to numeric
-  dplyr::mutate(dplyr::across(tidyr::ends_with(c("2016","2017","2018","2019")), as.numeric)) %>%
-  # modify values to be full values
-  dplyr::mutate(defense.spending.current.usd.2016 = 1000000*defense.spending.current.usd.2016,
-                defense.spending.current.usd.2017 = 1000000*defense.spending.current.usd.2017,
-                defense.spending.current.usd.2018 = 1000000*defense.spending.current.usd.2018,
-                active.armed.forces.2019 = 1000*active.armed.forces.2019,
-                reservists.2019 = 1000*reservists.2019,
-                active.paramilitary.2019 = 1000*active.paramilitary.2019,
-                # using the countrycode package, add iso3c based on country name
-                iso3c = countrycode::countrycode(country,"country.name","iso3c")) %>%
-  dplyr::relocate(iso3c, .before = country) %>%
-  dplyr::select(-country) %>%
-  tidyr::pivot_longer(cols = 2:13, names_to = "metric", values_to = "value") %>%
-  dplyr::mutate(data.pub.year = 2019,
-                year = stringr::str_sub(metric, start = -4, end = -1),
-                metric = stringr::str_sub(metric, start = 1, end = -6))
+wmeat.2016.data <- data.frame()
 
-#### WMEAT ----------------------------------------------------------------------
-# 2019
+# format each country in the wmeat dataset list in long format and add to placeholder dataframe
+for(c in wmeat.2016.tab.list){
+  
+  df <- wmeat.2016[[c]]
+  
+  # remove blank rows
+  df <- df[rowSums(is.na(df)) != ncol(df),]
+  
+  # select variables of interest
+  ## Armed forces personnel (AF) (in thousands) and Military expenditure (ME) - Current dollars (millions) are variables of interest
+  ## Population (midyear, in millions) and Gross domestic product (GDP) - Current dollars (millions) are comparisons to test
+  ## the validity of population and GDP data
+  df <- df[c(2,5,29,34),] %>%
+    dplyr::select(-Mean)
+  
+  # rename variables
+  df$`Parameter / Year`[1] <- "armed.personnel" # in thousands
+  df$`Parameter / Year`[2] <- "population" # in millions
+  df$`Parameter / Year`[3] <- "military.expenditure.current.dollars" # in millions
+  df$`Parameter / Year`[4] <- "gdp.current.dollars" # in millions
+  
+  df <- df %>%
+    # convert to long data
+    tidyr::pivot_longer(2:12, names_to = "year", values_to = "value") %>%
+    dplyr::rowwise() %>%
+    # convert to full value - multiply by 1,000 if variable is armed.personnel, otherwise multiply by 1,000,000
+    dplyr::mutate(value = ifelse("Parameter / Year" == "armed.personnel",
+                                 value * 1000,
+                                 value * 1000000),
+                  country = c,
+                  # using the countrycode package, add iso3c code based on country name
+                  iso3c = countrycode::countrycode(country,"country.name","iso3c")) %>%
+    dplyr::rename(variable = "Parameter / Year") %>%
+    # reorder variables
+    dplyr::select(iso3c,country,year,variable,value)
+  
+  wmeat.2016.data <- rbind(wmeat.2016.data, df)
+  
+}
+
+#### WMEAT 2019 ----------------------------------------------------------------------
 names(wmeat.2019) <- readxl::excel_sheets("Data files/Raw data files/WMEAT-2019-Table-I-Military-Expenditures-and-Armed-Forces-Personnel-2007-2017.xlsx")
 
 # list of country tabs
