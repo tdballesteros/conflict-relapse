@@ -17,8 +17,6 @@ library(tidyr)
 
 ### load data files ----------------------------------------------------------------------
 cow <- read.csv("Data files/Raw data files/NMC_5_0.csv")
-iiss.milper <- readxl::read_xlsx("Data files/Raw data files/iiss_milper.xlsx")
-iiss.milex <- readxl::read_xlsx("Data files/Raw data files/iiss_milex.xlsx")
 
 # load all sheets in the "Military Balance.xlsx" file
 military.balance <- lapply(readxl::excel_sheets("Data files/Raw data files/Military Balance.xlsx"),
@@ -26,11 +24,14 @@ military.balance <- lapply(readxl::excel_sheets("Data files/Raw data files/Milit
                            path = "Data files/Raw data files/Military Balance.xlsx")
 
 # WMEAT files
+wmeat.1995 <- lapply(readxl::excel_sheets("Data files/Raw data files/185685.xlsx"),
+                     read_xlsx, skip = 5, na = c("NA","E","R","d","E,b","b","c","E,d","c,f"), col_names = FALSE,
+                     path = "Data files/Raw data files/185685.xlsx")
 wmeat.2005 <- lapply(readxl::excel_sheets("Data files/Raw data files/121777.xls"),
-                     read_xls,
+                     read_xls, skip = 7, na = c("NA","E","R"), col_names = FALSE,
                      path = "Data files/Raw data files/121777.xls")
 wmeat.2012 <- lapply(readxl::excel_sheets("Data files/Raw data files/209509.xlsx"),
-                     read_xlsx,
+                     read_xlsx, skip = 6, na = "n/a",
                      path = "Data files/Raw data files/209509.xlsx")
 wmeat.2016 <- lapply(readxl::excel_sheets("Data files/Raw data files/266013.xlsx"),
                      read_xlsx, skip = 6, na = "n/a",
@@ -39,11 +40,24 @@ wmeat.2019 <- lapply(readxl::excel_sheets("Data files/Raw data files/WMEAT-2019-
                      read_xlsx, skip = 6, na = "n/a",
                      path = "Data files/Raw data files/WMEAT-2019-Table-I-Military-Expenditures-and-Armed-Forces-Personnel-2007-2017.xlsx")
 
+### inflation table ----------------------------------------------------------------------
+# inflation from https://www.bls.gov/data/inflation_calculator.htm
+# July to July, converting to 2019 dollars
+inflation_table <- data.frame(year = c(1946:2020),
+                              multiplier = c(1+11.96,1+10.56,1+9.52,1+9.83, #40s
+                                             1+9.65,1+8.91,1+8.61,1+8.57,1+8.54,1+8.57,1+8.36,1+8.07,1+7.85,1+7.79, #50s
+                                             1+7.67,1+7.55,1+7.47,1+7.36,1+7.25,1+7.12,1+6.89,1+6.68,1+6.35,1+5.97, #60s
+                                             1+5.58,1+5.30,1+5.12,1+4.79,1+4.19,1+3.73,1+3.49,1+3.21,1+2.91,1+2.51, #70s
+                                             1+2.10,1+1.80,1+1.63,1+1.57,1+1.46,1+1.38,1+1.34,1+1.25,1+1.17,1+1.06, #80s
+                                             1+0.97,1+0.88,1+0.83,1+0.78,1+0.73,1+0.68,1+0.63,1+0.60,1+0.57,1+0.54, #90s
+                                             1+0.48,1+0.45,1+0.42,1+0.40,1+0.35,1+0.31,1+0.26,1+0.23,1+0.17,1+0.19, #00s
+                                             1+0.18,1+0.14,1+0.12,1+0.10,1+0.08,1+0.08,1+0.07,1+0.05,1+0.02,1+0.00, #10s
+                                             1-0.01)) #20s
+
 ### format data ----------------------------------------------------------------------
 #### COW ----------------------------------------------------------------------
 cow <- cow %>%
-  #dplyr::filter(stateabb != "SRB" | year != 2012) %>%
-  dplyr::filter(year >= 1945 ) %>%
+  dplyr::filter(year >= 1945) %>%
   # using the countrycode package, add iso3c based on country COW abbreviation
   dplyr::mutate(iso3c = countrycode::countrycode(stateabb,"cowc","iso3c"))
 
@@ -65,15 +79,16 @@ cow <- cow %>%
                 milper = ifelse(milper==-9,NA,milper),
                 # multiplies milex and milper to be full numbers
                 milex = 1000 * milex,
-                milper = 1000 * milper,
-                # creates blank variables for future calculations
-                milexpgdp = NA,
-                milexpc = NA)
+                milper = 1000 * milper)
 
-#### IISS ----------------------------------------------------------------------
-iiss.mil <- dplyr::full_join(iiss.milper,iiss.milex,by=c("iso3c","year")) %>%
-  # removes notes column
-  dplyr::select(-`...6`)
+# adjust for inflation
+cow <- cow %>%
+  dplyr::left_join(inflation_table,by="year") %>%
+  # multiples dollar values in that year's dollar value to 2019 dollars
+  dplyr::mutate(milex = milex * multiplier) %>%
+  dplyr::select(-multiplier) %>%
+  dplyr::rename(milex.cow = milex,
+                milper.cow = milper)
 
 #### Military Balance ----------------------------------------------------------------------
 # rename datasets as Y20XX, referring to the year the report was published
@@ -146,8 +161,8 @@ for(m in names(military.balance)){
                   # rename variables to remove the specific year the data is for
                   metric = stringr::str_sub(metric, start = 1, end = -6),
                   # modify values to be full values
-                  value = ifelse(metric %in% c("defense.spending","defense.spending.percapita", # multiply by 1,000,000
-                                               "defense.spending.percgdp"), value * 1000000,
+                  value = ifelse(metric == "defense.spending", # multiply by 1,000,000
+                                               value * 1000000,
                                  ifelse(metric %in% c("active.armed.forces","reservists", # multiply by 1,000
                                                       "active.paramilitary"), value * 1000,
                                         value)),
@@ -158,7 +173,304 @@ for(m in names(military.balance)){
   
 }
 
-#### WMEAT 2016 ----------------------------------------------------------------------
+military.balance.data <- military.balance.data %>%
+  # adjust for inflation
+  dplyr::left_join(inflation_table,dplyr::join_by("data.pub.year"=="year")) %>%
+  dplyr::mutate(value = ifelse(metric %in% c("defense.spending","defense.spending.percapita"),
+                               value * multiplier, value),
+                # using the countrycode package, add country name based on iso3c code
+                country = countrycode::countrycode(iso3c,"iso3c","country.name")) %>%
+  dplyr::select(-multiplier) %>%
+  # combine variable name with publication year, to differentiate them as separate columns
+  dplyr::mutate(metric = paste0(metric,".iiss")) %>%
+  dplyr::relocate(iso3c, .before = country) %>%
+  dplyr::relocate(year, .after = country) %>%
+  tidyr::drop_na(value) %>%
+  dplyr::group_by(iso3c,country,year,metric) %>%
+  # keep the most recent published version of the data (for GDP, GDP per capita, and % GDP, which are
+  # published for three consecutive years)
+  dplyr::filter(data.pub.year == max(data.pub.year,na.rm=TRUE)) %>%
+  dplyr::select(-data.pub.year) %>%
+  dplyr::ungroup() %>%
+  tidyr::pivot_wider(names_from = "metric", values_from = "value") %>%
+  dplyr::mutate(year = as.numeric(year))
+
+#### WMEAT ----------------------------------------------------------------------
+##### WMEAT 1995 ----------------------------------------------------------------------
+wmeat.1995.data <- wmeat.1995[[1]]
+
+names(wmeat.1995.data) <- c(
+  "country.and.year",
+  "military.expenditure.current.dollars", # in millions
+  "blank1",
+  "military.expenditure.1994.dollars", # in millions
+  "blank2",
+  "armed.personnel", #in thousands
+  "blank3",
+  "gdp.current.dollars", # in millions
+  "blank4",
+  "gdp.1994.dollars", # in millions
+  "blank5",
+  "central.gov.expenditure.1994.dollars", # in millions
+  "blank6",
+  "population", # in millions
+  "blank7",
+  "mil.expenditure.over.gnp", # percentage
+  "blank8",
+  "mil.expenditure.over.central.gov.expenditure", # percentage
+  "blank9",
+  "mil.expenditure.per.capita", # 1994 dollars
+  "blank10",
+  "armed.forces.per.1000.pop",
+  "blank11",
+  "gdp.per.capita", # 1994 dollars
+  "blank12"
+  )
+
+# remove letters from year variable
+wmeat.1995.data$country.and.year[wmeat.1995.data$country.and.year=="1989g"] <- 1989
+wmeat.1995.data$country.and.year[wmeat.1995.data$country.and.year=="1990e"] <- 1990
+wmeat.1995.data$country.and.year[wmeat.1995.data$country.and.year=="1990g"] <- 1990
+wmeat.1995.data$country.and.year[wmeat.1995.data$country.and.year=="1991e"] <- 1991
+
+# adjust China notations
+wmeat.1995.data$country.and.year[wmeat.1995.data$country.and.year=="China"] <- NA
+wmeat.1995.data$country.and.year[wmeat.1995.data$country.and.year=="-Mainland"] <- "China"
+wmeat.1995.data$country.and.year[wmeat.1995.data$country.and.year=="-Taiwan"] <- "Taiwan"
+
+wmeat.1995.data <- wmeat.1995.data %>%
+  # convert "see X" entries to NAs
+  dplyr::mutate(country.and.year = ifelse(country.and.year %in% c("Cote d'Ivoire (see Ivory Coast)",
+                                                                  "Kampuchea (see Cambodia)",
+                                                                  "Myanmar (see Burma)",
+                                                                  "Upper Volta (see Burkina Faso)"),
+                                          NA, country.and.year)) %>%
+  
+  # remove blank columns
+  dplyr::select(-dplyr::contains("blank"))
+
+# remove blank rows
+wmeat.1995.data <- wmeat.1995.data[rowSums(is.na(wmeat.1995.data)) != ncol(wmeat.1995.data),]
+
+# list all countries in the dataset
+wmeat.1995.country.list <- wmeat.1995.data %>%
+  dplyr::filter(country.and.year %!in% c(1984:1994,NA)) %>%
+  dplyr::pull(country.and.year)
+
+# add placeholder column for country name
+wmeat.1995.data <- wmeat.1995.data %>%
+  dplyr::mutate(country = NA)
+
+for(i in 1:(length(wmeat.1995.country.list)-1)){
+  
+  # pull the row with ith country header
+  i.row <- which(wmeat.1995.data$country.and.year == wmeat.1995.country.list[i])
+  
+  # pull the row with the (i+1)th country header
+  iplus1.row <- which(wmeat.1995.data$country.and.year == wmeat.1995.country.list[i+1])
+  
+  wmeat.1995.data$country[c((i.row+1):(iplus1.row-1))] <- wmeat.1995.country.list[i]
+  
+}
+
+# code country for the last entry on the list
+i.row.zwe <- which(wmeat.1995.data$country.and.year == "Zimbabwe")
+wmeat.1995.data$country[c((i.row.zwe+1):nrow(wmeat.1995.data))] <- "Zimbabwe"
+
+# filter out country header rows
+wmeat.1995.data <- wmeat.1995.data %>%
+  tidyr::drop_na(country) %>%
+  dplyr::rename(year = country.and.year) %>%
+  dplyr::select(country, year, military.expenditure.current.dollars, armed.personnel, gdp.current.dollars, population) %>%
+  # convert to full values
+  dplyr::mutate(military.expenditure.current.dollars = as.numeric(military.expenditure.current.dollars) * 1000000,
+                armed.personnel = as.numeric(armed.personnel) * 1000,
+                gdp.current.dollars = as.numeric(gdp.current.dollars) * 1000000,
+                population = as.numeric(population) * 1000000) %>%
+  tidyr::pivot_longer(3:6, names_to = "variable", values_to = "value") %>%
+  # add WMEAT version year
+  dplyr::mutate(version = 1995,
+                # using the countrycode package, add iso3c code based on country name
+                iso3c = countrycode::countrycode(country,"country.name","iso3c"))
+
+# add missing iso3c codes
+wmeat.1995.data$iso3c[wmeat.1995.data$country=="Czechoslovakia"] <- "CZE"
+wmeat.1995.data$iso3c[wmeat.1995.data$country=="Germany, East"] <- "DDR"
+wmeat.1995.data$iso3c[wmeat.1995.data$country=="Germany, West"] <- "BRD"
+wmeat.1995.data$iso3c[wmeat.1995.data$country=="Serbia and Montenegro"] <- "SRB"
+wmeat.1995.data$iso3c[wmeat.1995.data$country=="Yemen (Aden)"] <- "YPR"
+wmeat.1995.data$iso3c[wmeat.1995.data$country=="Yemen (Sanaa)"] <- "YAR"
+wmeat.1995.data$iso3c[wmeat.1995.data$country=="Yugoslavai"] <- "YUG"
+
+wmeat.1995.data %>%
+  dplyr::select(-country) %>%
+  # using the countrycode package, add country name based on iso3c code
+  dplyr::mutate(country = countrycode::countrycode(iso3c,"iso3c","country.name"))
+
+# add missing country names
+wmeat.1995.data$country[wmeat.1995.data$iso3c=="BRD"] <- "West Germany"
+wmeat.1995.data$country[wmeat.1995.data$iso3c=="DDR"] <- "East Germany"
+wmeat.1995.data$country[wmeat.1995.data$iso3c=="YAR"] <- "North Yemen"
+wmeat.1995.data$country[wmeat.1995.data$iso3c=="YPR"] <- "South Yemen"
+
+##### WMEAT 2005 ----------------------------------------------------------------------
+# all the data needed is on Sheet 2- "By Country"
+wmeat.2005.data <- wmeat.2005[[2]]
+
+names(wmeat.2005.data) <- c("country.and.year",
+                            "military.expenditure.current.dollars", # in millions
+                            "blank1",
+                            "military.expenditure.2005.dollars", # in millions
+                            "blank2",
+                            "armed.personnel", #in thousands
+                            "blank3",
+                            "gdp.current.dollars", # in millions
+                            "blank4",
+                            "gdp.2005.dollars", # in millions
+                            "blank5",
+                            "central.gov.expenditure.2005.dollars", # in millions
+                            "blank6",
+                            "population", # in millions
+                            "blank7",
+                            "mil.expenditure.over.armed.forces", # 2005 dollars
+                            "blank8",
+                            "mil.expenditure.over.gdp", # percentage
+                            "blank9",
+                            "mil.expenditure.over.central.gov.expenditure", # percentage
+                            "blank10",
+                            "mil.expenditure.per.capita", # 2005 dollars
+                            "blank11",
+                            "armed.forces.per.1000.pop",
+                            "blank12",
+                            "gdp.per.capita", # 2005 dollars
+                            "blank13")
+
+# remove blank columns
+wmeat.2005.data <- wmeat.2005.data %>%
+  dplyr::select(-dplyr::contains("blank"))
+
+# remove blank rows
+wmeat.2005.data <- wmeat.2005.data[rowSums(is.na(wmeat.2005.data)) != ncol(wmeat.2005.data),]
+
+# fix country name in incorrect column
+wmeat.2005.data$country.and.year[wmeat.2005.data$military.expenditure.current.dollars=="Sao Tome and Principe"] <- "Sao Tome and Principe"
+
+# list all countries in the dataset
+wmeat.2005.country.list <- wmeat.2005.data %>%
+  dplyr::filter(country.and.year %!in% c(1995:2005,NA)) %>%
+  dplyr::pull(country.and.year)
+
+# add placeholder column for country name
+wmeat.2005.data <- wmeat.2005.data %>%
+  dplyr::mutate(country = NA)
+
+for(i in 1:(length(wmeat.2005.country.list)-1)){
+  
+  # pull the row with ith country header
+  i.row <- which(wmeat.2005.data$country.and.year == wmeat.2005.country.list[i])
+  
+  # pull the row with the (i+1)th country header
+  iplus1.row <- which(wmeat.2005.data$country.and.year == wmeat.2005.country.list[i+1])
+  
+  wmeat.2005.data$country[c((i.row+1):(iplus1.row-1))] <- wmeat.2005.country.list[i]
+ 
+}
+
+# code country for the last entry on the list
+i.row.zwe <- which(wmeat.2005.data$country.and.year == "Zimbabwe")
+wmeat.2005.data$country[c((i.row.zwe+1):nrow(wmeat.2005.data))] <- "Zimbabwe"
+
+# filter out country header rows
+wmeat.2005.data <- wmeat.2005.data %>%
+  tidyr::drop_na(country) %>%
+  dplyr::rename(year = country.and.year) %>%
+  dplyr::select(country, year, military.expenditure.current.dollars, armed.personnel, gdp.current.dollars, population) %>%
+  # convert to full values
+  dplyr::mutate(military.expenditure.current.dollars = as.numeric(military.expenditure.current.dollars) * 1000000,
+                armed.personnel = as.numeric(armed.personnel) * 1000,
+                gdp.current.dollars = as.numeric(gdp.current.dollars) * 1000000,
+                population = as.numeric(population) * 1000000) %>%
+  tidyr::pivot_longer(3:6, names_to = "variable", values_to = "value") %>%
+  # add WMEAT version year
+  dplyr::mutate(version = 2005,
+                # using the countrycode package, add iso3c code based on country name
+                iso3c = countrycode::countrycode(country,"country.name","iso3c"))
+
+# add missing iso3c codes
+wmeat.2005.data$iso3c[wmeat.2005.data$country=="New  Zealand"] <- "NZL"
+wmeat.2005.data$iso3c[wmeat.2005.data$country=="Serbia and Montenegro"] <- "SRB"
+wmeat.2005.data$iso3c[wmeat.2005.data$country=="Yemen (Sanaa)"] <- "YEM"
+
+wmeat.2005.data <- wmeat.2005.data %>%
+  dplyr::select(-country) %>%
+  # using the countrycode package, add country name based on iso3c code
+  dplyr::mutate(country = countrycode::countrycode(iso3c,"iso3c","country.name"))
+
+##### WMEAT 2012 ----------------------------------------------------------------------
+names(wmeat.2012) <- readxl::excel_sheets("Data files/Raw data files/209509.xlsx")
+
+# list of country tabs
+wmeat.2012.tab.list <- readxl::excel_sheets("Data files/Raw data files/209509.xlsx")
+wmeat.2012.tab.list <- wmeat.2012.tab.list[wmeat.2012.tab.list %!in% c("Table of Contents","Overview","Geographic Groups","Geog. Groups 2",
+                                                                       "Political Groups","Economic Groups","Group Rankings & Trends",
+                                                                       "Country Rankings & Trends")]
+
+wmeat.2012.data <- data.frame()
+
+# format each country in the wmeat dataset list in long format and add to placeholder dataframe
+for(c in wmeat.2012.tab.list){
+  
+  df <- wmeat.2012[[c]]
+  
+  # remove blank rows
+  df <- df[rowSums(is.na(df)) != ncol(df),]
+  
+  # select variables of interest
+  ## Armed forces personnel (AF) (in thousands) and Military expenditure (ME) - Current dollars (millions) are variables of interest
+  ## Population (midyear, in millions) and Gross domestic product (GDP) - Current dollars (millions) are comparisons to test
+  ## the validity of population and GDP data
+  df <- df[c(2,3,7,12),] %>%
+    dplyr::select(-Mean)
+  
+  # rename variables
+  df$`Parameter / Year`[1] <- "armed.personnel" # in thousands
+  df$`Parameter / Year`[2] <- "population" # in millions
+  df$`Parameter / Year`[3] <- "military.expenditure.current.dollars" # in millions
+  df$`Parameter / Year`[4] <- "gdp.current.dollars" # in millions
+  
+  # convert all variables besides variable name to numeric
+  df <- df %>%
+    dplyr::mutate(dplyr::across(c(2:ncol(df)), as.numeric))
+  
+  df <- df %>%
+    # convert to long data
+    tidyr::pivot_longer(2:12, names_to = "year", values_to = "value") %>%
+    dplyr::rename(variable = "Parameter / Year") %>%
+    # convert to full value - multiply by 1,000 if variable is armed.personnel, otherwise multiply by 1,000,000
+    dplyr::mutate(value = ifelse(variable == "armed.personnel",
+                                 value * 1000,
+                                 value * 1000000),
+                  country = c,
+                  # using the countrycode package, add iso3c code based on country name
+                  iso3c = countrycode::countrycode(country,"country.name","iso3c")) %>%
+
+    # reorder variables
+    dplyr::select(iso3c,country,year,variable,value)
+  
+  # manually code countries where countrycode did not identify the name used in the WMEAT file
+  df$iso3c[df$country=="Cent. Afr. Rep."] <- "CAF"
+  df$iso3c[df$country=="Kosovo"] <- "KSV"
+  df$iso3c[df$country=="Timor l`Este"] <- "TLS"
+  
+  wmeat.2012.data <- rbind(wmeat.2012.data, df)
+  
+}
+
+# add WMEAT version year
+wmeat.2012.data <- wmeat.2012.data %>%
+  dplyr::mutate(version = 2012)
+
+##### WMEAT 2016 ----------------------------------------------------------------------
 names(wmeat.2016) <- readxl::excel_sheets("Data files/Raw data files/266013.xlsx")
 
 # list of country tabs
@@ -190,26 +502,39 @@ for(c in wmeat.2016.tab.list){
   df$`Parameter / Year`[3] <- "military.expenditure.current.dollars" # in millions
   df$`Parameter / Year`[4] <- "gdp.current.dollars" # in millions
   
+  # convert all variables besides variable name to numeric
+  df <- df %>%
+    dplyr::mutate(dplyr::across(c(2:ncol(df)), as.numeric))
+  
   df <- df %>%
     # convert to long data
     tidyr::pivot_longer(2:12, names_to = "year", values_to = "value") %>%
-    dplyr::rowwise() %>%
+    dplyr::rename(variable = "Parameter / Year") %>%
     # convert to full value - multiply by 1,000 if variable is armed.personnel, otherwise multiply by 1,000,000
-    dplyr::mutate(value = ifelse("Parameter / Year" == "armed.personnel",
+    dplyr::mutate(value = ifelse(variable == "armed.personnel",
                                  value * 1000,
                                  value * 1000000),
                   country = c,
                   # using the countrycode package, add iso3c code based on country name
                   iso3c = countrycode::countrycode(country,"country.name","iso3c")) %>%
-    dplyr::rename(variable = "Parameter / Year") %>%
     # reorder variables
     dplyr::select(iso3c,country,year,variable,value)
+  
+  # manually code countries where countrycode did not identify the name used in the WMEAT file
+  df$iso3c[df$country=="Cent. Afr. Rep."] <- "CAF"
+  df$iso3c[df$country=="Kosovo"] <- "KSV"
+  df$iso3c[df$country=="S. Sudan"] <- "SSD"
+  df$iso3c[df$country=="Timor l`Este"] <- "TLS"
   
   wmeat.2016.data <- rbind(wmeat.2016.data, df)
   
 }
 
-#### WMEAT 2019 ----------------------------------------------------------------------
+# add WMEAT version year
+wmeat.2016.data <- wmeat.2016.data %>%
+  dplyr::mutate(version = 2016)
+
+##### WMEAT 2019 ----------------------------------------------------------------------
 names(wmeat.2019) <- readxl::excel_sheets("Data files/Raw data files/WMEAT-2019-Table-I-Military-Expenditures-and-Armed-Forces-Personnel-2007-2017.xlsx")
 
 # list of country tabs
@@ -241,53 +566,288 @@ for(c in wmeat.2019.tab.list){
   df$`Parameter / Year`[3] <- "military.expenditure.current.dollars" # in millions
   df$`Parameter / Year`[4] <- "gdp.current.dollars" # in millions
   
+  # convert all variables besides variable name to numeric
+  df <- df %>%
+    dplyr::mutate(dplyr::across(c(2:ncol(df)), as.numeric))
+  
   df <- df %>%
     # convert to long data
     tidyr::pivot_longer(2:12, names_to = "year", values_to = "value") %>%
-    dplyr::rowwise() %>%
+    dplyr::rename(variable = "Parameter / Year") %>%
     # convert to full value - multiply by 1,000 if variable is armed.personnel, otherwise multiply by 1,000,000
-    dplyr::mutate(value = ifelse("Parameter / Year" == "armed.personnel",
+    dplyr::mutate(value = ifelse(variable == "armed.personnel",
                                  value * 1000,
                                  value * 1000000),
                   country = c,
                   # using the countrycode package, add iso3c code based on country name
                   iso3c = countrycode::countrycode(country,"country.name","iso3c")) %>%
-    dplyr::rename(variable = "Parameter / Year") %>%
     # reorder variables
     dplyr::select(iso3c,country,year,variable,value)
-      
+   
+  # manually code countries where countrycode did not identify the name used in the WMEAT file
+  df$iso3c[df$country=="Cent. Afr. Rep."] <- "CAF"
+  df$iso3c[df$country=="Kosovo"] <- "KSV"
+  df$iso3c[df$country=="S. Sudan"] <- "SSD"
+  df$iso3c[df$country=="Timor l`Este"] <- "TLS"
+     
   wmeat.2019.data <- rbind(wmeat.2019.data, df)
   
 }
 
+# add WMEAT version year
+wmeat.2019.data <- wmeat.2019.data %>%
+  dplyr::mutate(version = 2019)
+
+##### merge WMEAT datasets ----------------------------------------------------------------------
+wmeat.data <- rbind(wmeat.2019.data,wmeat.2016.data,wmeat.2012.data,wmeat.2005.data,wmeat.1995.data) %>%
+  dplyr::mutate(year = as.numeric(year)) %>%
+  dplyr::left_join(inflation_table,dplyr::join_by("version"=="year")) %>%
+  # adjust for inflation
+  dplyr::mutate(value = ifelse(variable %in% c("gdp.current.dollars","military.expenditure.current.dollars"),
+                               value * multiplier,
+                               value)) %>%
+  dplyr::mutate(variable = ifelse(variable == "military.expenditure.current.dollars",
+                                  "military.expenditure.wmeat",
+                                  ifelse(variable == "gdp.current.dollars",
+                                         "gdp.wmeat",
+                                         ifelse(variable == "population",
+                                                "population.wmeat",
+                                                ifelse(variable == "armed.personnel",
+                                                       "armed.personnel.wmeat",
+                                                       variable))))) %>%
+  tidyr::drop_na(value) %>%
+  # keep the most recent published version of the data
+  dplyr::group_by(iso3c,year,variable) %>%
+  dplyr::filter(version == max(version,na.rm=TRUE)) %>%
+  dplyr::ungroup() %>%
+  dplyr::select(-c(multiplier,version,country)) %>%
+  tidyr::pivot_wider(names_from = "variable", values_from = "value")
+
+#### merge cow, iiss, and wmeat datasets ----------------------------------------------------------------------
+mildata <- dplyr::full_join(cow,military.balance.data,by=c("iso3c","year")) %>%
+  dplyr::full_join(wmeat.data,by=c("iso3c","year")) %>%
+  # set COW data as default expenditure and personnel values
+  dplyr::mutate(mil.expenditure = milex.cow,
+                mil.personnel = milper.cow,
+                # for missing COW data, add in IISS data
+                mil.expenditure = dplyr::coalesce(mil.expenditure,defense.spending.iiss),
+                mil.personnel = dplyr::coalesce(mil.personnel,active.armed.forces.iiss),
+                # using the countrycode package, add country name based on iso3c code
+                country = countrycode::countrycode(iso3c,"iso3c","country.name")) %>%
+  dplyr::relocate(country, .after = iso3c) %>%
+  dplyr::relocate(mil.expenditure, .after = year) %>%
+  dplyr::relocate(mil.personnel, .after = mil.expenditure)
+
+# add country names for missing iso3c codes
+mildata$country[mildata$iso3c=="BRD"] <- "West Germany"
+mildata$country[mildata$iso3c=="DDR"] <- "East Germany"
+mildata$country[mildata$iso3c=="KSV"] <- "Kosovo"
+mildata$country[mildata$iso3c=="RVN"] <- "South Vietnam"
+mildata$country[mildata$iso3c=="YAR"] <- "North Yemen"
+mildata$country[mildata$iso3c=="YPR"] <- "South Yemen"
+mildata$country[mildata$iso3c=="YUG"] <- "Yugoslavia"
+mildata$country[mildata$iso3c=="ZAN"] <- "Zanzibar"
+
+
+### military metrics estimator functions ----------------------------------------------------------------------
+# this function is used to estimate COW military expenditure and military personnel values based on rescaling
+# WMEAT data to equal the COW data on either end of the missing data.
+
+mil_estimator_rescaling_func <- function(df = mildata, iso, lower_year, upper_year, expenditure = FALSE,
+                                         personnel = FALSE){
+
+  # expenditure calculations
+  
+    # pull expenditure COW estimates from either end of the missing data range
+    cow.expenditure.lower <- df$mil.expenditure[df$iso3c==iso&df$year==lower_year]
+    cow.expenditure.upper <- df$mil.expenditure[df$iso3c==iso&df$year==upper_year]
+    
+    # pull expenditure WMEAT estimates from either end of the missing data range
+    wmeat.expenditure.lower <- df$military.expenditure.wmeat[df$iso3c==iso&df$year==lower_year]
+    wmeat.expenditure.upper <- df$military.expenditure.wmeat[df$iso3c==iso&df$year==upper_year]
+    
+    # calculate range between COW lower and upper values
+    cow.expenditure.range <- cow.expenditure.upper - cow.expenditure.lower
+    
+  # personnel calculations
+    
+    # pull personnel COW estimates from either end of the missing data range
+    cow.personnel.lower <- df$mil.personnel[df$iso3c==iso&df$year==lower_year]
+    cow.personnel.upper <- df$mil.personnel[df$iso3c==iso&df$year==upper_year]
+    
+    # pull personnel WMEAT estimates from either end of the missing data range
+    wmeat.personnel.lower <- df$armed.personnel.wmeat[df$iso3c==iso&df$year==lower_year]
+    wmeat.personnel.upper <- df$armed.personnel.wmeat[df$iso3c==iso&df$year==upper_year]
+    
+    # calculate range between COW lower and upper values
+    cow.personnel.range <- cow.personnel.upper - cow.personnel.lower
+    
+  
+  for(y in (lower_year+1):(upper_year-1)){
+    
+    if(expenditure == TRUE){
+      
+      df$mil.expenditure[df$iso3c==iso&df$year==y] <- cow.expenditure.lower +
+        (cow.expenditure.range*(df$military.expenditure.wmeat[df$iso3c==iso&df$year==y]-wmeat.expenditure.lower)/
+           (wmeat.expenditure.upper-wmeat.expenditure.lower))
+      
+    }
+    
+    if(personnel == TRUE){
+      
+      df$mil.personnel[df$iso3c==iso&df$year==y] <- cow.personnel.lower +
+        (cow.personnel.range*(df$armed.personnel.wmeat[df$iso3c==iso&df$year==y]-wmeat.personnel.lower)/
+           (wmeat.personnel.upper-wmeat.personnel.lower))
+      
+    }
+    
+  }
+    
+    return(df)
+  
+}
+
+#### estimate missing values ----------------------------------------------------------------------
+
+mildata.wmeat.na <- mildata %>%
+  dplyr::filter(
+    year %in% c(1995:2017),
+    is.na(mil.expenditure) | is.na(mil.personnel)
+    )
+
+
+##### AFG ----------------------------------------------------------------------
+
+##### ARE ----------------------------------------------------------------------
+
+##### BEN ----------------------------------------------------------------------
+# mil.expenditure 1993
+
+# mil.expenditure 2005
+# mildata <- mil_estimator_rescaling_func(mildata, "BEN", lower_year = 2004,
+#                                         upper_year = 2006, expenditure = TRUE)
+
+
+##### BLR ----------------------------------------------------------------------
+
+##### BLZ ----------------------------------------------------------------------
+
+##### BTN ----------------------------------------------------------------------
+
+##### CIV ----------------------------------------------------------------------
+# mil.personnel 2012-2015
+# WMEAT estimates largely match COW estimates before and after the gap, so apply
+# WMEAT pattern to COW estimates
+civ.wmeat.mil.personnel.2011 <- mildata$armed.personnel.wmeat[mildata$iso3c=="CIV"&mildata$year==2011] # min
+civ.wmeat.mil.personnel.2016 <- mildata$armed.personnel.wmeat[mildata$iso3c=="CIV"&mildata$year==2016] # max
+civ.cow.mil.personnel.2011 <- mildata$mil.personnel[mildata$iso3c=="CIV"&mildata$year==2011] # min
+civ.cow.mil.personnel.2016 <- mildata$mil.personnel[mildata$iso3c=="CIV"&mildata$year==2016] # max
+civ.cow.mil.personnel.diff <- civ.cow.mil.personnel.2016 - civ.cow.mil.personnel.2011 # diff
+
+for(y in 2012:2015){
+  
+  mildata$mil.personnel[mildata$iso3c=="CIV"&mildata$year==y] <- civ.cow.mil.personnel.2011 +
+    (civ.cow.mil.personnel.diff*(mildata$armed.personnel.wmeat[mildata$iso3c=="CIV"&mildata$year==y]-civ.wmeat.mil.personnel.2011)/
+       (civ.wmeat.mil.personnel.2016-civ.wmeat.mil.personnel.2011))
+  
+}
+
+##### COD ----------------------------------------------------------------------
+# COD
+cow$milex[cow$iso3c=="COD"&cow$year==2002] <- (723094959+96146337)/2
+cow$milex[cow$iso3c=="COD"&cow$year==1992] <- 159321275
+###
+
+# mil.expenditure 1992
+
+
+# mil.expenditure 2002
+
+
+##### COG ----------------------------------------------------------------------
+
+##### CRI ----------------------------------------------------------------------
+
+##### CUB ----------------------------------------------------------------------
+
+##### DJI ----------------------------------------------------------------------
+
+##### ERI ----------------------------------------------------------------------
+
+##### GMB ----------------------------------------------------------------------
+
+##### GNB ----------------------------------------------------------------------
+
+##### GNQ ----------------------------------------------------------------------
+
+##### GUY ----------------------------------------------------------------------
+
+##### HTI ----------------------------------------------------------------------
+
+##### IRQ ----------------------------------------------------------------------
+
+##### ISL ----------------------------------------------------------------------
+
+##### KGZ ----------------------------------------------------------------------
+
+##### KSV ----------------------------------------------------------------------
+
+##### LAO ----------------------------------------------------------------------
+
+##### LBR ----------------------------------------------------------------------
+
+##### LBY ----------------------------------------------------------------------
+
+##### MDG ----------------------------------------------------------------------
+
+##### MMR ----------------------------------------------------------------------
+
+##### MNE ----------------------------------------------------------------------
+
+##### MUS ----------------------------------------------------------------------
+
+##### NER ----------------------------------------------------------------------
+
+##### PAN ----------------------------------------------------------------------
+
+##### PRK ----------------------------------------------------------------------
+
+##### QAT ----------------------------------------------------------------------
+
+##### SDN ----------------------------------------------------------------------
+
+##### SOM ----------------------------------------------------------------------
+
+##### SRB ----------------------------------------------------------------------
+
+##### SSD ----------------------------------------------------------------------
+
+##### STP ----------------------------------------------------------------------
+
+##### SUR ----------------------------------------------------------------------
+# Missing mil.expenditure for 1978-1981, 1987, 2014-
+
+##### SWZ ----------------------------------------------------------------------
+
+##### SYR ----------------------------------------------------------------------
+
+##### TKM ----------------------------------------------------------------------
+
+##### TLS ----------------------------------------------------------------------
+
+##### UZB ----------------------------------------------------------------------
+
+##### YEM ----------------------------------------------------------------------
+
+##### ZIM ----------------------------------------------------------------------
 
 
 
-#### merge datasets ----------------------------------------------------------------------
-cow <- cow %>%
-  rbind(iiss.mil) %>%
-  # using the countrycode package, add iso3c based on country COW abbreviation
-  dplyr::mutate(country = countrycode::countrycode(iso3c,"iso3c","country.name")) %>%
-  dplyr::relocate(country, .after = iso3c)
 
-### inflation ----------------------------------------------------------------------
-# inflation from https://www.bls.gov/data/inflation_calculator.htm
-# July to July, converting to 2019 dollars
-inflation_table <- data.frame(year = c(1946:2019),
-                              multiplier = c(1+11.96,1+10.56,1+9.52,1+9.83, #40s
-                                             1+9.65,1+8.91,1+8.61,1+8.57,1+8.54,1+8.57,1+8.36,1+8.07,1+7.85,1+7.79, #50s
-                                             1+7.67,1+7.55,1+7.47,1+7.36,1+7.25,1+7.12,1+6.89,1+6.68,1+6.35,1+5.97, #60s
-                                             1+5.58,1+5.30,1+5.12,1+4.79,1+4.19,1+3.73,1+3.49,1+3.21,1+2.91,1+2.51, #70s
-                                             1+2.10,1+1.80,1+1.63,1+1.57,1+1.46,1+1.38,1+1.34,1+1.25,1+1.17,1+1.06, #80s
-                                             1+0.97,1+0.88,1+0.83,1+0.78,1+0.73,1+0.68,1+0.63,1+0.60,1+0.57,1+0.54, #90s
-                                             1+0.48,1+0.45,1+0.42,1+0.40,1+0.35,1+0.31,1+0.26,1+0.23,1+0.17,1+0.19, #00s
-                                             1+0.18,1+0.14,1+0.12,1+0.10,1+0.08,1+0.08,1+0.07,1+0.05,1+0.02,1+0.00)) #10s
 
-cow <- cow %>%
-  dplyr::left_join(inflation_table,by="year") %>%
-  # multiples dollar values in that year's dollar value to 2019 dollars
-  dplyr::mutate(milex = milex * multiplier) %>%
-  dplyr::select(-multiplier)
+
+
+
 
 
 
@@ -744,15 +1304,7 @@ cow$milex[cow$iso3c=="COG"&cow$year==2002] <- (120411260+47896107)/2
 cow$milex[cow$iso3c=="COG"&cow$year==1991] <- (144123264+140521265)/2
 cow$milex[cow$iso3c=="COG"&cow$year==1993] <- (107045916+74721810)/2
 
-# COD
-cow$milex[cow$iso3c=="COD"&cow$year==2002] <- (723094959+96146337)/2
-cow$milex[cow$iso3c=="COD"&cow$year==1992] <- 159321275
 
-# CIV
-# based on WMEAT 2018
-cow$milper[cow$iso3c=="CIV"&cow$year==2013] <- 26308.33333
-cow$milper[cow$iso3c=="CIV"&cow$year==2014] <- 26308.33333
-cow$milper[cow$iso3c=="CIV"&cow$year==2015] <- 28700
 
 # CAF
 # only based on 1990, not 1992 (1992 was a less certain estimate)
