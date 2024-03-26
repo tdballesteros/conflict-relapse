@@ -1,6 +1,6 @@
 # This script formats multiple military-related government metrics.
 
-#TODO: weight for PCA
+#TODO (old): weight for PCA
 #      Issue with GDPs in 2018-19
 #      Weirdness with population b/t 1991-92 (might be how YUG and SOV are coded)
 #      Add PSE
@@ -24,9 +24,12 @@ military.balance <- lapply(readxl::excel_sheets("Data files/Raw data files/Milit
                            path = "Data files/Raw data files/Military Balance.xlsx")
 
 # WMEAT files
-wmeat.1995 <- lapply(readxl::excel_sheets("Data files/Raw data files/185685.xlsx"),
-                     read_xlsx, skip = 5, na = c("NA","E","R","d","E,b","b","c","E,d","c,f"), col_names = FALSE,
-                     path = "Data files/Raw data files/185685.xlsx")
+wmeat.1984 <- readxl::read_xlsx(path = "Data files/Raw data files/185659.xlsx",
+                                skip = 5, na = c("NA", "E", "e", "b", "...", "d", "c", "E b", "d c", "f"), col_names = FALSE) 
+wmeat.1995 <- readxl::read_xlsx(path = "Data files/Raw data files/185685.xlsx",
+                                skip = 5,
+                                na = c("NA","E","R","d","E,b","b","c","E,d","c,f"),
+                                col_names = FALSE)
 wmeat.2005 <- lapply(readxl::excel_sheets("Data files/Raw data files/121777.xls"),
                      read_xls, skip = 7, na = c("NA","E","R"), col_names = FALSE,
                      path = "Data files/Raw data files/121777.xls")
@@ -101,7 +104,6 @@ military.balance.data <- data.frame()
 for(m in names(military.balance)){
   
   year <- as.numeric(stringr::str_sub(m, start = 2, end = 5))
-  
   df <- military.balance[[m]]
   
   # remove footnotes column (column  14) if it exists
@@ -174,8 +176,10 @@ for(m in names(military.balance)){
 }
 
 military.balance.data <- military.balance.data %>%
+  dplyr::mutate(year = as.numeric(year)) %>%
   # adjust for inflation
-  dplyr::left_join(inflation_table,dplyr::join_by("data.pub.year"=="year")) %>%
+  #dplyr::left_join(inflation_table,dplyr::join_by("data.pub.year"=="year")) %>%
+  dplyr::left_join(inflation_table,by="year") %>%
   dplyr::mutate(value = ifelse(metric %in% c("defense.spending","defense.spending.percapita"),
                                value * multiplier, value),
                 # using the countrycode package, add country name based on iso3c code
@@ -192,12 +196,120 @@ military.balance.data <- military.balance.data %>%
   dplyr::filter(data.pub.year == max(data.pub.year,na.rm=TRUE)) %>%
   dplyr::select(-data.pub.year) %>%
   dplyr::ungroup() %>%
-  tidyr::pivot_wider(names_from = "metric", values_from = "value") %>%
-  dplyr::mutate(year = as.numeric(year))
+  tidyr::pivot_wider(names_from = "metric", values_from = "value")
 
 #### WMEAT ----------------------------------------------------------------------
+##### WMEAT 1984 ----------------------------------------------------------------------
+wmeat.1984.data <- wmeat.1984
+
+names(wmeat.1984.data) <- c(
+  "country.and.year",
+  "military.expenditure.current.dollars", # in millions
+  "blank1",
+  "military.expenditure.1982.dollars", # in millions
+  "blank2",
+  "armed.personnel", #in thousands
+  "blank3",
+  "gdp.current.dollars", # in millions; gnp, not gdp
+  "blank4",
+  "gdp.1982.dollars", # in millions; gnp, not gdp
+  "blank5",
+  "central.gov.expenditure.1982.dollars", # in millions
+  "blank6",
+  "population", # in millions
+  "blank7",
+  "mil.expenditure.over.gdp", # percentage; gnp, not gdp
+  "blank8",
+  "mil.expenditure.over.central.gov.expenditure", # percentage
+  "blank9",
+  "mil.expenditure.per.capita", # 1982 dollars
+  "blank10",
+  "armed.forces.per.1000.pop",
+  "blank11",
+  "gdp.per.capita", # 1982 dollars; gnp, not gdp
+  "blank12"
+)
+
+# adjust China notations
+wmeat.1984.data$country.and.year[wmeat.1984.data$country.and.year=="CHINA"] <- NA
+wmeat.1984.data$country.and.year[wmeat.1984.data$country.and.year=="MAINLAND"] <- "CHINA"
+
+wmeat.1984.data <- wmeat.1984.data %>%
+  # convert "see X" entries to NAs
+  dplyr::mutate(country.and.year = ifelse(country.and.year %in% c("UPPER VOLTA (see BURKINA FASO)"),
+                                          NA, country.and.year)) %>%
+  
+  # remove blank columns
+  dplyr::select(-dplyr::contains("blank"))
+
+# remove blank rows
+wmeat.1984.data <- wmeat.1984.data[rowSums(is.na(wmeat.1984.data)) != ncol(wmeat.1984.data),]
+
+# list all countries in the dataset
+wmeat.1984.country.list <- wmeat.1984.data %>%
+  dplyr::filter(country.and.year %!in% c(1973:1983,NA)) %>%
+  dplyr::pull(country.and.year)
+
+# add placeholder column for country name
+wmeat.1984.data <- wmeat.1984.data %>%
+  dplyr::mutate(country = NA)
+
+for(i in 1:(length(wmeat.1984.country.list)-1)){
+  
+  # pull the row with ith country header
+  i.row <- which(wmeat.1984.data$country.and.year == wmeat.1984.country.list[i])
+  
+  # pull the row with the (i+1)th country header
+  iplus1.row <- which(wmeat.1984.data$country.and.year == wmeat.1984.country.list[i+1])
+  
+  wmeat.1984.data$country[c((i.row+1):(iplus1.row-1))] <- wmeat.1984.country.list[i]
+  
+}
+
+# code country for the last entry on the list
+i.row.zwe <- which(wmeat.1984.data$country.and.year == "ZIMBABWE")
+wmeat.1984.data$country[c((i.row.zwe+1):nrow(wmeat.1984.data))] <- "ZIMBABWE"
+
+# filter out country header rows
+wmeat.1984.data <- wmeat.1984.data %>%
+  tidyr::drop_na(country) %>%
+  dplyr::rename(year = country.and.year) %>%
+  dplyr::select(country, year, military.expenditure.current.dollars, armed.personnel, gdp.current.dollars, population) %>%
+  # convert to full values
+  dplyr::mutate(military.expenditure.current.dollars = as.numeric(military.expenditure.current.dollars) * 1000000,
+                armed.personnel = as.numeric(armed.personnel) * 1000,
+                gnp.current.dollars = as.numeric(gnp.current.dollars) * 1000000,
+                population = as.numeric(population) * 1000000) %>%
+  tidyr::pivot_longer(3:6, names_to = "variable", values_to = "value") %>%
+  # add WMEAT version year
+  dplyr::mutate(version = 1984,
+                # using the countrycode package, add iso3c code based on country name
+                iso3c = countrycode::countrycode(country,"country.name","iso3c"))
+
+# add missing iso3c codes
+wmeat.1984.data$iso3c[wmeat.1984.data$country=="CZECHOSLOVAKIA"] <- "CZE"
+wmeat.1984.data$iso3c[wmeat.1984.data$country=="GERMANY, EAST"] <- "DDR"
+wmeat.1984.data$iso3c[wmeat.1984.data$country=="GERMANY, WEST"] <- "BRD"
+wmeat.1984.data$iso3c[wmeat.1984.data$country=="VIETNAM, SOUTH"] <- "RVN"
+wmeat.1984.data$iso3c[wmeat.1984.data$country=="YEMEN (ADEN)"] <- "YPR"
+wmeat.1984.data$iso3c[wmeat.1984.data$country=="YEMEN (SANAA)"] <- "YAR"
+wmeat.1984.data$iso3c[wmeat.1984.data$country=="YUGOSLAVIA"] <- "YUG"
+
+wmeat.1984.data <- wmeat.1984.data %>%
+  dplyr::select(-country) %>%
+  # using the countrycode package, add country name based on iso3c code
+  dplyr::mutate(country = countrycode::countrycode(iso3c,"iso3c","country.name"))
+
+# add missing country names
+wmeat.1984.data$country[wmeat.1984.data$iso3c=="BRD"] <- "West Germany"
+wmeat.1984.data$country[wmeat.1984.data$iso3c=="DDR"] <- "East Germany"
+wmeat.1984.data$country[wmeat.1984.data$iso3c=="RVN"] <- "South Vietnam"
+wmeat.1984.data$country[wmeat.1984.data$iso3c=="YAR"] <- "North Yemen"
+wmeat.1984.data$country[wmeat.1984.data$iso3c=="YPR"] <- "South Yemen"
+wmeat.1984.data$country[wmeat.1984.data$iso3c=="YUG"] <- "Yugoslavia"
+
 ##### WMEAT 1995 ----------------------------------------------------------------------
-wmeat.1995.data <- wmeat.1995[[1]]
+wmeat.1995.data <- wmeat.1995
 
 names(wmeat.1995.data) <- c(
   "country.and.year",
@@ -207,15 +319,15 @@ names(wmeat.1995.data) <- c(
   "blank2",
   "armed.personnel", #in thousands
   "blank3",
-  "gdp.current.dollars", # in millions
+  "gdp.current.dollars", # in millions; gnp, not gdp
   "blank4",
-  "gdp.1994.dollars", # in millions
+  "gdp.1994.dollars", # in millions; gnp, not gdp
   "blank5",
   "central.gov.expenditure.1994.dollars", # in millions
   "blank6",
   "population", # in millions
   "blank7",
-  "mil.expenditure.over.gnp", # percentage
+  "mil.expenditure.over.gdp", # percentage; gnp, not gdp
   "blank8",
   "mil.expenditure.over.central.gov.expenditure", # percentage
   "blank9",
@@ -223,7 +335,7 @@ names(wmeat.1995.data) <- c(
   "blank10",
   "armed.forces.per.1000.pop",
   "blank11",
-  "gdp.per.capita", # 1994 dollars
+  "gdp.per.capita", # 1994 dollars; gnp, not gdp
   "blank12"
   )
 
@@ -300,9 +412,9 @@ wmeat.1995.data$iso3c[wmeat.1995.data$country=="Germany, West"] <- "BRD"
 wmeat.1995.data$iso3c[wmeat.1995.data$country=="Serbia and Montenegro"] <- "SRB"
 wmeat.1995.data$iso3c[wmeat.1995.data$country=="Yemen (Aden)"] <- "YPR"
 wmeat.1995.data$iso3c[wmeat.1995.data$country=="Yemen (Sanaa)"] <- "YAR"
-wmeat.1995.data$iso3c[wmeat.1995.data$country=="Yugoslavai"] <- "YUG"
+wmeat.1995.data$iso3c[wmeat.1995.data$country=="Yugoslavia"] <- "YUG"
 
-wmeat.1995.data %>%
+wmeat.1995.data <- wmeat.1995.data %>%
   dplyr::select(-country) %>%
   # using the countrycode package, add country name based on iso3c code
   dplyr::mutate(country = countrycode::countrycode(iso3c,"iso3c","country.name"))
@@ -317,33 +429,35 @@ wmeat.1995.data$country[wmeat.1995.data$iso3c=="YPR"] <- "South Yemen"
 # all the data needed is on Sheet 2- "By Country"
 wmeat.2005.data <- wmeat.2005[[2]]
 
-names(wmeat.2005.data) <- c("country.and.year",
-                            "military.expenditure.current.dollars", # in millions
-                            "blank1",
-                            "military.expenditure.2005.dollars", # in millions
-                            "blank2",
-                            "armed.personnel", #in thousands
-                            "blank3",
-                            "gdp.current.dollars", # in millions
-                            "blank4",
-                            "gdp.2005.dollars", # in millions
-                            "blank5",
-                            "central.gov.expenditure.2005.dollars", # in millions
-                            "blank6",
-                            "population", # in millions
-                            "blank7",
-                            "mil.expenditure.over.armed.forces", # 2005 dollars
-                            "blank8",
-                            "mil.expenditure.over.gdp", # percentage
-                            "blank9",
-                            "mil.expenditure.over.central.gov.expenditure", # percentage
-                            "blank10",
-                            "mil.expenditure.per.capita", # 2005 dollars
-                            "blank11",
-                            "armed.forces.per.1000.pop",
-                            "blank12",
-                            "gdp.per.capita", # 2005 dollars
-                            "blank13")
+names(wmeat.2005.data) <- c(
+  "country.and.year",
+  "military.expenditure.current.dollars", # in millions
+  "blank1",
+  "military.expenditure.2005.dollars", # in millions
+  "blank2",
+  "armed.personnel", #in thousands
+  "blank3",
+  "gdp.current.dollars", # in millions
+  "blank4",
+  "gdp.2005.dollars", # in millions
+  "blank5",
+  "central.gov.expenditure.2005.dollars", # in millions
+  "blank6",
+  "population", # in millions
+  "blank7",
+  "mil.expenditure.over.armed.forces", # 2005 dollars
+  "blank8",
+  "mil.expenditure.over.gdp", # percentage
+  "blank9",
+  "mil.expenditure.over.central.gov.expenditure", # percentage
+  "blank10",
+  "mil.expenditure.per.capita", # 2005 dollars
+  "blank11",
+  "armed.forces.per.1000.pop",
+  "blank12",
+  "gdp.per.capita", # 2005 dollars
+  "blank13"
+  )
 
 # remove blank columns
 wmeat.2005.data <- wmeat.2005.data %>%
@@ -599,22 +713,21 @@ wmeat.2019.data <- wmeat.2019.data %>%
   dplyr::mutate(version = 2019)
 
 ##### merge WMEAT datasets ----------------------------------------------------------------------
-wmeat.data <- rbind(wmeat.2019.data,wmeat.2016.data,wmeat.2012.data,wmeat.2005.data,wmeat.1995.data) %>%
+wmeat.data <- rbind(wmeat.2019.data,wmeat.2016.data,wmeat.2012.data,wmeat.2005.data,wmeat.1995.data,wmeat.1984.data) %>%
   dplyr::mutate(year = as.numeric(year)) %>%
-  dplyr::left_join(inflation_table,dplyr::join_by("version"=="year")) %>%
+  #dplyr::left_join(inflation_table,dplyr::join_by("version"=="year")) %>%
+  dplyr::left_join(inflation_table,by="year") %>%
   # adjust for inflation
   dplyr::mutate(value = ifelse(variable %in% c("gdp.current.dollars","military.expenditure.current.dollars"),
                                value * multiplier,
                                value)) %>%
-  dplyr::mutate(variable = ifelse(variable == "military.expenditure.current.dollars",
-                                  "military.expenditure.wmeat",
-                                  ifelse(variable == "gdp.current.dollars",
-                                         "gdp.wmeat",
-                                         ifelse(variable == "population",
-                                                "population.wmeat",
-                                                ifelse(variable == "armed.personnel",
-                                                       "armed.personnel.wmeat",
-                                                       variable))))) %>%
+  dplyr::mutate(variable = case_when(
+    "military.expenditure.current.dollars" ~ "military.expenditure.wmeat",
+    "gdp.current.dollars" ~ "gdp.wmeat",
+    "population" ~ "population.wmeat",
+    "armed.personnel" ~ "armed.personnel.wmeat",
+    .default = variable
+  )) %>%
   tidyr::drop_na(value) %>%
   # keep the most recent published version of the data
   dplyr::group_by(iso3c,year,variable) %>%
@@ -626,17 +739,24 @@ wmeat.data <- rbind(wmeat.2019.data,wmeat.2016.data,wmeat.2012.data,wmeat.2005.d
 #### merge cow, iiss, and wmeat datasets ----------------------------------------------------------------------
 mildata <- dplyr::full_join(cow,military.balance.data,by=c("iso3c","year")) %>%
   dplyr::full_join(wmeat.data,by=c("iso3c","year")) %>%
-  # set COW data as default expenditure and personnel values
-  dplyr::mutate(mil.expenditure = milex.cow,
-                mil.personnel = milper.cow,
-                # for missing COW data, add in IISS data
-                mil.expenditure = dplyr::coalesce(mil.expenditure,defense.spending.iiss),
-                mil.personnel = dplyr::coalesce(mil.personnel,active.armed.forces.iiss),
-                # using the countrycode package, add country name based on iso3c code
-                country = countrycode::countrycode(iso3c,"iso3c","country.name")) %>%
+  dplyr::mutate(
+    # set COW data as default expenditure and personnel values for COW estimates
+    mil.expenditure.cow = milex.cow,
+    mil.personnel.cow = milper.cow,
+    # for missing COW estimate data, add in IISS data
+    #mil.expenditure.cow = dplyr::coalesce(mil.expenditure.cow,defense.spending.iiss),
+    #mil.personnel.cow = dplyr::coalesce(mil.personnel.cow,active.armed.forces.iiss),
+    # set WMEAT data as default expenditure and personnel values for WMEAT estimates
+    mil.expenditure.wmeat = military.expenditure.wmeat,
+    mil.personnel.wmeat = armed.personnel.wmeat,
+    # using the countrycode package, add country name based on iso3c code
+    country = countrycode::countrycode(iso3c,"iso3c","country.name")
+    ) %>%
   dplyr::relocate(country, .after = iso3c) %>%
-  dplyr::relocate(mil.expenditure, .after = year) %>%
-  dplyr::relocate(mil.personnel, .after = mil.expenditure)
+  dplyr::relocate(mil.expenditure.cow, .after = year) %>%
+  dplyr::relocate(mil.personnel.cow, .after = mil.expenditure.cow) %>%
+  dplyr::relocate(mil.expenditure.wmeat, .after = mil.personnel.cow) %>%
+  dplyr::relocate(mil.personnel.wmeat, .after = mil.expenditure.wmeat)
 
 # add country names for missing iso3c codes
 mildata$country[mildata$iso3c=="BRD"] <- "West Germany"
@@ -648,8 +768,7 @@ mildata$country[mildata$iso3c=="YPR"] <- "South Yemen"
 mildata$country[mildata$iso3c=="YUG"] <- "Yugoslavia"
 mildata$country[mildata$iso3c=="ZAN"] <- "Zanzibar"
 
-
-### military metrics estimator functions ----------------------------------------------------------------------
+### military metrics estimator functions (old) ----------------------------------------------------------------------
 # this function is used to estimate COW military expenditure and military personnel values based on rescaling
 # WMEAT data to equal the COW data on either end of the missing data.
 
@@ -708,18 +827,56 @@ mil_estimator_rescaling_func <- function(df = mildata, iso, lower_year, upper_ye
 }
 
 #### estimate missing values ----------------------------------------------------------------------
+# extending COW estimates 2013-2019 based on complete IISS data (if incomplete data, done under the
+# specific country). COW estimates for these metrics are sourced from IISS data, so this generally
+# amounts to updating the COW dataset.
 
-mildata.wmeat.na <- mildata %>%
-  dplyr::filter(
-    year %in% c(1995:2017),
-    is.na(mil.expenditure) | is.na(mil.personnel)
-    )
+# Expenditure extended based on % growth, given that the 2012 COW and IISS estimates align (this
+# accounts for small differences from converting to 2019$)
+expenditure.cow.extend <- c("AFG", "AGO", "ALB", "ARG", "ARM", "ATG", "AUS", "AUT", "AZE", "BDI", "BEL", "BEN",
+                            "BFA", "BGD", "BGR", "BHR", "BHS", "BIH", "BLR", "BLZ", "BOL", "BRA", "BRB", "BRN",
+                            "CAN", "CHE", "CHL", "CHN", "CIV", "CMR", "COD", "COG", "CPV", "CRI", "CYP", "CZE",
+                            "DEU", "DNK", "DOM", "DZA", "ECU", "EGY", "EST", "ETH", "FIN", "FRA", "GAB", "GBR",
+                            "GEO", "GHA", "GTM", "GUY", "HND", "HRV", "HUN", "IDN", "IRL", "IRQ", "ISR", "JAM",
+                            "JOR", "JPN", "KAZ", "KEN", "KHM", "KOR", "KWT", "LBR", "LKA", "LSO", "LTU", "LUX",
+                            "MAR", "MDA", "MDG", "MEX", "MKD", "MLI", "MLT", "MMR", "MNE", "MNG", "MRT", "MUS",
+                            "MWI", "MYS", "NAM", "NGA", "NIC", "NLD", "NZL", "OMN", "PAK", "PAN", "PER", "PHL",
+                            "PNG", "POL", "PRT", "PRY", "ROU", "RUS", "RWA", "SAU", "SEN", "SGP", "SLE", "SLV",
+                            "SSD", "SVK", "SVN", "SWE", "TCD", "TGO", "THA", "TJK", "TLS", "TTO", "TUN", "TUR",
+                            "TWN", "TZA", "UGA", "UKR", "URY", "USA", "VNM", "ZAF", "ZMB", "ZWE")
 
+
+# Personnel extended if the 2012 COW and IISS estimates match
+personnel.cow.extend <- c("AFG", "AGO", "ALB", "ARE", "ARG", "ARM", "ATG", "AUS", "AUT", "AZE", "BDI", "BEL", "BEN",
+                          "BFA", "BGD", "BGR", "BHR", "BHS", "BIH", "BLR", "BLZ", "BOL", "BRA", "BRB", "BRN", "BWA",
+                          "CAF", "CAN", "CHE", "CHL", "CHN", "CMR", "COD", "COG", "COL", "CPV", "CRI", "CUB", "CYP",
+                          "CZE", "DEU", "DJI", "DNK", "DOM", "DZA", "ECU", "EGY", "ERI", "ESP", "EST", "ETH", "FIN",
+                          "FJI", "FRA", "GAB", "GBR", "GEO", "GHA", "GIN", "GMB", "GNB", "GNQ", "GRC", "GTM", "GUY",
+                          "HND", "HRV", "HTI", "HUN", "IDN", "IND", "IRL", "IRN", "IRQ", "ISL", "ISR", "ITA", "JAM",
+                          "JOR", "JPN", "KAZ", "KEN", "KGZ", "KHM", "KOR", "KWT", "LAO", "LBN", "LBR", "LKA", "LSO",
+                          "LTU", "LUX", "LVA", "MAR", "MDA", "MDG", "MEX", "MKD", "MLI", "MLT", "MMR", "MNE", "MNG",
+                          "MOZ", "MRT", "MUS", "MWI", "MYS", "NAM", "NER", "NGA", "NIC", "NLD", "NOR", "NPL", "NZL",
+                          "OMN", "PAK", "PAN", "PER", "PHL", "PNG", "POL", "PRK", "PRT", "PRY", "QAT", "ROU", "RUS",
+                          "RWA", "SAU", "SDN", "SEN", "SGP", "SLE", "SLV", "SOM", "SSD", "SUR", "SVK", "SVN", "SWE",
+                          "SYC", "SYR", "TCD", "TGO", "THA", "TJK", "TKM", "TLS", "TTO", "TUN", "TUR", "TWN", "TZA",
+                          "UGA", "UKR", "URY", "USA", "UZB", "VEN", "VNM", "YEM", "ZAF", "ZMB", "ZWE")
+
+# No cow both: AND, BTN, COM, DMA, FSM, GRD, KIR, KNA, KSV, LBY, LCA, LIE, MCO, MDV, MHL, NRU, PLW, PSE, SLB, SMR, SRB, STP, SWZ, TON, TUV, VCT, VUT, WSM
+# No cow expenditure: ARE, BWA, CAF, COL, CUB, DJI, ERI, ESP, FJI, GIN, GMB, GNB, GNQ, GRC, HTI, IND, IRN, ISL,
+# ITA, KGZ, LAO, LBN, LVA, MOZ, NER, NOR, NPL, PRK, QAT, SDN, SOM, SUR, SYC, SYR, TKM, UZB, VEN, YEM
+# No cow personnel: CIV
 
 ##### AFG ----------------------------------------------------------------------
-
+##### AGO ----------------------------------------------------------------------
+##### ALB ----------------------------------------------------------------------
+##### AND ----------------------------------------------------------------------
 ##### ARE ----------------------------------------------------------------------
-
+##### ARG ----------------------------------------------------------------------
+##### AUS ----------------------------------------------------------------------
+##### AUT ----------------------------------------------------------------------
+##### AZE ----------------------------------------------------------------------
+##### BDI ----------------------------------------------------------------------
+##### BEL ----------------------------------------------------------------------
 ##### BEN ----------------------------------------------------------------------
 # mil.expenditure 1993
 
@@ -727,13 +884,26 @@ mildata.wmeat.na <- mildata %>%
 # mildata <- mil_estimator_rescaling_func(mildata, "BEN", lower_year = 2004,
 #                                         upper_year = 2006, expenditure = TRUE)
 
-
+##### BFA ----------------------------------------------------------------------
+##### BGD ----------------------------------------------------------------------
+##### BGR ----------------------------------------------------------------------
+##### BHR ----------------------------------------------------------------------
+##### BHS ----------------------------------------------------------------------
+##### BIH ----------------------------------------------------------------------
 ##### BLR ----------------------------------------------------------------------
-
 ##### BLZ ----------------------------------------------------------------------
-
+##### BOL ----------------------------------------------------------------------
+##### BRA ----------------------------------------------------------------------
+##### BRB ----------------------------------------------------------------------
+##### BRD ----------------------------------------------------------------------
+##### BRN ----------------------------------------------------------------------
 ##### BTN ----------------------------------------------------------------------
-
+##### BWA ----------------------------------------------------------------------
+##### CAF ----------------------------------------------------------------------
+##### CAN ----------------------------------------------------------------------
+##### CHE ----------------------------------------------------------------------
+##### CHL ----------------------------------------------------------------------
+##### CHN ----------------------------------------------------------------------
 ##### CIV ----------------------------------------------------------------------
 # mil.personnel 2012-2015
 # WMEAT estimates largely match COW estimates before and after the gap, so apply
@@ -752,6 +922,7 @@ for(y in 2012:2015){
   
 }
 
+##### CMR ----------------------------------------------------------------------
 ##### COD ----------------------------------------------------------------------
 # COD
 cow$milex[cow$iso3c=="COD"&cow$year==2002] <- (723094959+96146337)/2
@@ -763,83 +934,174 @@ cow$milex[cow$iso3c=="COD"&cow$year==1992] <- 159321275
 
 # mil.expenditure 2002
 
-
 ##### COG ----------------------------------------------------------------------
-
+##### COL ----------------------------------------------------------------------
+##### COM ----------------------------------------------------------------------
+##### CPV ----------------------------------------------------------------------
 ##### CRI ----------------------------------------------------------------------
-
 ##### CUB ----------------------------------------------------------------------
-
+##### CYP ----------------------------------------------------------------------
+##### CZE ----------------------------------------------------------------------
+##### DDR ----------------------------------------------------------------------
+##### DEU ----------------------------------------------------------------------
 ##### DJI ----------------------------------------------------------------------
-
+##### DMA ----------------------------------------------------------------------
+##### DNK ----------------------------------------------------------------------
+##### DOM ----------------------------------------------------------------------
+##### DZA ----------------------------------------------------------------------
+##### ECU ----------------------------------------------------------------------
+##### EGY ----------------------------------------------------------------------
 ##### ERI ----------------------------------------------------------------------
-
+##### ESP ----------------------------------------------------------------------
+##### EST ----------------------------------------------------------------------
+##### ETH ----------------------------------------------------------------------
+##### FIN ----------------------------------------------------------------------
+##### FJI ----------------------------------------------------------------------
+##### FRA ----------------------------------------------------------------------
+##### FSM ----------------------------------------------------------------------
+##### GAB ----------------------------------------------------------------------
+##### GBR ----------------------------------------------------------------------
+##### GEO ----------------------------------------------------------------------
+##### GHA ----------------------------------------------------------------------
+##### GIN ----------------------------------------------------------------------
 ##### GMB ----------------------------------------------------------------------
-
 ##### GNB ----------------------------------------------------------------------
-
 ##### GNQ ----------------------------------------------------------------------
-
+##### GRC ----------------------------------------------------------------------
+##### GRD ----------------------------------------------------------------------
+##### GTM ----------------------------------------------------------------------
 ##### GUY ----------------------------------------------------------------------
-
+##### HND ----------------------------------------------------------------------
+##### HRV ----------------------------------------------------------------------
 ##### HTI ----------------------------------------------------------------------
-
+##### HUN ----------------------------------------------------------------------
+##### IDN ----------------------------------------------------------------------
+##### IND ----------------------------------------------------------------------
+##### IRL ----------------------------------------------------------------------
+##### IRN ----------------------------------------------------------------------
 ##### IRQ ----------------------------------------------------------------------
-
 ##### ISL ----------------------------------------------------------------------
-
+##### ISR ----------------------------------------------------------------------
+##### ITA ----------------------------------------------------------------------
+##### JAM ----------------------------------------------------------------------
+##### JOR ----------------------------------------------------------------------
+##### JPN ----------------------------------------------------------------------
+##### KAZ ----------------------------------------------------------------------
+##### KEN ----------------------------------------------------------------------
 ##### KGZ ----------------------------------------------------------------------
-
+##### KHM ----------------------------------------------------------------------
+##### KIR ----------------------------------------------------------------------
+##### KNA ----------------------------------------------------------------------
+##### KOR ----------------------------------------------------------------------
 ##### KSV ----------------------------------------------------------------------
-
+##### KWT ----------------------------------------------------------------------
 ##### LAO ----------------------------------------------------------------------
-
+##### LBN ----------------------------------------------------------------------
 ##### LBR ----------------------------------------------------------------------
-
 ##### LBY ----------------------------------------------------------------------
-
+##### LCA ----------------------------------------------------------------------
+##### LIE ----------------------------------------------------------------------
+##### LKA ----------------------------------------------------------------------
+##### LSO ----------------------------------------------------------------------
+##### LTU ----------------------------------------------------------------------
+##### LUX ----------------------------------------------------------------------
+##### LVA ----------------------------------------------------------------------
+##### MAR ----------------------------------------------------------------------
+##### MCO ----------------------------------------------------------------------
+##### MDA ----------------------------------------------------------------------
 ##### MDG ----------------------------------------------------------------------
-
+##### MDV ----------------------------------------------------------------------
+##### MEX ----------------------------------------------------------------------
+##### MHL ----------------------------------------------------------------------
+##### MKD ----------------------------------------------------------------------
+##### MLI ----------------------------------------------------------------------
+##### MLT ----------------------------------------------------------------------
 ##### MMR ----------------------------------------------------------------------
-
 ##### MNE ----------------------------------------------------------------------
-
+##### MNG ----------------------------------------------------------------------
+##### MOZ ----------------------------------------------------------------------
+##### MRT ----------------------------------------------------------------------
 ##### MUS ----------------------------------------------------------------------
-
+##### MWI ----------------------------------------------------------------------
+##### MYS ----------------------------------------------------------------------
+##### NAM ----------------------------------------------------------------------
 ##### NER ----------------------------------------------------------------------
-
+##### NGA ----------------------------------------------------------------------
+##### NIC ----------------------------------------------------------------------
+##### NLD ----------------------------------------------------------------------
+##### NOR ----------------------------------------------------------------------
+##### NPL ----------------------------------------------------------------------
+##### NRU ----------------------------------------------------------------------
+##### NZL ----------------------------------------------------------------------
+##### OMN ----------------------------------------------------------------------
+##### PAK ----------------------------------------------------------------------
 ##### PAN ----------------------------------------------------------------------
-
+##### PER ----------------------------------------------------------------------
+##### PHL ----------------------------------------------------------------------
+##### PLW ----------------------------------------------------------------------
+##### PNG ----------------------------------------------------------------------
+##### POL ----------------------------------------------------------------------
 ##### PRK ----------------------------------------------------------------------
-
+##### PRT ----------------------------------------------------------------------
+##### PRY ----------------------------------------------------------------------
+##### PSE ----------------------------------------------------------------------
 ##### QAT ----------------------------------------------------------------------
-
+##### ROU ----------------------------------------------------------------------
+##### RUS ----------------------------------------------------------------------
+##### RVN ----------------------------------------------------------------------
+##### RWA ----------------------------------------------------------------------
+##### SAU ----------------------------------------------------------------------
 ##### SDN ----------------------------------------------------------------------
-
+##### SEN ----------------------------------------------------------------------
+##### SGP ----------------------------------------------------------------------
+##### SLB ----------------------------------------------------------------------
+##### SLE ----------------------------------------------------------------------
+##### SLV ----------------------------------------------------------------------
+##### SMR ----------------------------------------------------------------------
 ##### SOM ----------------------------------------------------------------------
-
 ##### SRB ----------------------------------------------------------------------
-
 ##### SSD ----------------------------------------------------------------------
-
 ##### STP ----------------------------------------------------------------------
-
 ##### SUR ----------------------------------------------------------------------
 # Missing mil.expenditure for 1978-1981, 1987, 2014-
 
+##### SVK ----------------------------------------------------------------------
+##### SVN ----------------------------------------------------------------------
+##### SWE ----------------------------------------------------------------------
 ##### SWZ ----------------------------------------------------------------------
-
+##### SYC ----------------------------------------------------------------------
 ##### SYR ----------------------------------------------------------------------
-
+##### TCD ----------------------------------------------------------------------
+##### TGO ----------------------------------------------------------------------
+##### THA ----------------------------------------------------------------------
+##### TJK ----------------------------------------------------------------------
 ##### TKM ----------------------------------------------------------------------
-
 ##### TLS ----------------------------------------------------------------------
-
+##### TON ----------------------------------------------------------------------
+##### TTO ----------------------------------------------------------------------
+##### TUN ----------------------------------------------------------------------
+##### TUR ----------------------------------------------------------------------
+##### TUV ----------------------------------------------------------------------
+##### TWN ----------------------------------------------------------------------
+##### TZA ----------------------------------------------------------------------
+##### UGA ----------------------------------------------------------------------
+##### UKR ----------------------------------------------------------------------
+##### URY ----------------------------------------------------------------------
+##### USA ----------------------------------------------------------------------
 ##### UZB ----------------------------------------------------------------------
-
+##### VCT ----------------------------------------------------------------------
+##### VEN ----------------------------------------------------------------------
+##### VNM ----------------------------------------------------------------------
+##### VUT ----------------------------------------------------------------------
+##### WSM ----------------------------------------------------------------------
+##### YAR ----------------------------------------------------------------------
 ##### YEM ----------------------------------------------------------------------
-
-##### ZIM ----------------------------------------------------------------------
+##### YPR ----------------------------------------------------------------------
+##### YUG ----------------------------------------------------------------------
+##### ZAF ----------------------------------------------------------------------
+##### ZAN ----------------------------------------------------------------------
+##### ZMB ----------------------------------------------------------------------
+##### ZWE ----------------------------------------------------------------------
 
 
 
