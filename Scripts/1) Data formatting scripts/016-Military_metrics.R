@@ -19,13 +19,33 @@ library(tidyr)
 cow <- read.csv("Data files/Raw data files/NMC_5_0.csv")
 
 # load all sheets in the "Military Balance.xlsx" file
-military.balance <- lapply(readxl::excel_sheets("Data files/Raw data files/Military Balance.xlsx"),
-                           read_xlsx, na = c("n.k.","n/a","n.k","n.a.","n.a"),
-                           path = "Data files/Raw data files/Military Balance.xlsx")
+military.balance <- lapply(
+  readxl::excel_sheets("Data files/Raw data files/Military Balance.xlsx"),
+  read_xlsx,
+  na = c("n.k.","n/a","n.k","n.a.","n.a"),
+  path = "Data files/Raw data files/Military Balance.xlsx"
+  )
+
+# load all sheets in the "SIPRI-Milex-data-1949-2019.xlsx"" file
+sipri.sheets <- lapply(
+  readxl::excel_sheets("Data files/Raw data files/SIPRI-Milex-data-1949-2019.xlsx"),
+  read_xlsx,
+  skip = 5,
+  na = c("xxx",". ."),
+  path = "Data files/Raw data files/SIPRI-Milex-data-1949-2019.xlsx"
+  )
 
 # WMEAT files
+wmeat.1973 <- readxl::read_xlsx(path = "Data files/Raw data files/185674.xlsx",
+                                skip = 5,
+                                na = c("-","…","N.A.","xx","a","b","c","d","e","f","g","h","i","j",
+                                       "k","l","m","n","o","p","q","r","s","t","u","v","w","x","y",
+                                       "TO 8 (EST)","6 TO 10 (EST)"),
+                                col_names = FALSE) 
 wmeat.1984 <- readxl::read_xlsx(path = "Data files/Raw data files/185659.xlsx",
-                                skip = 5, na = c("NA", "E", "e", "b", "...", "d", "c", "E b", "d c", "f"), col_names = FALSE) 
+                                skip = 5,
+                                na = c("NA", "E", "e", "b", "...", "d", "c", "E b", "d c", "f"),
+                                col_names = FALSE) 
 wmeat.1995 <- readxl::read_xlsx(path = "Data files/Raw data files/185685.xlsx",
                                 skip = 5,
                                 na = c("NA","E","R","d","E,b","b","c","E,d","c,f"),
@@ -62,38 +82,46 @@ inflation_table <- data.frame(year = c(1946:2020),
 cow <- cow %>%
   dplyr::filter(year >= 1945) %>%
   # using the countrycode package, add iso3c based on country COW abbreviation
-  dplyr::mutate(iso3c = countrycode::countrycode(stateabb,"cowc","iso3c"))
-
-# codes iso3c values missing from the countrycode package: RVN, YPR, YAR, ZAN, KSV, YUG, CZE, DDR, BRD
-cow$iso3c[cow$stateabb=="RVN"] <- "RVN"
-cow$iso3c[cow$stateabb=="YPR"] <- "YPR"
-cow$iso3c[cow$stateabb=="YAR"] <- "YAR"
-cow$iso3c[cow$stateabb=="ZAN"] <- "ZAN"
-cow$iso3c[cow$stateabb=="KOS"] <- "KSV"
-cow$iso3c[cow$stateabb=="YUG"] <- "YUG"
-cow$iso3c[cow$stateabb=="CZE"] <- "CZE"
-cow$iso3c[cow$stateabb=="GDR"] <- "DDR"
-cow$iso3c[cow$stateabb=="GFR"] <- "BRD"
-
-cow <- cow %>%
+  dplyr::mutate(iso3c = countrycode::countrycode(stateabb,"cowc","iso3c")) %>%
+                
+  # codes iso3c values missing from the countrycode package
+  dplyr::mutate(iso3c = dplyr::case_when(
+    stateabb == "RVN" ~ "RVN",
+    stateabb == "YPR" ~ "YPR",
+    stateabb == "YAR" ~ "YAR",
+    stateabb == "ZAN" ~ "ZAN",
+    stateabb == "KOS" ~ "KSV",
+    stateabb == "YUG" ~ "YUG",
+    stateabb == "CZE" ~ "CZE",
+    stateabb == "GDR" ~ "DDR",
+    stateabb == "GFR" ~ "BRD",
+    .default = iso3c
+  )) %>%
+  
   dplyr::select(iso3c,year,milex,milper) %>%
-  # recodes -9 (missing) to NA for milex and milper variables
-  dplyr::mutate(milex = ifelse(milex==-9,NA,milex),
-                milper = ifelse(milper==-9,NA,milper),
-                # multiplies milex and milper to be full numbers
-                milex = 1000 * milex,
-                milper = 1000 * milper)
-
-# adjust for inflation
-cow <- cow %>%
+  dplyr::mutate(
+    # recodes -9 (missing) to NA for milex and milper variables
+    milex = ifelse(milex==-9,NA,milex),
+    milper = ifelse(milper==-9,NA,milper),
+    # multiplies milex and milper to be full numbers
+    milex = 1000 * milex,
+    milper = 1000 * milper
+    ) %>%
+  
+  # adjust for inflation
   dplyr::left_join(inflation_table,by="year") %>%
+  
   # multiples dollar values in that year's dollar value to 2019 dollars
   dplyr::mutate(milex = milex * multiplier) %>%
+  
   dplyr::select(-multiplier) %>%
   dplyr::rename(milex.cow = milex,
                 milper.cow = milper)
 
-#### Military Balance ----------------------------------------------------------------------
+# recode YUG 1992-2017 as SRB
+cow$iso3c[cow$iso3c=="YUG"&cow$year>=1992] <- "SRB"
+
+#### Military Balance (IISS) ----------------------------------------------------------------------
 # rename datasets as Y20XX, referring to the year the report was published
 names(military.balance) <- readxl::excel_sheets("Data files/Raw data files/Military Balance.xlsx")
 
@@ -106,6 +134,20 @@ for(m in names(military.balance)){
   year <- as.numeric(stringr::str_sub(m, start = 2, end = 5))
   df <- military.balance[[m]]
   
+  # create variable subheader years for expenditure data
+  year.a <- dplyr::case_when(
+    m == "Y2012" ~ 2008,
+    .default = year - 3
+  )
+  year.b <- dplyr::case_when(
+    m == "Y2012" ~ 2009,
+    .default = year - 2
+  )
+  year.c <- dplyr::case_when(
+    m == "Y2012" ~ 2010,
+    .default = year - 1
+  )
+  
   # remove footnotes column (column  14) if it exists
   if(ncol(df) == 14){
     
@@ -114,15 +156,15 @@ for(m in names(military.balance)){
   }
   
   names(df) <- c("country",
-                 paste0("defense.spending.",year-3), # in current year USD
-                 paste0("defense.spending.",year-2),
-                 paste0("defense.spending.",year-1),
-                 paste0("defense.spending.percapita.",year-3), # in current year USD
-                 paste0("defense.spending.percapita.",year-2),
-                 paste0("defense.spending.percapita.",year-1),
-                 paste0("defense.spending.percgdp.",year-3), # as percentage of GDP
-                 paste0("defense.spending.percgdp.",year-2),
-                 paste0("defense.spending.percgdp.",year-1),
+                 paste0("defense.spending.",year.a), # in current year USD
+                 paste0("defense.spending.",year.b),
+                 paste0("defense.spending.",year.c),
+                 paste0("defense.spending.percapita.",year.a), # in current year USD
+                 paste0("defense.spending.percapita.",year.b),
+                 paste0("defense.spending.percapita.",year.c),
+                 paste0("defense.spending.percgdp.",year.a), # as percentage of GDP
+                 paste0("defense.spending.percgdp.",year.b),
+                 paste0("defense.spending.percgdp.",year.c),
                  paste0("active.armed.forces.",year),
                  paste0("reservists.",year),
                  paste0("active.paramilitary.",year))
@@ -131,23 +173,26 @@ for(m in names(military.balance)){
   df <- df[-1,]
   
   # remove footnotes rows at the end, based on which year it is
-  number_of_footnote_rows <- ifelse(year == 2020, 4,
-                             ifelse(year == 2019, 5,
-                             ifelse(year == 2018, 6,
-                             ifelse(year == 2017, 5,
-                             ifelse(year == 2016, 3,
-                             ifelse(year == 2015, 4,
-                             ifelse(year == 2014, 14,
-                             ifelse(year == 2013, 28,
-                             ifelse(year == 2012, 4, 0)))))))))
+  number_of_footnote_rows <- dplyr::case_when(
+    year == 2020 | year == 2015 | year == 2012 ~ 4,
+    year == 2019 | year == 2017                ~ 5,
+    year == 2018                               ~ 6,
+    year == 2016                               ~ 3,
+    year == 2014                               ~ 14,
+    year == 2013                               ~ 28,
+    .default                                   = 0
+  )
   
   df <- df[-c((nrow(df)-number_of_footnote_rows+1):nrow(df)),]
   
-  # recoding country names countrycode package could not identify
-  df$country[df$country=="UAE*"] <- "United Arab Emirates"
-  df$country[df$country=="Somali Republic"] <- "Somalia"
-  
   df <- df %>%
+    # recoding country names countrycode package could not identify
+    dplyr::mutate(country = dplyr::case_when(
+      country == "UAE*" ~ "United Arab Emirates",
+      country == "Somali Republic" ~ "Somalia",
+      .default = country
+    )) %>%
+    
     # filter out headers (e.g., "North America") and total rows
     dplyr::filter(country %!in% c("North America","Europe","Russia and Eurasia","Asia","Middle East and North Africa",
                                   "Latin America and the Caribbean","Sub-Saharan Africa","Summary","Total","Total*","Total**",
@@ -156,34 +201,48 @@ for(m in names(military.balance)){
                                   "Total *","Total **","Nato Europe","Non-Nato Europe","Subtotal NATO Ex-US",
                                   "Latin America & The Carribean","Latin America and the Carribean")) %>%
     tidyr::pivot_longer(cols = 2:13, names_to = "metric", values_to = "value") %>%
-    # add variable denoting which year the data was published / which sheet the data is from
-    dplyr::mutate(data.pub.year = year,
-                  # add variable for the year the data is for, based on the end of the variable name
-                  year = stringr::str_sub(metric, start = -4, end = -1),
-                  # rename variables to remove the specific year the data is for
-                  metric = stringr::str_sub(metric, start = 1, end = -6),
-                  # modify values to be full values
-                  value = ifelse(metric == "defense.spending", # multiply by 1,000,000
-                                               value * 1000000,
-                                 ifelse(metric %in% c("active.armed.forces","reservists", # multiply by 1,000
-                                                      "active.paramilitary"), value * 1000,
-                                        value)),
-                  # using the countrycode package, add iso3c based on country name
-                  iso3c = countrycode::countrycode(country,"country.name","iso3c"))
+    
+    dplyr::mutate(
+      # add variable denoting which year the data was published / which sheet the data is from
+      data.pub.year = year,
+      # add variable for the year the data is for, based on the end of the variable name
+      year = stringr::str_sub(metric, start = -4, end = -1),
+      # rename variables to remove the specific year the data is for
+      metric = stringr::str_sub(metric, start = 1, end = -6),
+      # modify values to be full values
+      value = ifelse(metric == "defense.spending", # multiply by 1,000,000
+                     value * 1000000,
+                     ifelse(metric %in% c("active.armed.forces","reservists", # multiply by 1,000
+                                          "active.paramilitary"), value * 1000,
+                            value)),
+      # using the countrycode package, add iso3c based on country name
+      iso3c = countrycode::countrycode(country,"country.name","iso3c"))
   
   military.balance.data <- rbind(military.balance.data,df)
   
 }
+
+military.balance.data.premerge <- military.balance.data
+
+# filter out entries that appear to contain errors
+military.balance.data$value[military.balance.data$iso3c=="FJI"&
+                              military.balance.data$year==2011&
+                              military.balance.data$data.pub.year==2014&
+                              military.balance.data$metric %in% c("defense.spending",
+                                                                  "defense.spending.percapita",
+                                                                  "defense.spending.percgdp")] <- NA
 
 military.balance.data <- military.balance.data %>%
   dplyr::mutate(year = as.numeric(year)) %>%
   # adjust for inflation
   #dplyr::left_join(inflation_table,dplyr::join_by("data.pub.year"=="year")) %>%
   dplyr::left_join(inflation_table,by="year") %>%
-  dplyr::mutate(value = ifelse(metric %in% c("defense.spending","defense.spending.percapita"),
-                               value * multiplier, value),
-                # using the countrycode package, add country name based on iso3c code
-                country = countrycode::countrycode(iso3c,"iso3c","country.name")) %>%
+  dplyr::mutate(
+    value = ifelse(metric %in% c("defense.spending","defense.spending.percapita"),
+                   value * multiplier, value),
+    # using the countrycode package, add country name based on iso3c code
+    country = countrycode::countrycode(iso3c,"iso3c","country.name")
+    ) %>%
   dplyr::select(-multiplier) %>%
   # combine variable name with publication year, to differentiate them as separate columns
   dplyr::mutate(metric = paste0(metric,".iiss")) %>%
@@ -198,7 +257,162 @@ military.balance.data <- military.balance.data %>%
   dplyr::ungroup() %>%
   tidyr::pivot_wider(names_from = "metric", values_from = "value")
 
+#### SIPRI ----------------------------------------------------------------------
+# rename datasets to have sheet names
+names(sipri.sheets) <- readxl::excel_sheets("Data files/Raw data files/SIPRI-Milex-data-1949-2019.xlsx")
+
+sipri <- sipri.sheets[["Current USD"]]
+
+# remove footnotes
+sipri <- sipri[-c(192:204),]
+
+sipri <- sipri %>%
+  # filter out region labels
+  dplyr::filter(Country %!in% c("Africa","North Africa","Sub-Saharan","Americas",
+                                "Central America and the Caribbean","North America","South America",
+                                "Asia & Oceania","Central Asia","East Asia","South Asia",
+                                "South-East Asia","Oceania","Europe","Central Europe","Eastern Europe",
+                                "Western Europe","Middle East")) %>%
+  # remove Notes column
+  dplyr::select(-Notes) %>%
+  # convert variables to numeric
+  dplyr::mutate_at(vars(2:72), as.numeric) %>%
+  # pivot to long data format
+  tidyr::pivot_longer(cols = 2:72, names_to = "year", values_to = "mil.expenditure.current.year") %>%
+  dplyr::mutate(year = as.numeric(year)) %>%
+  # convert values to full amount
+  dplyr::mutate(mil.expenditure.current.year = mil.expenditure.current.year * 1000000) %>%
+  # convert current year $ to constant 2019 $
+  dplyr::left_join(inflation_table,by="year") %>%
+  dplyr::mutate(
+    milexp.sipri = mil.expenditure.current.year * multiplier,
+    # using the countrycode package, add iso3c code based on country name
+    iso3c = countrycode::countrycode(Country,"country.name","iso3c"),
+    iso3c = dplyr::case_when(
+      Country == "Czechoslovakia" ~ "CZE",
+      Country == "German DR" ~ "DDR",
+      Country == "Kosovo" ~ "KSV",
+      Country == "Yemen, North" ~ "YAR",
+      Country == "Yugoslavia" ~ "YUG",
+      .default = iso3c
+    )) %>%
+  dplyr::select(-c(mil.expenditure.current.year,multiplier,Country))
+
 #### WMEAT ----------------------------------------------------------------------
+##### WMEAT 1973 ----------------------------------------------------------------------
+wmeat.1973.data <- wmeat.1973
+
+names(wmeat.1973.data) <- c(
+  "country.and.year",
+  "military.expenditure.current.dollars", # in millions
+  "blank1",
+  "military.expenditure.1972.dollars", # in millions
+  "blank2",
+  "gdp.current.dollars", # in millions; gnp, not gdp
+  "blank3",
+  "gdp.1972.dollars", # in millions; gnp, not gdp
+  "blank4",
+  "mil.expenditure.over.gdp", # percentage; gnp, not gdp
+  "blank5",
+  "population", # in millions
+  "blank6",
+  "mil.expenditure.per.capita", # 1972 dollars
+  "blank7",
+  "gdp.per.capita", # 1972 dollars; gnp, not gdp
+  "blank8",
+  "armed.personnel", #in thousands
+  "blank9",
+  "mi.expenditure.per.armed.personnel", # 1972 dollarsw
+  "blank10",
+  "armed.forces.per.1000.pop",
+  "blank11"
+)
+
+wmeat.1973.data <- wmeat.1973.data %>%
+  # filter out 10-year average annual growth rows
+  dplyr::filter(country.and.year != "GROWTH RATE (PCT ANN)") %>%
+  # convert "see X" entries to NAs
+  dplyr::mutate(country.and.year = ifelse(country.and.year %in% c("CEYLON (SEE SRI LANKA)",
+                                                                  "KHMER REPUBLIC (SEE CAMBODIA)",
+                                                                  "MADAGASCAR (SEE MALAGASY REPUBLIC)",
+                                                                  "TAIWAN (SEE CHINA, REPUBLIC OF)",
+                                                                  "USSR (SEE SOVIET UNION)"),
+                                          NA, country.and.year)) %>%
+  
+  # remove blank columns
+  dplyr::select(-dplyr::contains("blank"))
+
+# remove blank rows
+wmeat.1973.data <- wmeat.1973.data[rowSums(is.na(wmeat.1973.data)) != ncol(wmeat.1973.data),]
+
+# list all countries in the dataset
+wmeat.1973.country.list <- wmeat.1973.data %>%
+  dplyr::filter(country.and.year %!in% c(1963:1973,NA)) %>%
+  dplyr::pull(country.and.year)
+
+# add placeholder column for country name
+wmeat.1973.data <- wmeat.1973.data %>%
+  dplyr::mutate(country = NA)
+
+for(i in 1:(length(wmeat.1973.country.list)-1)){
+  
+  # pull the row with ith country header
+  i.row <- which(wmeat.1973.data$country.and.year == wmeat.1973.country.list[i])
+  
+  # pull the row with the (i+1)th country header
+  iplus1.row <- which(wmeat.1973.data$country.and.year == wmeat.1973.country.list[i+1])
+  
+  wmeat.1973.data$country[c((i.row+1):(iplus1.row-1))] <- wmeat.1973.country.list[i]
+  
+}
+
+# code country for the last entry on the list
+i.row.zmb <- which(wmeat.1973.data$country.and.year == "ZAMBIA")
+wmeat.1973.data$country[c((i.row.zmb+1):nrow(wmeat.1973.data))] <- "ZAMBIA"
+
+wmeat.1973.data <- wmeat.1973.data %>%
+  # filter out country header rows
+  tidyr::drop_na(country) %>%
+  dplyr::rename(year = country.and.year) %>%
+  dplyr::select(country, year, military.expenditure.current.dollars, armed.personnel, gdp.current.dollars, population) %>%
+  
+  # convert to full values
+  dplyr::mutate(military.expenditure.current.dollars = as.numeric(military.expenditure.current.dollars) * 1000000,
+                armed.personnel = as.numeric(armed.personnel) * 1000,
+                gdp.current.dollars = as.numeric(gdp.current.dollars) * 1000000,
+                population = as.numeric(population) * 1000000) %>%
+  tidyr::pivot_longer(3:6, names_to = "variable", values_to = "value") %>%
+  
+  dplyr::mutate(
+    # add WMEAT version year
+    version = 1973,
+    # using the countrycode package, add iso3c code based on country name
+    # add missing iso3c codes
+    iso3c = dplyr::case_when(
+      country == "CZECHOSLOVAKIA" ~ "CZE",
+      country == "GERMAN DEMOCRATIC REPUBLIC" ~ "DDR",
+      country == "GERMANY, FEDERAL REPUBLIC OF" ~ "BRD",
+      country == "VIETNAM, REPUBLIC OF" ~ "RVN",
+      country == "YEMEN (ADEN)" ~ "YPR",
+      country == "YEMEN (SANAA)" ~ "YAR",
+      country == "YUGOSLAVIA" ~ "YUG",
+      .default = countrycode::countrycode(country,"country.name","iso3c")
+    )) %>%
+  
+  dplyr::select(-country) %>%
+  dplyr::mutate(
+    # using the countrycode package, add country name based on iso3c code
+    # add missing country names
+    country = dplyr::case_when(
+      iso3c=="BRD" ~ "West Germany",
+      iso3c=="DDR" ~ "East Germany",
+      iso3c=="RVN" ~ "South Vietnam",
+      iso3c=="YAR" ~ "North Yemen",
+      iso3c=="YPR" ~ "South Yemen",
+      iso3c=="YUG" ~ "Yugoslavia",
+      .default     = countrycode::countrycode(iso3c,"iso3c","country.name")
+    ))
+
 ##### WMEAT 1984 ----------------------------------------------------------------------
 wmeat.1984.data <- wmeat.1984
 
@@ -270,43 +484,50 @@ for(i in 1:(length(wmeat.1984.country.list)-1)){
 i.row.zwe <- which(wmeat.1984.data$country.and.year == "ZIMBABWE")
 wmeat.1984.data$country[c((i.row.zwe+1):nrow(wmeat.1984.data))] <- "ZIMBABWE"
 
-# filter out country header rows
 wmeat.1984.data <- wmeat.1984.data %>%
+  # filter out country header rows
   tidyr::drop_na(country) %>%
   dplyr::rename(year = country.and.year) %>%
   dplyr::select(country, year, military.expenditure.current.dollars, armed.personnel, gdp.current.dollars, population) %>%
+  
   # convert to full values
   dplyr::mutate(military.expenditure.current.dollars = as.numeric(military.expenditure.current.dollars) * 1000000,
                 armed.personnel = as.numeric(armed.personnel) * 1000,
-                gnp.current.dollars = as.numeric(gnp.current.dollars) * 1000000,
+                gdp.current.dollars = as.numeric(gdp.current.dollars) * 1000000,
                 population = as.numeric(population) * 1000000) %>%
   tidyr::pivot_longer(3:6, names_to = "variable", values_to = "value") %>%
-  # add WMEAT version year
-  dplyr::mutate(version = 1984,
-                # using the countrycode package, add iso3c code based on country name
-                iso3c = countrycode::countrycode(country,"country.name","iso3c"))
-
-# add missing iso3c codes
-wmeat.1984.data$iso3c[wmeat.1984.data$country=="CZECHOSLOVAKIA"] <- "CZE"
-wmeat.1984.data$iso3c[wmeat.1984.data$country=="GERMANY, EAST"] <- "DDR"
-wmeat.1984.data$iso3c[wmeat.1984.data$country=="GERMANY, WEST"] <- "BRD"
-wmeat.1984.data$iso3c[wmeat.1984.data$country=="VIETNAM, SOUTH"] <- "RVN"
-wmeat.1984.data$iso3c[wmeat.1984.data$country=="YEMEN (ADEN)"] <- "YPR"
-wmeat.1984.data$iso3c[wmeat.1984.data$country=="YEMEN (SANAA)"] <- "YAR"
-wmeat.1984.data$iso3c[wmeat.1984.data$country=="YUGOSLAVIA"] <- "YUG"
-
-wmeat.1984.data <- wmeat.1984.data %>%
+  
+  dplyr::mutate(
+    # add WMEAT version year
+    version = 1984,
+    # using the countrycode package, add iso3c code based on country name
+    iso3c = countrycode::countrycode(country,"country.name","iso3c"),
+    # add missing iso3c codes
+    iso3c = dplyr::case_when(
+      country == "CZECHOSLOVAKIA" ~ "CZE",
+      country == "GERMANY, EAST" ~ "DDR",
+      country == "GERMANY, WEST" ~ "BRD",
+      country == "VIETNAM, SOUTH" ~ "RVN",
+      country == "YEMEN (ADEN)" ~ "YPR",
+      country == "YEMEN (SANAA)" ~ "YAR",
+      country == "YUGOSLAVIA" ~ "YUG",
+      .default = iso3c
+    )) %>%
+  
   dplyr::select(-country) %>%
-  # using the countrycode package, add country name based on iso3c code
-  dplyr::mutate(country = countrycode::countrycode(iso3c,"iso3c","country.name"))
-
-# add missing country names
-wmeat.1984.data$country[wmeat.1984.data$iso3c=="BRD"] <- "West Germany"
-wmeat.1984.data$country[wmeat.1984.data$iso3c=="DDR"] <- "East Germany"
-wmeat.1984.data$country[wmeat.1984.data$iso3c=="RVN"] <- "South Vietnam"
-wmeat.1984.data$country[wmeat.1984.data$iso3c=="YAR"] <- "North Yemen"
-wmeat.1984.data$country[wmeat.1984.data$iso3c=="YPR"] <- "South Yemen"
-wmeat.1984.data$country[wmeat.1984.data$iso3c=="YUG"] <- "Yugoslavia"
+  dplyr::mutate(
+    # using the countrycode package, add country name based on iso3c code
+    country = countrycode::countrycode(iso3c,"iso3c","country.name"),
+    # add missing country names
+    country = dplyr::case_when(
+      iso3c=="BRD" ~ "West Germany",
+      iso3c=="DDR" ~ "East Germany",
+      iso3c=="RVN" ~ "South Vietnam",
+      iso3c=="YAR" ~ "North Yemen",
+      iso3c=="YPR" ~ "South Yemen",
+      iso3c=="YUG" ~ "Yugoslavia",
+      .default     = country
+    ))
 
 ##### WMEAT 1995 ----------------------------------------------------------------------
 wmeat.1995.data <- wmeat.1995
@@ -339,24 +560,31 @@ names(wmeat.1995.data) <- c(
   "blank12"
   )
 
-# remove letters from year variable
-wmeat.1995.data$country.and.year[wmeat.1995.data$country.and.year=="1989g"] <- 1989
-wmeat.1995.data$country.and.year[wmeat.1995.data$country.and.year=="1990e"] <- 1990
-wmeat.1995.data$country.and.year[wmeat.1995.data$country.and.year=="1990g"] <- 1990
-wmeat.1995.data$country.and.year[wmeat.1995.data$country.and.year=="1991e"] <- 1991
-
-# adjust China notations
-wmeat.1995.data$country.and.year[wmeat.1995.data$country.and.year=="China"] <- NA
-wmeat.1995.data$country.and.year[wmeat.1995.data$country.and.year=="-Mainland"] <- "China"
-wmeat.1995.data$country.and.year[wmeat.1995.data$country.and.year=="-Taiwan"] <- "Taiwan"
-
 wmeat.1995.data <- wmeat.1995.data %>%
+  dplyr::mutate(
+    # remove letters from year variable
+    country.and.year = dplyr::case_when(
+      country.and.year == "1989g" ~ "1989",
+      country.and.year == "1990e" ~ "1990",
+      country.and.year == "1990g" ~ "1990",
+      country.and.year == "1991e" ~ "1991",
+      .default = country.and.year
+    ),
+    
+    # adjust China notations
+    country.and.year = dplyr::case_when(
+      country.and.year == "China" ~ NA,
+      country.and.year == "-Mainland" ~ "China",
+      country.and.year == "-Taiwan" ~ "Taiwan",
+      .default = country.and.year
+  ),
+    
   # convert "see X" entries to NAs
-  dplyr::mutate(country.and.year = ifelse(country.and.year %in% c("Cote d'Ivoire (see Ivory Coast)",
-                                                                  "Kampuchea (see Cambodia)",
-                                                                  "Myanmar (see Burma)",
-                                                                  "Upper Volta (see Burkina Faso)"),
-                                          NA, country.and.year)) %>%
+  country.and.year = ifelse(country.and.year %in% c("Cote d'Ivoire (see Ivory Coast)",
+                                                    "Kampuchea (see Cambodia)",
+                                                    "Myanmar (see Burma)",
+                                                    "Upper Volta (see Burkina Faso)"),
+                            NA, country.and.year)) %>%
   
   # remove blank columns
   dplyr::select(-dplyr::contains("blank"))
@@ -400,30 +628,36 @@ wmeat.1995.data <- wmeat.1995.data %>%
                 gdp.current.dollars = as.numeric(gdp.current.dollars) * 1000000,
                 population = as.numeric(population) * 1000000) %>%
   tidyr::pivot_longer(3:6, names_to = "variable", values_to = "value") %>%
-  # add WMEAT version year
-  dplyr::mutate(version = 1995,
-                # using the countrycode package, add iso3c code based on country name
-                iso3c = countrycode::countrycode(country,"country.name","iso3c"))
+  dplyr::mutate(
+    # add WMEAT version year
+    version = 1995,
+    # using the countrycode package, add iso3c code based on country name
+    iso3c = countrycode::countrycode(country,"country.name","iso3c"),
+    # add missing iso3c codes
+    iso3c = dplyr::case_when(
+      country == "Czechoslovakia" ~ "CZE",
+      country == "Germany, East" ~ "DDR",
+      country == "Germany, West" ~ "BRD",
+      country == "Serbia and Montenegro" ~ "SRB",
+      country == "Yemen (Aden)" ~ "YPR",
+      country == "Yemen (Sanaa)" ~ "YAR",
+      country == "Yugoslavia" ~ "YUG",
+      .default = iso3c
+    )) %>%
 
-# add missing iso3c codes
-wmeat.1995.data$iso3c[wmeat.1995.data$country=="Czechoslovakia"] <- "CZE"
-wmeat.1995.data$iso3c[wmeat.1995.data$country=="Germany, East"] <- "DDR"
-wmeat.1995.data$iso3c[wmeat.1995.data$country=="Germany, West"] <- "BRD"
-wmeat.1995.data$iso3c[wmeat.1995.data$country=="Serbia and Montenegro"] <- "SRB"
-wmeat.1995.data$iso3c[wmeat.1995.data$country=="Yemen (Aden)"] <- "YPR"
-wmeat.1995.data$iso3c[wmeat.1995.data$country=="Yemen (Sanaa)"] <- "YAR"
-wmeat.1995.data$iso3c[wmeat.1995.data$country=="Yugoslavia"] <- "YUG"
-
-wmeat.1995.data <- wmeat.1995.data %>%
   dplyr::select(-country) %>%
-  # using the countrycode package, add country name based on iso3c code
-  dplyr::mutate(country = countrycode::countrycode(iso3c,"iso3c","country.name"))
-
-# add missing country names
-wmeat.1995.data$country[wmeat.1995.data$iso3c=="BRD"] <- "West Germany"
-wmeat.1995.data$country[wmeat.1995.data$iso3c=="DDR"] <- "East Germany"
-wmeat.1995.data$country[wmeat.1995.data$iso3c=="YAR"] <- "North Yemen"
-wmeat.1995.data$country[wmeat.1995.data$iso3c=="YPR"] <- "South Yemen"
+  dplyr::mutate(
+    # using the countrycode package, add country name based on iso3c code
+    country = countrycode::countrycode(iso3c,"iso3c","country.name"),
+    # add missing country names
+    country = dplyr::case_when(
+      iso3c == "BRD" ~ "West Germany",
+      iso3c == "DDR" ~ "East Germany",
+      iso3c == "YAR" ~ "North Yemen",
+      iso3c == "YPR" ~ "South Yemen",
+      iso3c == "YUG" ~ "Yugoslavia",
+      .default = country
+    ))
 
 ##### WMEAT 2005 ----------------------------------------------------------------------
 # all the data needed is on Sheet 2- "By Country"
@@ -505,17 +739,20 @@ wmeat.2005.data <- wmeat.2005.data %>%
                 gdp.current.dollars = as.numeric(gdp.current.dollars) * 1000000,
                 population = as.numeric(population) * 1000000) %>%
   tidyr::pivot_longer(3:6, names_to = "variable", values_to = "value") %>%
-  # add WMEAT version year
-  dplyr::mutate(version = 2005,
-                # using the countrycode package, add iso3c code based on country name
-                iso3c = countrycode::countrycode(country,"country.name","iso3c"))
+  
+  dplyr::mutate(
+    # add WMEAT version year
+    version = 2005,
+    # using the countrycode package, add iso3c code based on country name
+    iso3c = countrycode::countrycode(country,"country.name","iso3c"),
+    # add missing iso3c codes
+    iso3c = dplyr::case_when(
+      country == "New  Zealand" ~ "NZL",
+      country == "Serbia and Montenegro" ~ "SRB",
+      country == "Yemen (Sanaa)" ~ "YEM", # Note data only covers time post-Yemeni unification
+      .default = iso3c
+    )) %>%
 
-# add missing iso3c codes
-wmeat.2005.data$iso3c[wmeat.2005.data$country=="New  Zealand"] <- "NZL"
-wmeat.2005.data$iso3c[wmeat.2005.data$country=="Serbia and Montenegro"] <- "SRB"
-wmeat.2005.data$iso3c[wmeat.2005.data$country=="Yemen (Sanaa)"] <- "YEM"
-
-wmeat.2005.data <- wmeat.2005.data %>%
   dplyr::select(-country) %>%
   # using the countrycode package, add country name based on iso3c code
   dplyr::mutate(country = countrycode::countrycode(iso3c,"iso3c","country.name"))
@@ -560,13 +797,15 @@ for(c in wmeat.2012.tab.list){
     # convert to long data
     tidyr::pivot_longer(2:12, names_to = "year", values_to = "value") %>%
     dplyr::rename(variable = "Parameter / Year") %>%
-    # convert to full value - multiply by 1,000 if variable is armed.personnel, otherwise multiply by 1,000,000
-    dplyr::mutate(value = ifelse(variable == "armed.personnel",
-                                 value * 1000,
-                                 value * 1000000),
-                  country = c,
-                  # using the countrycode package, add iso3c code based on country name
-                  iso3c = countrycode::countrycode(country,"country.name","iso3c")) %>%
+    dplyr::mutate(
+      # convert to full value - multiply by 1,000 if variable is armed.personnel, otherwise multiply by 1,000,000
+      value = ifelse(variable == "armed.personnel",
+                     value * 1000,
+                     value * 1000000),
+      country = c,
+      # using the countrycode package, add iso3c code based on country name
+      iso3c = countrycode::countrycode(country,"country.name","iso3c")
+      ) %>%
 
     # reorder variables
     dplyr::select(iso3c,country,year,variable,value)
@@ -624,13 +863,16 @@ for(c in wmeat.2016.tab.list){
     # convert to long data
     tidyr::pivot_longer(2:12, names_to = "year", values_to = "value") %>%
     dplyr::rename(variable = "Parameter / Year") %>%
-    # convert to full value - multiply by 1,000 if variable is armed.personnel, otherwise multiply by 1,000,000
-    dplyr::mutate(value = ifelse(variable == "armed.personnel",
-                                 value * 1000,
-                                 value * 1000000),
-                  country = c,
-                  # using the countrycode package, add iso3c code based on country name
-                  iso3c = countrycode::countrycode(country,"country.name","iso3c")) %>%
+    dplyr::mutate(
+      # convert to full value - multiply by 1,000 if variable is armed.personnel, otherwise multiply by 1,000,000
+      value = ifelse(variable == "armed.personnel",
+                     value * 1000,
+                     value * 1000000),
+      country = c,
+      # using the countrycode package, add iso3c code based on country name
+      iso3c = countrycode::countrycode(country,"country.name","iso3c")
+      ) %>%
+    
     # reorder variables
     dplyr::select(iso3c,country,year,variable,value)
   
@@ -688,13 +930,16 @@ for(c in wmeat.2019.tab.list){
     # convert to long data
     tidyr::pivot_longer(2:12, names_to = "year", values_to = "value") %>%
     dplyr::rename(variable = "Parameter / Year") %>%
-    # convert to full value - multiply by 1,000 if variable is armed.personnel, otherwise multiply by 1,000,000
-    dplyr::mutate(value = ifelse(variable == "armed.personnel",
-                                 value * 1000,
-                                 value * 1000000),
-                  country = c,
-                  # using the countrycode package, add iso3c code based on country name
-                  iso3c = countrycode::countrycode(country,"country.name","iso3c")) %>%
+    dplyr::mutate(
+      # convert to full value - multiply by 1,000 if variable is armed.personnel, otherwise multiply by 1,000,000
+      value = ifelse(variable == "armed.personnel",
+                     value * 1000,
+                     value * 1000000),
+      country = c,
+      # using the countrycode package, add iso3c code based on country name
+      iso3c = countrycode::countrycode(country,"country.name","iso3c")
+      ) %>%
+    
     # reorder variables
     dplyr::select(iso3c,country,year,variable,value)
    
@@ -713,65 +958,316 @@ wmeat.2019.data <- wmeat.2019.data %>%
   dplyr::mutate(version = 2019)
 
 ##### merge WMEAT datasets ----------------------------------------------------------------------
-wmeat.data <- rbind(wmeat.2019.data,wmeat.2016.data,wmeat.2012.data,wmeat.2005.data,wmeat.1995.data,wmeat.1984.data) %>%
+wmeat.data <- rbind(wmeat.2019.data,wmeat.2016.data,wmeat.2012.data,wmeat.2005.data,
+                    wmeat.1995.data,wmeat.1984.data,wmeat.1973.data) %>%
   dplyr::mutate(year = as.numeric(year)) %>%
   #dplyr::left_join(inflation_table,dplyr::join_by("version"=="year")) %>%
   dplyr::left_join(inflation_table,by="year") %>%
+  
   # adjust for inflation
   dplyr::mutate(value = ifelse(variable %in% c("gdp.current.dollars","military.expenditure.current.dollars"),
                                value * multiplier,
                                value)) %>%
+  
   dplyr::mutate(variable = case_when(
-    "military.expenditure.current.dollars" ~ "military.expenditure.wmeat",
-    "gdp.current.dollars" ~ "gdp.wmeat",
-    "population" ~ "population.wmeat",
-    "armed.personnel" ~ "armed.personnel.wmeat",
+    variable == "military.expenditure.current.dollars" ~ "military.expenditure.wmeat",
+    variable == "gdp.current.dollars" ~ "gdp.wmeat",
+    variable == "population" ~ "population.wmeat",
+    variable == "armed.personnel" ~ "armed.personnel.wmeat",
     .default = variable
   )) %>%
   tidyr::drop_na(value) %>%
+  
   # keep the most recent published version of the data
   dplyr::group_by(iso3c,year,variable) %>%
   dplyr::filter(version == max(version,na.rm=TRUE)) %>%
   dplyr::ungroup() %>%
+  
   dplyr::select(-c(multiplier,version,country)) %>%
   tidyr::pivot_wider(names_from = "variable", values_from = "value")
 
-#### merge cow, iiss, and wmeat datasets ----------------------------------------------------------------------
+### merge datasets ----------------------------------------------------------------------
 mildata <- dplyr::full_join(cow,military.balance.data,by=c("iso3c","year")) %>%
+  dplyr::full_join(sipri,by=c("iso3c","year")) %>%
   dplyr::full_join(wmeat.data,by=c("iso3c","year")) %>%
+  
   dplyr::mutate(
     # set COW data as default expenditure and personnel values for COW estimates
     mil.expenditure.cow = milex.cow,
     mil.personnel.cow = milper.cow,
+    
     # for missing COW estimate data, add in IISS data
     #mil.expenditure.cow = dplyr::coalesce(mil.expenditure.cow,defense.spending.iiss),
     #mil.personnel.cow = dplyr::coalesce(mil.personnel.cow,active.armed.forces.iiss),
+    
     # set WMEAT data as default expenditure and personnel values for WMEAT estimates
     mil.expenditure.wmeat = military.expenditure.wmeat,
     mil.personnel.wmeat = armed.personnel.wmeat,
+    
+    # set SIPRI data as default expenditure for SIPRI estimates
+    mil.expenditure.sipri = milexp.sipri,
+    
     # using the countrycode package, add country name based on iso3c code
-    country = countrycode::countrycode(iso3c,"iso3c","country.name")
-    ) %>%
+    country = countrycode::countrycode(iso3c,"iso3c","country.name"),
+    # add country names for missing iso3c codes
+    country = dplyr::case_when(
+      iso3c=="BRD" ~ "West Germany",
+      iso3c=="DDR" ~ "East Germany",
+      iso3c=="KSV" ~ "Kosovo",
+      iso3c=="RVN" ~ "South Vietnam",
+      iso3c=="YAR" ~ "North Yemen",
+      iso3c=="YPR" ~ "South Yemen",
+      iso3c=="YUG" ~ "Yugoslavia",
+      iso3c=="ZAN" ~ "Zanzibar",
+      .default = country
+    )) %>%
+  
   dplyr::relocate(country, .after = iso3c) %>%
   dplyr::relocate(mil.expenditure.cow, .after = year) %>%
   dplyr::relocate(mil.personnel.cow, .after = mil.expenditure.cow) %>%
   dplyr::relocate(mil.expenditure.wmeat, .after = mil.personnel.cow) %>%
-  dplyr::relocate(mil.personnel.wmeat, .after = mil.expenditure.wmeat)
+  dplyr::relocate(mil.personnel.wmeat, .after = mil.expenditure.wmeat) %>%
+  dplyr::relocate(mil.expenditure.sipri, .after = mil.personnel.wmeat)
 
-# add country names for missing iso3c codes
-mildata$country[mildata$iso3c=="BRD"] <- "West Germany"
-mildata$country[mildata$iso3c=="DDR"] <- "East Germany"
-mildata$country[mildata$iso3c=="KSV"] <- "Kosovo"
-mildata$country[mildata$iso3c=="RVN"] <- "South Vietnam"
-mildata$country[mildata$iso3c=="YAR"] <- "North Yemen"
-mildata$country[mildata$iso3c=="YPR"] <- "South Yemen"
-mildata$country[mildata$iso3c=="YUG"] <- "Yugoslavia"
-mildata$country[mildata$iso3c=="ZAN"] <- "Zanzibar"
+### military metrics estimator functions ----------------------------------------------------------------------
+mil_expenditure_growth_estimator_cow_func <- function(df = mildata, iso, yr, restricted = c(2013:2019), estimator = "IISS"){
+  
+  # selects which column to calculate the proportions from
+  estimator.column <- dplyr::case_when(
+    estimator == "IISS" ~ "defense.spending.iiss",
+    estimator == "WMEAT" ~ "military.expenditure.wmeat",
+    .default = "defense.spending.iiss"
+  )
+  
+  # the COW military expenditure baseline to estimate the proportions from
+  baseline <- df$mil.expenditure.cow[df$iso3c==iso&df$year==yr]
+  
+  # the IISS military expenditure to apply the proportions to
+  relative <- df %>%
+    dplyr::filter(iso3c == iso,
+                  year == yr) %>%
+    dplyr::pull(.data[[estimator.column]])
+  #relative <- df$defense.spending.iiss[df$iso3c==iso&df$year==yr]
 
-### military metrics estimator functions (old) ----------------------------------------------------------------------
+  df <- df %>%
+    dplyr::mutate(prop = baseline * .data[[estimator.column]] / relative,
+                  mil.expenditure.cow = ifelse(iso3c==iso&is.na(mil.expenditure.cow)&year %in% restricted,
+                                               prop,
+                                               mil.expenditure.cow)) %>%
+    # dplyr::mutate(prop = relative * defense.spending.iiss / baseline,
+    #               mil.expenditure.cow = ifelse(iso3c==iso&is.na(mil.expenditure.cow)&year %in% restricted,
+    #                                            prop,
+    #                                            mil.expenditure.cow)) %>%
+    dplyr::select(-prop)
+  
+  return(df)
+  
+}
+
+# this function approximates a COW military expenditure gap of one year using IISS or WMEAT data, calculating the distance the gap year
+# value in the reference data is from the preceding and proceding years and applying it to the COW data. This method only works when
+# both data series are trending similarly.
+mil_expenditure_distance_gap_estimator_cow_func <- function(df = mildata, iso, yrs, estimator = "IISS", yr.minus.1 = NA, yr.plus.1 = NA){
+  
+  # sets year - 1 and year + 1 to those default years if a different reference year is not selected
+  if(is.na(yr.minus.1)){
+    yr.minus.1 <- min(yrs, na.rm = TRUE) - 1
+  }
+  if(is.na(yr.plus.1)){
+    yr.plus.1 <- max(yrs, na.rm = TRUE) + 1
+  }
+  
+  # selects which column to calculate the proportions from
+  estimator.column <- dplyr::case_when(
+    estimator == "IISS" ~ "defense.spending.iiss",
+    estimator == "WMEAT" ~ "military.expenditure.wmeat",
+    .default = "defense.spending.iiss"
+  )
+  
+  # pulls estimates for yr.minus.1 and yr.plus.1 from the estimator data
+  est.expenditure.yearminus1 <- df %>%
+    dplyr::filter(iso3c == iso,
+                  year == yr.minus.1) %>%
+    dplyr::pull(all_of(estimator.column))
+  
+  est.expenditure.yearplus1 <- df %>%
+    dplyr::filter(iso3c == iso,
+                  year == yr.plus.1) %>%
+    dplyr::pull(all_of(estimator.column))
+  
+  # pulls estimates for yr.minus.1 and yr.plus.1 from the COW data
+  cow.expenditure.yearminus1 <- df %>%
+    dplyr::filter(iso3c == iso,
+                  year == yr.minus.1) %>%
+    dplyr::pull(mil.expenditure.cow)
+  
+  cow.expenditure.yearplus1 <- df %>%
+    dplyr::filter(iso3c == iso,
+                  year == yr.plus.1) %>%
+    dplyr::pull(mil.expenditure.cow)
+  
+  estimate.vector <- array()
+  
+  for(a in yrs){
+    
+    # pull estimates for year a from the estimator data
+    est.expenditure.year <- df %>%
+      dplyr::filter(iso3c == iso,
+                    year == a) %>%
+      dplyr::pull(all_of(estimator.column))
+    
+    # calculate estimate for year a
+    cow.est <- (
+      (est.expenditure.year - est.expenditure.yearplus1)*
+        (cow.expenditure.yearminus1 - cow.expenditure.yearplus1)/
+        (est.expenditure.yearminus1 - est.expenditure.yearplus1)
+      ) +
+      cow.expenditure.yearplus1
+    
+    estimate.vector <- c(estimate.vector,cow.est)
+    
+  }
+  
+  # remove first value (NA) from estimate.vector
+  estimate.vector <- estimate.vector[-1]
+
+  return(estimate.vector)
+  
+}
+
+# # this function approximates a COW military expenditure gap of one year using IISS or WMEAT data, calculating the distance the gap year
+# # value in the reference data is from the preceding and proceding years and applying it to the COW data. This method only works when
+# # both data series are trending similarly.
+# mil_expenditure_distance_gap_estimator_cow_func <- function(df = mildata, iso, yr, estimator = "IISS", yr.minus.1 = NA, yr.plus.1 = NA){
+#   
+#   # sets year - 1 and year + 1 to those default years if a different reference year is not selected
+#   if(is.na(yr.minus.1)){
+#     yr.minus.1 <- yr - 1
+#   }
+#   if(is.na(yr.plus.1)){
+#     yr.plus.1 <- yr + 1
+#   }
+#   
+#   # selects which column to calculate the proportions from
+#   estimator.column <- dplyr::case_when(
+#     estimator == "IISS" ~ "defense.spending.iiss",
+#     estimator == "WMEAT" ~ "military.expenditure.wmeat",
+#     .default = "defense.spending.iiss"
+#   )
+#   
+#   # pull estimates for the missing COW year and the two adjacent years from the estimator data
+#   est.expenditure.yearminus1 <- df %>%
+#     dplyr::filter(iso3c == iso,
+#                   year == yr.minus.1) %>%
+#     dplyr::pull(all_of(estimator.column))
+#   
+#   est.expenditure.year <- df %>%
+#     dplyr::filter(iso3c == iso,
+#                   year == yr) %>%
+#     dplyr::pull(all_of(estimator.column))
+#   
+#   est.expenditure.yearplus1 <- df %>%
+#     dplyr::filter(iso3c == iso,
+#                   year == yr.plus.1) %>%
+#     dplyr::pull(all_of(estimator.column))
+#   
+#   # pull estimates for COW for the adjacent years
+#   cow.expenditure.yearminus1 <- df %>%
+#     dplyr::filter(iso3c == iso,
+#                   year == yr.minus.1) %>%
+#     dplyr::pull(mil.expenditure.cow)
+#   
+#   cow.expenditure.yearplus1 <- df %>%
+#     dplyr::filter(iso3c == iso,
+#                   year == yr.plus.1) %>%
+#     dplyr::pull(mil.expenditure.cow)
+#   
+#   # calculate estimate
+#   cow.est <- ((est.expenditure.year - est.expenditure.yearplus1)*
+#                 (cow.expenditure.yearminus1 - cow.expenditure.yearplus1)/
+#                 (est.expenditure.yearminus1 - est.expenditure.yearplus1)) +
+#     cow.expenditure.yearplus1
+#   
+#   return(cow.est)
+# }
+
+# this function approximates a COW military expenditure gap of one year using IISS or WMEAT data, calculating the percent change
+# from the preceding and proceding years and applying the proportions to the COW values, returning the average of the estimates.
+mil_expenditure_gap_estimator_cow_func <- function(df = mildata, iso, yrs, estimator = "IISS", yr.minus.1 = NA, yr.plus.1 = NA){
+  
+  # sets year - 1 and year + 1 to those default years if a different reference year is not selected
+  if(is.na(yr.minus.1)){
+    yr.minus.1 <- min(yrs, na.rm = TRUE) - 1
+  }
+  if(is.na(yr.plus.1)){
+    yr.plus.1 <- max(yrs, na.rm = TRUE) + 1
+  }
+  
+  # selects which column to calculate the proportions from
+  estimator.column <- dplyr::case_when(
+    estimator == "IISS" ~ "defense.spending.iiss",
+    estimator == "WMEAT" ~ "military.expenditure.wmeat",
+    .default = "defense.spending.iiss"
+  )
+  
+  # pulls estimates for yr.minus.1 and yr.plus.1 from the estimator data
+  est.expenditure.yearminus1 <- df %>%
+    dplyr::filter(iso3c == iso,
+                  year == yr.minus.1) %>%
+    dplyr::pull(all_of(estimator.column))
+  
+  est.expenditure.yearplus1 <- df %>%
+    dplyr::filter(iso3c == iso,
+                  year == yr.plus.1) %>%
+    dplyr::pull(all_of(estimator.column))
+  
+  # pulls estimates for yr.minus.1 and yr.plus.1 from the COW data
+  cow.expenditure.yearminus1 <- df %>%
+    dplyr::filter(iso3c == iso,
+                  year == yr.minus.1) %>%
+    dplyr::pull(mil.expenditure.cow)
+  
+  cow.expenditure.yearplus1 <- df %>%
+    dplyr::filter(iso3c == iso,
+                  year == yr.plus.1) %>%
+    dplyr::pull(mil.expenditure.cow)
+
+  estimate.vector <- array()
+  
+  for(a in yrs){
+    
+    # pull estimates for year a from the estimator data
+    est.expenditure.year <- df %>%
+      dplyr::filter(iso3c == iso,
+                    year == a) %>%
+      dplyr::pull(all_of(estimator.column))
+    
+    # calculate percentage differences in reference data
+    est.ratio.yearminus1 <- est.expenditure.year / est.expenditure.yearminus1
+    est.ratio.yearplus1 <- est.expenditure.year / est.expenditure.yearplus1
+    
+    # calculate COW estimates based on percentages
+    cow.est.yearminus1 <- cow.expenditure.yearminus1 * est.ratio.yearminus1
+    cow.est.yearplus1 <- cow.expenditure.yearplus1 * est.ratio.yearplus1
+    
+    # average estimates
+    cow.est.average <- mean(c(cow.est.yearminus1,cow.est.yearplus1))
+    
+    estimate.vector <- c(estimate.vector,cow.est.average)
+    
+  }
+  
+  # remove first value (NA) from estimate.vector
+  estimate.vector <- estimate.vector[-1]
+  
+  return(estimate.vector)
+  
+}
+
+###### OLD
+
 # this function is used to estimate COW military expenditure and military personnel values based on rescaling
 # WMEAT data to equal the COW data on either end of the missing data.
-
 mil_estimator_rescaling_func <- function(df = mildata, iso, lower_year, upper_year, expenditure = FALSE,
                                          personnel = FALSE){
 
@@ -827,24 +1323,92 @@ mil_estimator_rescaling_func <- function(df = mildata, iso, lower_year, upper_ye
 }
 
 #### estimate missing values ----------------------------------------------------------------------
+# replace COW estimates 2010-2012 with IISS data that is more recently released, for countries whose
+# COW and IISS data broadly align outside 2012
+
+milbal.expenditure <- military.balance.data.premerge %>%
+  dplyr::filter(metric == "defense.spending") %>%
+  dplyr::arrange(year)
+
+# countries who will see substantial impacts based on replacing the data (>=10%
+# difference between at least one year's [2008-2012] COW and IISS epxenditure
+# data):
+# AFG, ALB, ARM, ATG, BGR*, BWA, COL, CPV, CUB, DJI, ESP, FJI, GBR*, GEO, GRC, HRV,
+# HUN, IDN, IND, IRL, IRN, ISR*, ITA, JAM, KGZ, KHM*, LBN, LBR, LKA*, LSO, LTU, LVA,
+# MUS, NAM, NOR*, NPL, NZL, PHL, PRT, ROU, SEN, SVK, TJK, TLS, TUR, TZA, UGA*, VEN,
+# YEM, ZWE
+
+# look into COW CUB data
+# look into FJI IISS data (rnd2)
+
+# *significant, but not >=10% difference
+
+expenditure.cow.iiss.replace <- c("AFG", "AGO", "ALB", "ARE", "ARG", "ARM", "ATG", "AUS", "AUT", "AZE", "BDI",
+                                  "BEL", "BEN", "BFA", "BGD", "BGR", "BHR", "BHS", "BIH", "BLR", "BLZ", "BOL",
+                                  "BRA", "BRB", "BRN", "BWA", "CAF", "CAN", "CHE", "CHL", "CHN", "CIV", "CMR",
+                                  "COD", "COG", "COL", "CPV", "CRI", "CUB", "CYP", "CZE", "DEU", "DJI", "DNK",
+                                  "DOM", "DZA", "ECU", "EGY", "ERI", "ESP", "EST", "ETH", "FIN", "FJI", "FRA",
+                                  "GAB", "GBR", "GEO", "GHA", "GIN", "GMB", "GNB", "GNQ", "GRC", "GTM", "GUY",
+                                  "HND", "HRV", "HUN", "IDN", "IND", "IRL", "IRN", "IRQ", "ISR", "ITA", "JAM",
+                                  "JOR", "JPN", "KAZ", "KEN", "KGZ", "KHM", "KOR", "KWT", "LAO", "LBN", "LBR",
+                                  "LBY", "LKA", "LSO", "LTU", "LUX", "LVA", "MAR", "MDA", "MDG", "MEX", "MKD",
+                                  "MLI", "MLT", "MMR", "MNE", "MNG", "MOZ", "MRT", "MUS", "MWI", "MYS", "NAM",
+                                  "NER", "NGA", "NIC", "NLD", "NOR", "NPL", "NZL", "OMN", "PAK", "PAN", "PER",
+                                  "PHL", "PNG", "POL", "PRT", "PRY", "QAT", "ROU", "RUS", "RWA", "SAU", "SDN",
+                                  "SEN", "SGP", "SLE", "SLV", "SOM", "SRB", "SSD", "SUR", "SVK", "SVN", "SWE",
+                                  "SYC", "SYR", "TCD", "TGO", "THA", "TJK", "TKM", "TLS", "TTO", "TUN", "TUR",
+                                  "TWN", "TZA", "UGA", "UKR", "URY", "USA", "UZB", "VEN", "VNM")
+
+# Not applied to: AND, BTN, COM, DMA, FSM, GRD, HTI, ISL, KIR, KNA, KSV, LCA, LIE, MCO, MDV, MHL, NRU, PLW, PRK,
+# SLB, SMR, STP, SWZ, TON, TUV, VUT, WSM
+
+# add new columns as an alternate to the primary way that keeps all COW estiamtes
+mildata <- mildata %>%
+  dplyr::mutate(
+    mil.expenditure.cow.alt = dplyr::case_when(
+      iso3c %in% expenditure.cow.iiss.replace ~ dplyr::coalesce(defense.spending.iiss,milex.cow),
+      !iso3c %in% expenditure.cow.iiss.replace ~ milex.cow,
+      .default = milex.cow
+    )
+  ) %>%
+  dplyr::relocate(mil.expenditure.cow.alt, .after = mil.expenditure.cow)
+
 # extending COW estimates 2013-2019 based on complete IISS data (if incomplete data, done under the
 # specific country). COW estimates for these metrics are sourced from IISS data, so this generally
 # amounts to updating the COW dataset.
+
+modern.mil.expenditure.data <- mildata %>%
+  dplyr::filter(year >= 2007) %>%
+  dplyr::select(iso3c,year,mil.expenditure.cow,mil.expenditure.wmeat,
+                milex.cow,defense.spending.iiss,military.expenditure.wmeat) %>%
+  dplyr::arrange(year) %>%
+  dplyr::mutate(cow.iiss.diff = mil.expenditure.cow / defense.spending.iiss)
+
+# sort(unique(mildata$iso3c))[1:50]
+# sort(unique(mildata$iso3c))[51:100]
+# sort(unique(mildata$iso3c))[101:150]
+# sort(unique(mildata$iso3c))[151:203]
 
 # Expenditure extended based on % growth, given that the 2012 COW and IISS estimates align (this
 # accounts for small differences from converting to 2019$)
 expenditure.cow.extend <- c("AFG", "AGO", "ALB", "ARG", "ARM", "ATG", "AUS", "AUT", "AZE", "BDI", "BEL", "BEN",
                             "BFA", "BGD", "BGR", "BHR", "BHS", "BIH", "BLR", "BLZ", "BOL", "BRA", "BRB", "BRN",
                             "CAN", "CHE", "CHL", "CHN", "CIV", "CMR", "COD", "COG", "CPV", "CRI", "CYP", "CZE",
-                            "DEU", "DNK", "DOM", "DZA", "ECU", "EGY", "EST", "ETH", "FIN", "FRA", "GAB", "GBR",
+                            "DEU", "DNK", "DOM", "DZA", "ECU", "EGY", "EST", "ETH", "FIN", "FJI", "FRA", "GAB",
+                            "GBR",
                             "GEO", "GHA", "GTM", "GUY", "HND", "HRV", "HUN", "IDN", "IRL", "IRQ", "ISR", "JAM",
                             "JOR", "JPN", "KAZ", "KEN", "KHM", "KOR", "KWT", "LBR", "LKA", "LSO", "LTU", "LUX",
-                            "MAR", "MDA", "MDG", "MEX", "MKD", "MLI", "MLT", "MMR", "MNE", "MNG", "MRT", "MUS",
-                            "MWI", "MYS", "NAM", "NGA", "NIC", "NLD", "NZL", "OMN", "PAK", "PAN", "PER", "PHL",
-                            "PNG", "POL", "PRT", "PRY", "ROU", "RUS", "RWA", "SAU", "SEN", "SGP", "SLE", "SLV",
-                            "SSD", "SVK", "SVN", "SWE", "TCD", "TGO", "THA", "TJK", "TLS", "TTO", "TUN", "TUR",
-                            "TWN", "TZA", "UGA", "UKR", "URY", "USA", "VNM", "ZAF", "ZMB", "ZWE")
+                            "MAR", "MDA", "MDG", "MEX", "MKD", "MLI", "MLT", "MMR", "MNE", "MNG", "MOZ", "MRT",
+                            "MUS", "MWI", "MYS", "NAM", "NGA", "NIC", "NLD", "NOR", "NZL", "OMN", "PAK", "PAN",
+                            "PER", "PHL", "PNG", "POL", "PRT", "PRY", "ROU", "RUS", "RWA", "SAU", "SEN", "SGP",
+                            "SLE", "SLV", "SSD", "SVK", "SVN", "SWE", "TCD", "TGO", "THA", "TJK", "TLS", "TTO",
+                            "TUN", "TUR", "TWN", "TZA", "UGA", "UKR", "URY", "USA", "VNM", "ZAF", "ZMB", "ZWE")
 
+for(c in expenditure.cow.extend){
+  
+  mildata <- mil_expenditure_growth_estimator_cow_func(df = mildata, iso = c, yr = 2012, restricted = c(2013:2019))
+
+}
 
 # Personnel extended if the 2012 COW and IISS estimates match
 personnel.cow.extend <- c("AFG", "AGO", "ALB", "ARE", "ARG", "ARM", "ATG", "AUS", "AUT", "AZE", "BDI", "BEL", "BEN",
@@ -861,248 +1425,1548 @@ personnel.cow.extend <- c("AFG", "AGO", "ALB", "ARE", "ARG", "ARM", "ATG", "AUS"
                           "SYC", "SYR", "TCD", "TGO", "THA", "TJK", "TKM", "TLS", "TTO", "TUN", "TUR", "TWN", "TZA",
                           "UGA", "UKR", "URY", "USA", "UZB", "VEN", "VNM", "YEM", "ZAF", "ZMB", "ZWE")
 
-# No cow both: AND, BTN, COM, DMA, FSM, GRD, KIR, KNA, KSV, LBY, LCA, LIE, MCO, MDV, MHL, NRU, PLW, PSE, SLB, SMR, SRB, STP, SWZ, TON, TUV, VCT, VUT, WSM
-# No cow expenditure: ARE, BWA, CAF, COL, CUB, DJI, ERI, ESP, FJI, GIN, GMB, GNB, GNQ, GRC, HTI, IND, IRN, ISL,
-# ITA, KGZ, LAO, LBN, LVA, MOZ, NER, NOR, NPL, PRK, QAT, SDN, SOM, SUR, SYC, SYR, TKM, UZB, VEN, YEM
-# No cow personnel: CIV
-
-##### AFG ----------------------------------------------------------------------
-##### AGO ----------------------------------------------------------------------
-##### ALB ----------------------------------------------------------------------
-##### AND ----------------------------------------------------------------------
-##### ARE ----------------------------------------------------------------------
-##### ARG ----------------------------------------------------------------------
-##### AUS ----------------------------------------------------------------------
-##### AUT ----------------------------------------------------------------------
-##### AZE ----------------------------------------------------------------------
-##### BDI ----------------------------------------------------------------------
-##### BEL ----------------------------------------------------------------------
-##### BEN ----------------------------------------------------------------------
-# mil.expenditure 1993
-
-# mil.expenditure 2005
-# mildata <- mil_estimator_rescaling_func(mildata, "BEN", lower_year = 2004,
-#                                         upper_year = 2006, expenditure = TRUE)
-
-##### BFA ----------------------------------------------------------------------
-##### BGD ----------------------------------------------------------------------
-##### BGR ----------------------------------------------------------------------
-##### BHR ----------------------------------------------------------------------
-##### BHS ----------------------------------------------------------------------
-##### BIH ----------------------------------------------------------------------
-##### BLR ----------------------------------------------------------------------
-##### BLZ ----------------------------------------------------------------------
-##### BOL ----------------------------------------------------------------------
-##### BRA ----------------------------------------------------------------------
-##### BRB ----------------------------------------------------------------------
-##### BRD ----------------------------------------------------------------------
-##### BRN ----------------------------------------------------------------------
-##### BTN ----------------------------------------------------------------------
-##### BWA ----------------------------------------------------------------------
-##### CAF ----------------------------------------------------------------------
-##### CAN ----------------------------------------------------------------------
-##### CHE ----------------------------------------------------------------------
-##### CHL ----------------------------------------------------------------------
-##### CHN ----------------------------------------------------------------------
-##### CIV ----------------------------------------------------------------------
-# mil.personnel 2012-2015
-# WMEAT estimates largely match COW estimates before and after the gap, so apply
-# WMEAT pattern to COW estimates
-civ.wmeat.mil.personnel.2011 <- mildata$armed.personnel.wmeat[mildata$iso3c=="CIV"&mildata$year==2011] # min
-civ.wmeat.mil.personnel.2016 <- mildata$armed.personnel.wmeat[mildata$iso3c=="CIV"&mildata$year==2016] # max
-civ.cow.mil.personnel.2011 <- mildata$mil.personnel[mildata$iso3c=="CIV"&mildata$year==2011] # min
-civ.cow.mil.personnel.2016 <- mildata$mil.personnel[mildata$iso3c=="CIV"&mildata$year==2016] # max
-civ.cow.mil.personnel.diff <- civ.cow.mil.personnel.2016 - civ.cow.mil.personnel.2011 # diff
-
-for(y in 2012:2015){
+for(c in personnel.cow.extend){
   
-  mildata$mil.personnel[mildata$iso3c=="CIV"&mildata$year==y] <- civ.cow.mil.personnel.2011 +
-    (civ.cow.mil.personnel.diff*(mildata$armed.personnel.wmeat[mildata$iso3c=="CIV"&mildata$year==y]-civ.wmeat.mil.personnel.2011)/
-       (civ.wmeat.mil.personnel.2016-civ.wmeat.mil.personnel.2011))
+  mildata <- mildata %>%
+    dplyr::mutate(mil.personnel.cow = ifelse(is.na(mil.personnel.cow)&year %in% c(2013:2019)&iso3c==c,active.armed.forces.iiss,mil.personnel.cow))
   
 }
 
+# Add estimates flag for remaining missing values
+# Note the above calculations are not included as estimate flags as they
+# are extending the original data beyond its time frame and the estimates
+# are sourced from the same dataset.
+# Several calculations based on the IISS data will remove the flag, but
+# only if they follow the same principal as above.
+mildata <- mildata %>%
+  dplyr::mutate(
+    mil.expenditure.cow.est.flag = ifelse(is.na(mil.expenditure.cow),1,0),
+    mil.expenditure.cow.alt.est.flag = ifelse(is.na(mil.expenditure.cow.alt),1,0),
+    mil.personnel.cow.est.flag = ifelse(is.na(mil.personnel.cow),1,0)
+    )
+
+# No cow both: AND, BTN, COM, DMA, FSM, GRD, KIR, KNA, KSV, LBY, LCA, LIE, MCO, MDV, MHL, NRU, PLW, PSE, SLB, SMR, SRB, STP, SWZ, TON, TUV, VCT, VUT, WSM
+# No cow expenditure: ARE, BWA, CAF, COL, CUB, DJI, ERI, ESP, GIN, GMB, GNB, GNQ, GRC, HTI, IND, IRN, ISL,
+# ITA, KGZ, LAO, LBN, LVA, NER, NPL, PRK, QAT, SDN, SOM, SUR, SYC, SYR, TKM, UZB, VEN, YEM
+# No cow personnel: CIV
+
+# expenditure viewer fx
+milexp.viewer <- function(iso){
+  
+  df <- mildata %>%
+    dplyr::filter(iso3c == iso) %>%
+    dplyr::select(year,mil.expenditure.cow,mil.expenditure.cow.alt,mil.expenditure.wmeat,mil.expenditure.sipri,
+                  milex.cow,defense.spending.iiss,military.expenditure.wmeat,milexp.sipri) %>%
+    dplyr::arrange(year)
+  
+  return(df)
+  
+}
+
+# personnel viewer fx
+milper.viewer <- function(iso){
+  
+  df <- mildata %>%
+    dplyr::filter(iso3c == iso) %>%
+    dplyr::select(year,mil.personnel.cow,mil.personnel.wmeat,milper.cow,active.armed.forces.iiss,reservists.iiss,
+                  active.paramilitary.iiss,armed.personnel.wmeat) %>%
+    dplyr::arrange(year)
+  
+  return(df)
+  
+}
+
+##### AFG(c) ----------------------------------------------------------------------
+# cow expenditure
+# 1946-1949
+# 1986-1989
+# 1991-1994
+# 2002-2004
+
+# wmeat expenditure
+# 1946-1962
+# 1985-1989
+# 1991-2000
+# 2018-2019
+
+# sipri expenditure
+# 1946-1969
+# 1971-1972
+# 1978-2003
+
+x <- milexp.viewer("AFG")
+
+# cow personnel
+# 1995-1998
+
+# 2001: calculate based on ratio between WMEAT 2001 and 2002 (2000 WMEAT is NA)
+afg.wmeat.personnel.2001 <- mildata$armed.personnel.wmeat[mildata$iso3c=="AFG"&mildata$year==2001]
+afg.wmeat.personnel.2002 <- mildata$armed.personnel.wmeat[mildata$iso3c=="AFG"&mildata$year==2002]
+
+afg.cow.personnel.2002 <- mildata$mil.personnel.cow[mildata$iso3c=="AFG"&mildata$year==2002]
+
+mildata$mil.personnel.cow[mildata$iso3c=="AFG"&mildata$year==2001] <- afg.cow.personnel.2002 * afg.wmeat.personnel.2001 / afg.wmeat.personnel.2002
+
+# cow personnel
+# 1995-1998
+# 2001
+
+# wmeat personnel
+# 1946-1962
+# 1995-2000
+# 2018-2019
+
+y <- milper.viewer("AFG")
+
+##### AGO(c) ----------------------------------------------------------------------
+# cow expenditure
+# 1976-1978
+# 1984
+# 1992
+
+# wmeat expenditure
+# tbd
+
+# sipri expenditure
+# 1975-1977
+
+x <- milexp.viewer("AGO")
+
+# cow personnel
+# good
+
+# wmeat personnel
+# 2018-2019
+
+y <- milper.viewer("AGO")
+
+##### ALB ----------------------------------------------------------------------
+# cow expenditure
+# good
+
+# wmeat expenditure
+# 2018-2019
+
+# sipri expenditure
+# 1946-1991
+
+x <- milexp.viewer("ALB")
+
+# cow personnel
+# good
+
+# wmeat personnel
+# tbd
+
+y <- milper.viewer("ALB")
+
+##### AND(x) ----------------------------------------------------------------------
+# needs work
+
+x <- milexp.viewer("AND")
+
+y <- milper.viewer("AND")
+
+##### ARE(c) ----------------------------------------------------------------------
+# cow expenditure
+# 2012-2013: use % change of IISS estimates
+mildata <- mil_expenditure_growth_estimator_cow_func(
+  df = mildata, iso = "ARE", yr = 2011, restricted = c(2012:2013))
+
+## remove estimate flag for 2012-2013
+mildata <- mildata %>%
+  dplyr::mutate(mil.expenditure.cow.est.flag  = dplyr::case_when(
+    iso3c == "ARE" & year %in% c(2012:2013) ~ 0,
+    .default = mil.expenditure.cow.est.flag
+  ))
+
+# 2014-2017: use % change of WMEAT estimates
+mildata <- mil_expenditure_growth_estimator_cow_func(
+  df = mildata, iso = "ARE", yr = 2013, restricted = c(2014:2017), estimator = "WMEAT")
+
+# (same for alt)
+
+# 2018-2019
+
+# wmeat expenditure
+# tbd
+
+# sipri expenditure
+# 1971-1996
+# 2015-2019
+
+x <- milexp.viewer("ARE")
+
+# cow personnel
+# good
+
+# wmeat personnel
+# tbd
+
+y <- milper.viewer("ARE")
+
+##### ARG ----------------------------------------------------------------------
+# cow expenditure
+# good
+
+# wmeat expenditure
+# tbd
+
+# sipri expenditure
+# 1946-1961
+
+x <- milexp.viewer("ARG")
+
+# cow personnel
+# good
+
+# wmeat personnel
+# tbd
+
+y <- milper.viewer("ARG")
+
+##### ARM(c) ----------------------------------------------------------------------
+# cow expenditure
+# 1994: apply proportion from WMEAT 1994 and 1995 values
+arm.wmeat.expenditure.1994 <- mildata$military.expenditure.wmeat[mildata$iso3c=="ARM"&mildata$year==1994]
+arm.wmeat.expenditure.1995 <- mildata$military.expenditure.wmeat[mildata$iso3c=="ARM"&mildata$year==1995]
+
+arm.cow.expenditure.1995 <- mildata$milex.cow[mildata$iso3c=="ARM"&mildata$year==1995]
+
+mildata$mil.expenditure.cow[mildata$iso3c=="ARM"&mildata$year==1994] <- arm.cow.expenditure.1995 *
+  arm.wmeat.expenditure.1994 / arm.wmeat.expenditure.1995
+
+# wmeat expenditure
+# tbd
+
+# sipri expenditure
+# 1991-1992
+# 1994
+
+x <- milexp.viewer("ARM")
+
+# cow personnel
+# 1991
+
+# wmeat personnel
+# tbd
+
+y <- milper.viewer("ARM")
+
+##### AUS ----------------------------------------------------------------------
+# cow est good
+
+##### AUT(c) ----------------------------------------------------------------------
+# cow pre-1955 needed
+
+##### AZE(c) ----------------------------------------------------------------------
+# cow est 1991 needed
+
+##### BDI ----------------------------------------------------------------------
+# cow expenditure
+# 1992: use average of WMEAT proportions for 1991 and 1993
+mildata$mil.expenditure.cow[mildata$iso3c=="BDI"&mildata$year==1992] <- mil_expenditure_gap_estimator_cow_func(
+  mildata, "BDI", yr = 1992, estimator = "WMEAT")
+
+##### BEL ----------------------------------------------------------------------
+# cow est good
+
+##### BEN ----------------------------------------------------------------------
+# cow expenditure
+# 1993: use average of WMEAT proportions for 1992 and 1994
+mildata$mil.expenditure.cow[mildata$iso3c=="BEN"&mildata$year==1993] <- mil_expenditure_gap_estimator_cow_func(
+  mildata, "BEN", yr = 1993, estimator = "WMEAT")
+
+# 2005: use average of WMEAT proportions for 2004 and 2006
+mildata$mil.expenditure.cow[mildata$iso3c=="BEN"&mildata$year==2005] <- mil_expenditure_gap_estimator_cow_func(
+  mildata, "BEN", yr = 2005, estimator = "WMEAT")
+
+##### BFA ----------------------------------------------------------------------
+# cow est good
+
+##### BGD(c) ----------------------------------------------------------------------
+# cow expenditure
+# 1971-1972
+
+x <- milexp.viewer("BGD")
+
+##### BGR ----------------------------------------------------------------------
+# cow est good
+
+##### BHR ----------------------------------------------------------------------
+# cow est good
+
+##### BHS ----------------------------------------------------------------------
+# cow expenditure
+# 1993: use average of 1992 and 1994
+mildata$mil.expenditure.cow[mildata$iso3c=="BHS"&mildata$year==1993] <- mean(c(
+  mildata$mil.expenditure.cow[mildata$iso3c=="BHS"&mildata$year==1992],
+  mildata$mil.expenditure.cow[mildata$iso3c=="BHS"&mildata$year==1994]
+  ))
+
+##### BIH ----------------------------------------------------------------------
+# cow est good
+
+##### BLR(c) ----------------------------------------------------------------------
+# cow expenditure
+# 1991
+
+# cow personnel
+# 1991
+# 1997-1998
+
+##### BLZ ----------------------------------------------------------------------
+# cow expenditure
+# 1992: use average of WMEAT proportions for 1991 and 1993
+mildata$mil.expenditure.cow[mildata$iso3c=="BLZ"&mildata$year==1992] <- mil_expenditure_gap_estimator_cow_func(
+  mildata, "BLZ", yr = 1992, estimator = "WMEAT")
+
+# 2008: use average of WMEAT proportions for 2007 and 2009
+mildata$mil.expenditure.cow[mildata$iso3c=="BLZ"&mildata$year==2008] <- mil_expenditure_gap_estimator_cow_func(
+  mildata, "BLZ", yr = 2008, estimator = "WMEAT")
+
+##### BOL(c) ----------------------------------------------------------------------
+# cow expenditure
+# 1949
+# 1951
+
+##### BRA ----------------------------------------------------------------------
+# cow est good
+
+##### BRB(c) ----------------------------------------------------------------------
+# cow expenditure
+# 1991-1992
+
+##### BRD ----------------------------------------------------------------------
+# cow est good
+
+##### BRN(c) ----------------------------------------------------------------------
+# cow expenditure
+# 1990: use average of WMEAT proportions for 1989 and 1992 (WMEAT 1991 is NA)
+mildata$mil.expenditure.cow[mildata$iso3c=="BRN"&mildata$year==1990] <- mil_expenditure_gap_estimator_cow_func(
+  mildata, "BRN", yrs = 1990, estimator = "WMEAT", yr.plus.1 = 1992)
+
+# 1991
+
+##### BTN(c) ----------------------------------------------------------------------
+# cow mostly missing data
+
+##### BWA(c) ----------------------------------------------------------------------
+# cow expenditure
+# 1992: estimate COW 1992 as equidistant point based on WMEAT 1991-1993 values
+mildata$mil.expenditure.cow[mildata$iso3c=="BWA"&mildata$year==1992] <- mil_expenditure_distance_gap_estimator_cow_func(
+  df = mildata, "BWA", 1992, estimator = "WMEAT")
+
+# 2013-2019
+# COW and IISS expenditure do not align
+
+x <- milexp.viewer("BWA")
+
+
+##### CAF ----------------------------------------------------------------------
+# cow expenditure
+# 1991: use average of 1990 and 1992
+mildata$mil.expenditure.cow[mildata$iso3c=="CAF"&mildata$year==1991] <- mean(c(
+  mildata$mil.expenditure.cow[mildata$iso3c=="CAF"&mildata$year==1990],
+  mildata$mil.expenditure.cow[mildata$iso3c=="CAF"&mildata$year==1992]
+))
+
+# 2012-2019: use IISS growth rates
+mildata <- mil_expenditure_growth_estimator_cow_func(df = mildata, "CAF", yr = 2011, restricted = c(2012:2019))
+
+## remove estimate flag for 2012-2019
+mildata <- mildata %>%
+  dplyr::mutate(mil.expenditure.cow.est.flag  = dplyr::case_when(
+    iso3c == "CAF" & year %in% c(2012:2019) ~ 0,
+    .default = mil.expenditure.cow.est.flag
+  ))
+
+##### CAN ----------------------------------------------------------------------
+# cow est good
+
+##### CHE ----------------------------------------------------------------------
+# cow est good
+
+##### CHL ----------------------------------------------------------------------
+# cow est good
+
+##### CHN ----------------------------------------------------------------------
+# cow est good
+
+##### CIV(c) ----------------------------------------------------------------------
+# cow est good
+
+# cow personnel
+# 2012-2019
+
+# # mil.personnel 2012-2015
+# # WMEAT estimates largely match COW estimates before and after the gap, so apply
+# # WMEAT pattern to COW estimates
+# civ.wmeat.mil.personnel.2011 <- mildata$armed.personnel.wmeat[mildata$iso3c=="CIV"&mildata$year==2011] # min
+# civ.wmeat.mil.personnel.2016 <- mildata$armed.personnel.wmeat[mildata$iso3c=="CIV"&mildata$year==2016] # max
+# civ.cow.mil.personnel.2011 <- mildata$mil.personnel[mildata$iso3c=="CIV"&mildata$year==2011] # min
+# civ.cow.mil.personnel.2016 <- mildata$mil.personnel[mildata$iso3c=="CIV"&mildata$year==2016] # max
+# civ.cow.mil.personnel.diff <- civ.cow.mil.personnel.2016 - civ.cow.mil.personnel.2011 # diff
+# 
+# for(y in 2012:2015){
+#   
+#   mildata$mil.personnel[mildata$iso3c=="CIV"&mildata$year==y] <- civ.cow.mil.personnel.2011 +
+#     (civ.cow.mil.personnel.diff*(mildata$armed.personnel.wmeat[mildata$iso3c=="CIV"&mildata$year==y]-civ.wmeat.mil.personnel.2011)/
+#        (civ.wmeat.mil.personnel.2016-civ.wmeat.mil.personnel.2011))
+#   
+# }
+
 ##### CMR ----------------------------------------------------------------------
+# cow est good
+
 ##### COD ----------------------------------------------------------------------
-# COD
-cow$milex[cow$iso3c=="COD"&cow$year==2002] <- (723094959+96146337)/2
-cow$milex[cow$iso3c=="COD"&cow$year==1992] <- 159321275
-###
+# cow expenditure
+# 1992: apply WMEAT 1992-1993 proportion to COW 1993 estimate (WMEAT 1991 is NA)
+cod.wmeat.expenditure.1992 <- mildata$military.expenditure.wmeat[mildata$iso3c=="COD"&mildata$year==1992]
+cod.wmeat.expenditure.1993 <- mildata$military.expenditure.wmeat[mildata$iso3c=="COD"&mildata$year==1993]
 
-# mil.expenditure 1992
+cod.cow.expenditure.1993 <- mildata$milex.cow[mildata$iso3c=="COD"&mildata$year==1993]
 
+mildata$mil.expenditure.cow[mildata$iso3c=="COD"&mildata$year==1992] <- cod.cow.expenditure.1993 *
+  cod.wmeat.expenditure.1992 / cod.wmeat.expenditure.1993
 
-# mil.expenditure 2002
+# 2002: use average of WMEAT proportions for 2001 and 2003
+mildata$mil.expenditure.cow[mildata$iso3c=="COD"&mildata$year==2002] <- mil_expenditure_gap_estimator_cow_func(
+  mildata, "COD", yr = 2002, estimator = "WMEAT")
 
 ##### COG ----------------------------------------------------------------------
-##### COL ----------------------------------------------------------------------
-##### COM ----------------------------------------------------------------------
-##### CPV ----------------------------------------------------------------------
-##### CRI ----------------------------------------------------------------------
-##### CUB ----------------------------------------------------------------------
+# cow expenditure
+# 1991: use average of WMEAT proportions for 1990 and 1992
+mildata$mil.expenditure.cow[mildata$iso3c=="COG"&mildata$year==1991] <- mil_expenditure_gap_estimator_cow_func(
+  mildata, "COG", yr = 1991, estimator = "WMEAT")
+
+# 1993: estimate COW 1993 as equidistant point based on WMEAT 1992-1994 values
+mildata$mil.expenditure.cow[mildata$iso3c=="BWA"&mildata$year==1992] <- mil_expenditure_distance_gap_estimator_cow_func(
+  df = mildata, "COG", 1993, estimator = "WMEAT")
+
+# 2002: use average of WMEAT proportions for 2001 and 2003
+mildata$mil.expenditure.cow[mildata$iso3c=="COG"&mildata$year==2002] <- mil_expenditure_gap_estimator_cow_func(
+  mildata, "COG", yr = 2002, estimator = "WMEAT")
+
+##### COL(c) ----------------------------------------------------------------------
+# COW and IISS expenditures do not match
+
+##### COM(c) ----------------------------------------------------------------------
+# cow lots of missing data
+
+##### CPV(c) ----------------------------------------------------------------------
+# cow expenditure
+# 1982-1990
+
+##### CRI(c) ----------------------------------------------------------------------
+# cow personnel
+# 2000-2001
+
+##### CUB(c) ----------------------------------------------------------------------
+# TODO: Check on IISS 2009 value - looks like an extra 0 was added
+#       Check on COW expenditure 1994 - looks very low
+
+# cow expenditure
+# 1946-1947
+# 1949
+# 1951
+# 1954
+# 1958-1959
+# 1976
+# 1992-1993
+# 2010: 
+
+# 2012: apply IISS proportions from 2011
+mildata <- mil_expenditure_growth_estimator_cow_func(
+  df = mildata, "CUB", yr = 2011, restricted = 2012)
+
+## remove estimate flag for 2012
+mildata <- mildata %>%
+  dplyr::mutate(mil.expenditure.cow.est.flag  = dplyr::case_when(
+    iso3c == "CUB" & year == 2012 ~ 0,
+    .default = mil.expenditure.cow.est.flag
+  ))
+
+# 2013-2017: apply WMEAT proportions from 2012
+mildata <- mil_expenditure_growth_estimator_cow_func(
+  df = mildata, "CUB", yr = 2012, restricted = c(2013:2017), estimator = "WMEAT")
+
+# 2018-2019
+
+x <- milexp.viewer("CUB")
+
 ##### CYP ----------------------------------------------------------------------
+# cow est good
+
 ##### CZE ----------------------------------------------------------------------
-##### DDR ----------------------------------------------------------------------
-##### DEU ----------------------------------------------------------------------
-##### DJI ----------------------------------------------------------------------
-##### DMA ----------------------------------------------------------------------
+# cow est good
+
+##### DDR(c) ----------------------------------------------------------------------
+# cow -1957 and 1990 needed
+
+##### DEU(c?) ----------------------------------------------------------------------
+# is pre-1990 BRD+DDR?
+# cow est good
+
+##### DJI(c) ----------------------------------------------------------------------
+# cow expenditure
+# 1978
+
+# 2012-2013: apply IISS proportions from 2011
+mildata <- mil_expenditure_growth_estimator_cow_func(
+  df = mildata, "DJI", yr = 2011, restricted = c(2012:2013))
+
+## remove estimate flag for 2012-2013
+mildata <- mildata %>%
+  dplyr::mutate(mil.expenditure.cow.est.flag  = dplyr::case_when(
+    iso3c == "DJI" & year %in% c(2012:2013) ~ 0,
+    .default = mil.expenditure.cow.est.flag
+  ))
+
+# 2014-2017: apply WMEAT proportions from 2013
+mildata <- mil_expenditure_growth_estimator_cow_func(
+  df = mildata, "DJI", yr = 2013, restricted = c(2014:2017), estimator = "WMEAT")
+
+# 2018-2019
+
+x <- milexp.viewer("DJI")
+
+##### DMA(c) ----------------------------------------------------------------------
+# cow 1980-1985 needed
+
 ##### DNK ----------------------------------------------------------------------
-##### DOM ----------------------------------------------------------------------
+# cow est good
+
+##### DOM(c) ----------------------------------------------------------------------
+# cow need 1948-1949, 1951-1952, 1956-1957
+
 ##### DZA ----------------------------------------------------------------------
-##### ECU ----------------------------------------------------------------------
+# cow est good
+
+##### ECU(c) ----------------------------------------------------------------------
+# cow need 1948
+
 ##### EGY ----------------------------------------------------------------------
-##### ERI ----------------------------------------------------------------------
-##### ESP ----------------------------------------------------------------------
-##### EST ----------------------------------------------------------------------
-##### ETH ----------------------------------------------------------------------
+# cow est good
+
+##### ERI(c) ----------------------------------------------------------------------
+# cow expenditure
+
+# 2006-2008
+
+# 2010: apply IISS proportions from 2011
+mildata <- mil_expenditure_growth_estimator_cow_func(
+  df = mildata, "ERI", yr = 2011, restricted = 2010)
+
+# 2012-2013: apply IISS proportions from 2011
+mildata <- mil_expenditure_growth_estimator_cow_func(
+  df = mildata, "ERI", yr = 2011, restricted = c(2012:2013))
+
+## remove estimate flag for 2012-2013
+mildata <- mildata %>%
+  dplyr::mutate(mil.expenditure.cow.est.flag  = dplyr::case_when(
+    iso3c == "ERI" & year %in% c(2012:2013) ~ 0,
+    .default = mil.expenditure.cow.est.flag
+  ))
+
+# 2014-2017: apply WMEAT proportions from 2013
+mildata <- mil_expenditure_growth_estimator_cow_func(
+  df = mildata, "ERI", yr = 2013, restricted = c(2014:2017), estimator = "WMEAT")
+
+x <- milexp.viewer("ERI")
+
+##### ESP(c) ----------------------------------------------------------------------
+# COW and IISS do not match
+
+##### EST(c) ----------------------------------------------------------------------
+# cow 1991 needed
+
+##### ETH(c) ----------------------------------------------------------------------
+# cow 1946-1958 needed
+
 ##### FIN ----------------------------------------------------------------------
-##### FJI ----------------------------------------------------------------------
+# cow est good
+
+##### FJI(c) ----------------------------------------------------------------------
+# fix 2011
+# cow several missing estimates
+
 ##### FRA ----------------------------------------------------------------------
-##### FSM ----------------------------------------------------------------------
-##### GAB ----------------------------------------------------------------------
+# cow est good
+
+##### FSM(c) ----------------------------------------------------------------------
+# cow est 2013-2019 needed
+
+##### GAB(c) ----------------------------------------------------------------------
+# cow expenditure
+# 1992-1993: estimate COW 1992-1993 as equidistant point based on WMEAT 1990-1994 values (WMEAT 1991 is NA)
+mildata$mil.expenditure.cow[mildata$iso3c=="GAB"&mildata$year==1992] <- mil_expenditure_distance_gap_estimator_cow_func(
+  df = mildata, iso = "GAB", yrs = c(1992:1993), estimator = "WMEAT", yr.minus.1 = 1990)[1]
+mildata$mil.expenditure.cow[mildata$iso3c=="GAB"&mildata$year==1993] <- mil_expenditure_distance_gap_estimator_cow_func(
+  df = mildata, iso = "GAB", yrs = c(1992:1993), estimator = "WMEAT", yr.minus.1 = 1990)[2]
+
+# 1991
+
+x <- milexp.viewer("GAB")
+
 ##### GBR ----------------------------------------------------------------------
-##### GEO ----------------------------------------------------------------------
+# cow est good
+
+##### GEO(c) ----------------------------------------------------------------------
+# cow 1991 and 1993 needed
+x <- milexp.viewer("GEO")
+
+# TODO: check COW 1992 expenditure value - looks like there is an extra 0
+
 ##### GHA ----------------------------------------------------------------------
-##### GIN ----------------------------------------------------------------------
-##### GMB ----------------------------------------------------------------------
-##### GNB ----------------------------------------------------------------------
-##### GNQ ----------------------------------------------------------------------
-##### GRC ----------------------------------------------------------------------
-##### GRD ----------------------------------------------------------------------
+# cow est good
+
+##### GIN(c) ----------------------------------------------------------------------
+# cow military expenditure
+# 2012-2013; 2015-2019: apply IISS growth estimates based on 2011
+mildata <- mil_expenditure_growth_estimator_cow_func(
+  df = mildata, iso = "GIN", yr = 2011, restricted = c(2012:2013,2015:2019))
+
+## remove estimate flag for 2012-2013, but not 2015-2019 due to the 2014 gap
+mildata <- mildata %>%
+  dplyr::mutate(mil.expenditure.cow.est.flag  = dplyr::case_when(
+    iso3c == "GIN" & year %in% c(2012:2013) ~ 0,
+    .default = mil.expenditure.cow.est.flag
+  ))
+
+# 2010: calculate IISS 2010 as a percent of 2009 and 2011 values, apply proportions
+# to COW estimates, and average the two estimates
+mildata$mil.expenditure.cow[mildata$iso3c=="GIN"&mildata$year==2010] <- mil_expenditure_gap_estimator_cow_func(
+  df = mildata, "GIN", 2010, estimator = "IISS")
+
+# 2014: calculate WMEAT 2014 as a percent of 2013 and 2015 values, apply proportions
+# to COW estimates, and average the two estimates
+mildata$mil.expenditure.cow[mildata$iso3c=="GIN"&mildata$year==2014] <- mil_expenditure_gap_estimator_cow_func(
+  df = mildata, "GIN", 2014, estimator = "WMEAT")
+
+# 1958-1959
+
+# 1985-1987
+
+# 1992: calculate WMEAT 1992 as a percent of 1991 and 1994 values (WMEAT 1993 is NA),
+# apply proportions to COW estimates, and average the two estimates
+mildata$mil.expenditure.cow[mildata$iso3c=="GIN"&mildata$year==1992] <- mil_expenditure_gap_estimator_cow_func(
+  df = mildata, "GIN", 1992, estimator = "WMEAT", yr.plus.1 = 1994)
+
+x <- milexp.viewer("GIN")
+
+##### GMB(c) ----------------------------------------------------------------------
+# cow military expenditure
+# 2012-2015: apply IISS growth estimates based on 2011
+mildata <- mil_expenditure_growth_estimator_cow_func(
+  df = mildata, iso = "GMB", yr = 2011, restricted = c(2012:2015))
+
+## remove estimate flag for 2012-2015
+mildata <- mildata %>%
+  dplyr::mutate(mil.expenditure.cow.est.flag  = dplyr::case_when(
+    iso3c == "GMB" & year %in% c(2012:2015) ~ 0,
+    .default = mil.expenditure.cow.est.flag
+  ))
+
+# 2016-2017: apply WMEAT growth estimates based on 2015 COW estimate
+mildata <- mil_expenditure_growth_estimator_cow_func(
+  df = mildata, iso = "GMB", yr = 2015, restricted = c(2016:2017), estimator = "WMEAT")
+
+# 2018-2019: 
+
+# 2010: estimate COW 2010 as equidistant point based on IISS 2009-2011 values
+mildata$mil.expenditure.cow[mildata$iso3c=="GMB"&mildata$year==2010] <- mil_expenditure_distance_gap_estimator_cow_func(
+  df = mildata, "GMB", 2010, estimator = "IISS")
+
+# 1990-1992: 
+# 1986: 
+# 1984: 
+
+x <- milexp.viewer("GMB")
+
+##### GNB(c) ----------------------------------------------------------------------
+# cow military expenditure
+# 2013: apply IISS growth estimates based on 2012
+mildata <- mil_expenditure_growth_estimator_cow_func(
+  df = mildata, iso = "GNB", yr = 2012, restricted = 2013)
+
+## remove estimate flag for 2013
+mildata <- mildata %>%
+  dplyr::mutate(mil.expenditure.cow.est.flag  = dplyr::case_when(
+    iso3c == "GNB" & year == 2013 ~ 0,
+    .default = mil.expenditure.cow.est.flag
+  ))
+
+# 2014-2017: apply WMEAT growth estimates based on 2013 COW estimate
+mildata <- mil_expenditure_growth_estimator_cow_func(
+  df = mildata, iso = "GNB", yr = 2013, restricted = c(2014:2017), estimator = "WMEAT")
+
+# 1975
+# 1988
+# 1991
+
+# 1992-1993: estimate COW 1992-1993 as equidistant point based on WMEAT 1989-1994 values (WMEAT 1989-1990 is NA)
+mildata$mil.expenditure.cow[mildata$iso3c=="GNB"&mildata$year==1992] <- mil_expenditure_distance_gap_estimator_cow_func(
+  df = mildata, "GNB", c(1992:1993), estimator = "WMEAT", yr.minus.1 = 1989)
+mildata$mil.expenditure.cow[mildata$iso3c=="GNB"&mildata$year==1993] <- mil_expenditure_distance_gap_estimator_cow_func(
+  df = mildata, "GNB", c(1992:1993), estimator = "WMEAT", yr.minus.1 = 1989)[2]
+
+# 2018-2019
+
+x <- milexp.viewer("GNB")
+
+##### GNQ(c) ----------------------------------------------------------------------
+# cow expenditure
+# 1977-1979
+# 1983-1993
+# 2010
+
+# 2010: estimate COW 2010 as equidistant point based on IISS 2009-2011 values
+mildata$mil.expenditure.cow[mildata$iso3c=="GNQ"&mildata$year==2010] <- mil_expenditure_distance_gap_estimator_cow_func(
+  df = mildata, "GNQ", 2010, estimator = "IISS")
+
+# 2012-2013: apply IISS growth estimates based on 2011 COW estimate
+mildata <- mil_expenditure_growth_estimator_cow_func(
+  df = mildata, iso = "GNQ", yr = 2011, restricted = c(2012:2013), estimator = "IISS")
+
+## remove estimate flag for 2012-2013
+mildata <- mildata %>%
+  dplyr::mutate(mil.expenditure.cow.est.flag  = dplyr::case_when(
+    iso3c == "GNQ" & year %in% c(2012:2013) ~ 0,
+    .default = mil.expenditure.cow.est.flag
+  ))
+
+# 2014-2019
+
+x <- milexp.viewer("GNQ")
+
+##### GRC(c) ----------------------------------------------------------------------
+# COW and IISS mismatch
+
+##### GRD(c) ----------------------------------------------------------------------
+# cow gaps
+
 ##### GTM ----------------------------------------------------------------------
-##### GUY ----------------------------------------------------------------------
+# cow est good
+
+##### GUY(c) ----------------------------------------------------------------------
+# cow expenditure
+# 1992
+# 2005-2008
+
+x <- milexp.viewer("GUY")
+
 ##### HND ----------------------------------------------------------------------
+# cow est good
+
 ##### HRV ----------------------------------------------------------------------
-##### HTI ----------------------------------------------------------------------
+# cow est good
+
+##### HTI(c) ----------------------------------------------------------------------
+# cow expenditure
+# 1986
+
+# 1993-1994: apply WMEAT growth estimates based on 1992 COW estimate
+mildata <- mil_expenditure_growth_estimator_cow_func(
+  df = mildata, iso = "HTI", yr = 1992, restricted = c(1993:1994), estimator = "WMEAT")
+
+# 2004-2009
+# 2010-2019
+
+x <- milexp.viewer("HTI")
+
 ##### HUN ----------------------------------------------------------------------
+# cow est good
+
 ##### IDN ----------------------------------------------------------------------
-##### IND ----------------------------------------------------------------------
+# cow est good
+
+##### IND(c) ----------------------------------------------------------------------
+# COW and IISS mismatch
+
 ##### IRL ----------------------------------------------------------------------
+# cow est good
+
 ##### IRN ----------------------------------------------------------------------
-##### IRQ ----------------------------------------------------------------------
-##### ISL ----------------------------------------------------------------------
+# cow expenditure
+# 1981: calculate WMEAT 1981 as a percent of 1980 and 1982 values, apply proportions
+# to COW estimates, and average the two estimates
+mildata$mil.expenditure.cow[mildata$iso3c=="IRN"&mildata$year==1981] <- mil_expenditure_gap_estimator_cow_func(
+  df = mildata, "IRN", 1981, estimator = "WMEAT")
+
+# 2013-2019: apply IISS growth estimates based on 2012 COW estimate
+mildata <- mil_expenditure_growth_estimator_cow_func(
+  df = mildata, iso = "IRN", yr = 2012, restricted = c(2013:2019), estimator = "IISS")
+
+x <- milexp.viewer("IRN")
+
+##### IRQ(c) ----------------------------------------------------------------------
+# cow expenditure
+# 2002-2008
+
+x <- milexp.viewer("IRQ")
+
+##### ISL(c) ----------------------------------------------------------------------
+# lots missing
+
 ##### ISR ----------------------------------------------------------------------
-##### ITA ----------------------------------------------------------------------
+# cow est good
+
+##### ITA(c) ----------------------------------------------------------------------
+# COW and IISS mismatch
+
 ##### JAM ----------------------------------------------------------------------
-##### JOR ----------------------------------------------------------------------
-##### JPN ----------------------------------------------------------------------
-##### KAZ ----------------------------------------------------------------------
+# cow est good
+
+##### JOR(c) ----------------------------------------------------------------------
+# cow personnel
+# 1960
+
+##### JPN(c) ----------------------------------------------------------------------
+# cow 1946-1951 needed
+
+##### KAZ(c) ----------------------------------------------------------------------
+# cow 1991 needed
+
 ##### KEN ----------------------------------------------------------------------
-##### KGZ ----------------------------------------------------------------------
-##### KHM ----------------------------------------------------------------------
-##### KIR ----------------------------------------------------------------------
-##### KNA ----------------------------------------------------------------------
+# cow est good
+
+##### KGZ(c) ----------------------------------------------------------------------
+# cow 1991 needed
+# need 2013-2019
+
+##### KHM(c) ----------------------------------------------------------------------
+# cow expenditure
+# 1976-1990
+
+##### KIR(c) ----------------------------------------------------------------------
+# missing a lot
+
+##### KNA(c) ----------------------------------------------------------------------
+# missing a lot
+
 ##### KOR ----------------------------------------------------------------------
-##### KSV ----------------------------------------------------------------------
+# cow est good
+
+##### KSV(c) ----------------------------------------------------------------------
+# cow 2013-2019 needed
+
 ##### KWT ----------------------------------------------------------------------
-##### LAO ----------------------------------------------------------------------
-##### LBN ----------------------------------------------------------------------
-##### LBR ----------------------------------------------------------------------
-##### LBY ----------------------------------------------------------------------
-##### LCA ----------------------------------------------------------------------
-##### LIE ----------------------------------------------------------------------
+# cow est good
+
+##### LAO(c) ----------------------------------------------------------------------
+# several missing periods
+# 1982-1983
+# 1986-1988
+# 1990-1991
+# 2004
+# 2010
+
+# 2013-2014: apply IISS growth estimates based on 2012 COW estimate
+mildata <- mil_expenditure_growth_estimator_cow_func(
+  df = mildata, iso = "LAO", yr = 2012, restricted = c(2013:2014), estimator = "IISS")
+
+## remove estimate flag for 2013-2014
+mildata <- mildata %>%
+  dplyr::mutate(mil.expenditure.cow.est.flag  = dplyr::case_when(
+    iso3c == "LAO" & year %in% c(2013:2014) ~ 0,
+    .default = mil.expenditure.cow.est.flag
+  ))
+
+# 2015-2017: apply WMEAT growth estimates based on 2014 COW estimate
+mildata <- mil_expenditure_growth_estimator_cow_func(
+  df = mildata, iso = "LAO", yr = 2014, restricted = c(2015:2017), estimator = "WMEAT")
+
+# 2018-2019
+
+x <- milexp.viewer("LAO")
+
+
+##### LBN(c) ----------------------------------------------------------------------
+# cow expenditure
+# 1987
+# 1989
+# 2013-2019
+
+x <- milexp.viewer("LBN")
+
+##### LBR(c) ----------------------------------------------------------------------
+# cow expenditure
+# 1946-1956
+# 1992
+# 2004-2008
+
+# 2012-2019: apply IISS growth estimates based on 2011 COW estimate
+mildata <- mil_expenditure_growth_estimator_cow_func(
+  df = mildata, iso = "LBR", yr = 2011, restricted = c(2012:2019), estimator = "IISS")
+
+## remove estimate flag for 2012-2019
+mildata <- mildata %>%
+  dplyr::mutate(mil.expenditure.cow.est.flag  = dplyr::case_when(
+    iso3c == "LBR" & year %in% c(2012:2019) ~ 0,
+    .default = mil.expenditure.cow.est.flag
+  ))
+
+# several gaps
+
+x <- milexp.viewer("LBR")
+
+##### LBY(c) ----------------------------------------------------------------------
+# cow expenditure
+# 1951-1958
+# 1985
+
+# 1993: estimate COW 1993 as equidistant point based on WMEAT 1992-1994 values
+mildata$mil.expenditure.cow[mildata$iso3c=="LBY"&mildata$year==1993] <- mil_expenditure_distance_gap_estimator_cow_func(
+  df = mildata, "LBY", 1993, estimator = "WMEAT")
+
+# 2011: calculate IISS 2011 as a percent of 2010 and 2012 values, apply proportions
+# to COW estimates, and average the two estimates
+mildata$mil.expenditure.cow[mildata$iso3c=="LBY"&mildata$year==2011] <- mil_expenditure_gap_estimator_cow_func(
+  df = mildata, "LBY", 2011, estimator = "IISS")
+
+# 2013: apply IISS growth estimates based on 2012 COW estimate
+mildata <- mil_expenditure_growth_estimator_cow_func(
+  df = mildata, iso = "LBY", yr = 2012, restricted = 2013, estimator = "IISS")
+
+## remove estimate flag for 2013
+mildata <- mildata %>%
+  dplyr::mutate(mil.expenditure.cow.est.flag  = dplyr::case_when(
+    iso3c == "LBY" & year == 2013 ~ 0,
+    .default = mil.expenditure.cow.est.flag
+  ))
+
+# 2014-2017: apply WMEAT growth estimates based on 2013 COW estimate
+mildata <- mil_expenditure_growth_estimator_cow_func(
+  df = mildata, iso = "LBY", yr = 2013, restricted = c(2014:2017), estimator = "WMEAT")
+
+# 2018-2019
+
+x <- milexp.viewer("LBY")
+
+##### LCA(c) ----------------------------------------------------------------------
+# cow 2013-2019 needed
+
+##### LIE(c) ----------------------------------------------------------------------
+# cow 2013-2019 needed
+
 ##### LKA ----------------------------------------------------------------------
+# cow est good
+
 ##### LSO ----------------------------------------------------------------------
-##### LTU ----------------------------------------------------------------------
+# cow est good
+
+##### LTU(c) ----------------------------------------------------------------------
+# cow 1991 needed
+
 ##### LUX ----------------------------------------------------------------------
-##### LVA ----------------------------------------------------------------------
+# cow est good
+
+##### LVA(c) ----------------------------------------------------------------------
+# cow expenditure
+# 1991
+# 2013-2019
+
+x <- milexp.viewer("LVA")
+
 ##### MAR ----------------------------------------------------------------------
-##### MCO ----------------------------------------------------------------------
-##### MDA ----------------------------------------------------------------------
-##### MDG ----------------------------------------------------------------------
-##### MDV ----------------------------------------------------------------------
+# cow est good
+
+##### MCO(c) ----------------------------------------------------------------------
+# cow 1993, 2013-2019 needed
+
+##### MDA(c) ----------------------------------------------------------------------
+# cow 1991 needed
+
+##### MDG(c) ----------------------------------------------------------------------
+# cow expenditure
+# 1999-2001
+
+x <- milexp.viewer("MDG")
+
+##### MDV(c) ----------------------------------------------------------------------
+# lots missing
+
 ##### MEX ----------------------------------------------------------------------
-##### MHL ----------------------------------------------------------------------
-##### MKD ----------------------------------------------------------------------
+# cow est good
+
+##### MHL(c) ----------------------------------------------------------------------
+# cow 2013-2019 needed
+
+##### MKD(c) ----------------------------------------------------------------------
+# cow expenditure
+# 1992
+
+x <- milexp.viewer("MKD")
+
 ##### MLI ----------------------------------------------------------------------
+# cow est good
+
 ##### MLT ----------------------------------------------------------------------
-##### MMR ----------------------------------------------------------------------
-##### MNE ----------------------------------------------------------------------
-##### MNG ----------------------------------------------------------------------
+# cow est good
+
+##### MMR(c) ----------------------------------------------------------------------
+# cow expenditure
+# 2008-2009 needed
+
+x <- milexp.viewer("MMR")
+
+##### MNE(c) ----------------------------------------------------------------------
+# cow personnel
+# 2006-2007
+
+##### MNG(c) ----------------------------------------------------------------------
+# cow expenditure
+# 1946-1947
+# 1949-1951
+# 1954
+# 1956
+# 1958-1959
+
+x <- milexp.viewer("MNG")
+
+# cow personnel
+# 1946-1948
+
 ##### MOZ ----------------------------------------------------------------------
-##### MRT ----------------------------------------------------------------------
-##### MUS ----------------------------------------------------------------------
-##### MWI ----------------------------------------------------------------------
+# cow expenditure
+# 2012-2019: apply IISS growth estimates based on 2011
+mildata <- mil_expenditure_growth_estimator_cow_func(
+  df = mildata, iso = "MOZ", yr = 2011, restricted = c(2012:2019))
+
+## remove estimate flag for 2012-2019
+mildata <- mildata %>%
+  dplyr::mutate(mil.expenditure.cow.est.flag  = dplyr::case_when(
+    iso3c == "MOZ" & year %in% c(2012:2019) ~ 0,
+    .default = mil.expenditure.cow.est.flag
+  ))
+
+# 2010: calculate IISS 2010 as a percent of 2009 and 2011 values, apply proportions
+# to COW estimates, and average the two estimates
+mildata$mil.expenditure.cow[mildata$iso3c=="MOZ"&mildata$year==2010] <- mil_expenditure_gap_estimator_cow_func(
+  df = mildata, "MOZ", 2010, estimator = "IISS")
+
+##### MRT(c) ----------------------------------------------------------------------
+# cow expenditure
+# 1988
+
+# 1990: estimate COW 1990 as equidistant point based on WMEAT 1989-1991 values
+mildata$mil.expenditure.cow[mildata$iso3c=="MRT"&mildata$year==1990] <- mil_expenditure_distance_gap_estimator_cow_func(
+  df = mildata, "MRT", 1990, estimator = "WMEAT")
+
+##### MUS(c) ----------------------------------------------------------------------
+# cow personnel
+# 2000-2004
+
+##### MWI(c) ----------------------------------------------------------------------
+# cow expenditure
+# 2010
+
+# confirm IISS value - appears to have extra 0
+
 ##### MYS ----------------------------------------------------------------------
+# cow est good
+
 ##### NAM ----------------------------------------------------------------------
+# cow est good
+
 ##### NER ----------------------------------------------------------------------
+# cow expenditure
+# 2013-2019
+# 2013; 2015-2019: apply IISS growth estimates based on 2012
+mildata <- mil_expenditure_growth_estimator_cow_func(
+  df = mildata, iso = "NER", yr = 2012, restricted = c(2013,2015:2019))
+
+## remove estimate flag for 2013, but not 2015-2019 due to the 2014 gap
+mildata <- mildata %>%
+  dplyr::mutate(mil.expenditure.cow.est.flag  = dplyr::case_when(
+    iso3c == "NER" & year == 2013 ~ 0,
+    .default = mil.expenditure.cow.est.flag
+  ))
+
+# 2014: estimate COW 2014 as equidistant point based on WMEAT 2013-2015 values
+mildata$mil.expenditure.cow[mildata$iso3c=="NER"&mildata$year==2014] <- mil_expenditure_distance_gap_estimator_cow_func(
+  df = mildata, "NER", 2014, estimator = "WMEAT")
+
 ##### NGA ----------------------------------------------------------------------
-##### NIC ----------------------------------------------------------------------
+# cow est good
+
+##### NIC(c) ----------------------------------------------------------------------
+# cow expenditure
+# 1946-1956
+# 1989
+
 ##### NLD ----------------------------------------------------------------------
+# cow est good
+
 ##### NOR ----------------------------------------------------------------------
-##### NPL ----------------------------------------------------------------------
-##### NRU ----------------------------------------------------------------------
-##### NZL ----------------------------------------------------------------------
+# cow est good
+
+##### NPL(c) ----------------------------------------------------------------------
+# cow expenditure
+# 1946-1949
+# 1953
+
+# 2013-2019: apply IISS growth estimates based on 2012
+mildata <- mil_expenditure_growth_estimator_cow_func(
+  df = mildata, iso = "NPL", yr = 2012, restricted = c(2013:2019))
+
+##### NRU(c) ----------------------------------------------------------------------
+
+##### NZL(c) ----------------------------------------------------------------------
+# mil personnel
+# 1946-1949
+
 ##### OMN ----------------------------------------------------------------------
+# cow est good
+
 ##### PAK ----------------------------------------------------------------------
-##### PAN ----------------------------------------------------------------------
+# cow est good
+
+##### PAN(c) ----------------------------------------------------------------------
+# cow expenditure
+# 1946-1959
+
+# cow personnel
+# 2000-2001
+
 ##### PER ----------------------------------------------------------------------
+# cow est good
+
 ##### PHL ----------------------------------------------------------------------
-##### PLW ----------------------------------------------------------------------
+# cow est good
+
+##### PLW(c) ----------------------------------------------------------------------
+
 ##### PNG ----------------------------------------------------------------------
+# cow est good
+
 ##### POL ----------------------------------------------------------------------
-##### PRK ----------------------------------------------------------------------
-##### PRT ----------------------------------------------------------------------
-##### PRY ----------------------------------------------------------------------
-##### PSE ----------------------------------------------------------------------
-##### QAT ----------------------------------------------------------------------
+# cow est good
+
+##### PRK(c) ----------------------------------------------------------------------
+# cow expenditure
+# 1949-1957
+# 1959
+
+# 2002-2017: apply WMEAT growth estimates based on 2001
+mildata <- mil_expenditure_growth_estimator_cow_func(
+  df = mildata, iso = "PRK", yr = 2001, restricted = c(2002:2017), estimator = "WMEAT")
+
+# 2018-2019
+
+##### PRT(c) ----------------------------------------------------------------------
+# cow personnel
+# 1946-1947
+
+##### PRY(c) ----------------------------------------------------------------------
+# cow expenditure
+# 1948-1949
+# 1953
+
+##### PSE(c,?) ----------------------------------------------------------------------
+
+##### QAT(c) ----------------------------------------------------------------------
+# cow expenditure
+# 1982
+# 1986
+# 1989-1990
+
+# 1992: estimate COW 1992 as equidistant point based on WMEAT 1991-1993 values
+mildata$mil.expenditure.cow[mildata$iso3c=="QAT"&mildata$year==1992] <- mil_expenditure_distance_gap_estimator_cow_func(
+  df = mildata, "QAT", 1992, estimator = "WMEAT")
+
+# 2012-2016: apply IISS growth estimates based on 2011
+mildata <- mil_expenditure_growth_estimator_cow_func(
+  df = mildata, iso = "QAT", yr = 2011, restricted = c(2012:2016))
+
+## remove estimate flag for 2012-2016
+mildata <- mildata %>%
+  dplyr::mutate(mil.expenditure.cow.est.flag  = dplyr::case_when(
+    iso3c == "QAT" & year %in% c(2012:2016) ~ 0,
+    .default = mil.expenditure.cow.est.flag
+  ))
+
+# 2017: apply WMEAT growth estimates based on 2016
+mildata <- mil_expenditure_growth_estimator_cow_func(
+  df = mildata, iso = "QAT", yr = 2016, restricted = 2017, estimator = "WMEAT")
+
+# 2018-2019
+
+x <- milexp.viewer("QAT")
+
 ##### ROU ----------------------------------------------------------------------
-##### RUS ----------------------------------------------------------------------
+# cow est good
+
+##### RUS(!) ----------------------------------------------------------------------
+
 ##### RVN ----------------------------------------------------------------------
+# cow est good
+
 ##### RWA ----------------------------------------------------------------------
-##### SAU ----------------------------------------------------------------------
-##### SDN ----------------------------------------------------------------------
+# cow est good
+
+##### SAU(c) ----------------------------------------------------------------------
+# cow expenditure
+# 1946
+# 1949-1950
+# 1956
+
+##### SDN(c) ----------------------------------------------------------------------
+# cow expenditure
+# 2006-2008
+
+# 2013: apply IISS growth estimates based on 2011
+mildata <- mil_expenditure_growth_estimator_cow_func(
+  df = mildata, iso = "SDN", yr = 2011, restricted = 2013)
+
+# 2012: calculate WMEAT 2012 as a percent of 2011 and 2013 values, apply proportions
+# to COW estimates, and average the two estimates
+mildata$mil.expenditure.cow[mildata$iso3c=="SDN"&mildata$year==2012] <- mil_expenditure_gap_estimator_cow_func(
+  df = mildata, "SDN", 2012, estimator = "WMEAT")
+
+# 2014-2017: apply WMEAT growth estimates based on 2013
+mildata <- mil_expenditure_growth_estimator_cow_func(
+  df = mildata, iso = "SDN", yr = 2013, restricted = c(2014:2017), estimator = "WMEAT")
+
+# 2018-2019
+
 ##### SEN ----------------------------------------------------------------------
+# cow est good
+
 ##### SGP ----------------------------------------------------------------------
-##### SLB ----------------------------------------------------------------------
+# cow est good
+
+##### SLB(c) ----------------------------------------------------------------------
+
 ##### SLE ----------------------------------------------------------------------
+# cow expenditure
+# 1992: calculate WMEAT 1992 as a percent of 1991 and 1993 values, apply proportions
+# to COW estimates, and average the two estimates
+mildata$mil.expenditure.cow[mildata$iso3c=="SLE"&mildata$year==1992] <- mil_expenditure_gap_estimator_cow_func(
+  df = mildata, "SLE", 1992, estimator = "WMEAT")
+
 ##### SLV ----------------------------------------------------------------------
-##### SMR ----------------------------------------------------------------------
-##### SOM ----------------------------------------------------------------------
-##### SRB ----------------------------------------------------------------------
-##### SSD ----------------------------------------------------------------------
-##### STP ----------------------------------------------------------------------
+# cow est good
+
+##### SMR(c) ----------------------------------------------------------------------
+
+##### SOM(c) ----------------------------------------------------------------------
+# cow expenditure
+# 1991-1994
+# 2002-2004
+
+# 2005-2008: apply WMEAT growth estimates based on 2009
+mildata <- mil_expenditure_growth_estimator_cow_func(
+  df = mildata, iso = "SOM", yr = 2009, restricted = c(2005:2008), estimator = "WMEAT")
+
+# 2010-2017: apply WMEAT growth estimates based on 2009
+mildata <- mil_expenditure_growth_estimator_cow_func(
+  df = mildata, iso = "SOM", yr = 2009, restricted = c(2010:2017), estimator = "WMEAT")
+
+# 2018-2019
+
+# cow personnel
+# 1994-1998
+# 2001-2004
+# 2007-2008
+
+x <- milexp.viewer("SOM")
+
+##### SRB(!) ----------------------------------------------------------------------
+
+##### SSD(c) ----------------------------------------------------------------------
+# cow personnel
+# 2011
+
+##### STP(c) ----------------------------------------------------------------------
+# cow expenditure
+# 1981-1993
+# 2000-2019
+
+x <- milexp.viewer("STP")
+
 ##### SUR ----------------------------------------------------------------------
-# Missing mil.expenditure for 1978-1981, 1987, 2014-
+# cow expenditure
+# 1978-1981
+# 1987
+
+# 2012-2014: apply IISS growth estimates based on 2011
+mildata <- mil_expenditure_growth_estimator_cow_func(
+  df = mildata, iso = "SUR", yr = 2011, restricted = c(2012:2013))
+
+## remove estimate flag for 2012-2013
+mildata <- mildata %>%
+  dplyr::mutate(mil.expenditure.cow.est.flag  = dplyr::case_when(
+    iso3c == "SUR" & year %in% c(2012:2013) ~ 0,
+    .default = mil.expenditure.cow.est.flag
+  ))
+
+# 2014-2017: apply WMEAT growth estimates based on 2013
+mildata <- mil_expenditure_growth_estimator_cow_func(
+  df = mildata, iso = "SUR", yr = 2013, restricted = c(2014:2017), estimator = "WMEAT")
+
+# 2018-2019
+
+x <- milexp.viewer("SUR")
 
 ##### SVK ----------------------------------------------------------------------
-##### SVN ----------------------------------------------------------------------
-##### SWE ----------------------------------------------------------------------
-##### SWZ ----------------------------------------------------------------------
-##### SYC ----------------------------------------------------------------------
-##### SYR ----------------------------------------------------------------------
-##### TCD ----------------------------------------------------------------------
-##### TGO ----------------------------------------------------------------------
-##### THA ----------------------------------------------------------------------
-##### TJK ----------------------------------------------------------------------
-##### TKM ----------------------------------------------------------------------
-##### TLS ----------------------------------------------------------------------
-##### TON ----------------------------------------------------------------------
-##### TTO ----------------------------------------------------------------------
-##### TUN ----------------------------------------------------------------------
-##### TUR ----------------------------------------------------------------------
-##### TUV ----------------------------------------------------------------------
-##### TWN ----------------------------------------------------------------------
-##### TZA ----------------------------------------------------------------------
-##### UGA ----------------------------------------------------------------------
-##### UKR ----------------------------------------------------------------------
-##### URY ----------------------------------------------------------------------
-##### USA ----------------------------------------------------------------------
-##### UZB ----------------------------------------------------------------------
-##### VCT ----------------------------------------------------------------------
-##### VEN ----------------------------------------------------------------------
-##### VNM ----------------------------------------------------------------------
-##### VUT ----------------------------------------------------------------------
-##### WSM ----------------------------------------------------------------------
-##### YAR ----------------------------------------------------------------------
-##### YEM ----------------------------------------------------------------------
-##### YPR ----------------------------------------------------------------------
-##### YUG ----------------------------------------------------------------------
-##### ZAF ----------------------------------------------------------------------
-##### ZAN ----------------------------------------------------------------------
-##### ZMB ----------------------------------------------------------------------
-##### ZWE ----------------------------------------------------------------------
+# cow est good
 
+##### SVN ----------------------------------------------------------------------
+# cow expenditure
+# 1993: estimate COW 1993 as equidistant point based on WMEAT 1992-1994 values
+mildata$mil.expenditure.cow[mildata$iso3c=="SVN"&mildata$year==1993] <- mil_expenditure_distance_gap_estimator_cow_func(
+  df = mildata, "SVN", 1993, estimator = "WMEAT")
+
+##### SWE(c) ----------------------------------------------------------------------
+# cow personnel
+# 1946-1956
+
+##### SWZ(c) ----------------------------------------------------------------------
+# cow expenditure
+# 1992: estimate COW 1992 as equidistant point based on WMEAT 1991-1993 values
+mildata$mil.expenditure.cow[mildata$iso3c=="SWZ"&mildata$year==1992] <- mil_expenditure_distance_gap_estimator_cow_func(
+  df = mildata, "SWZ", 1992, estimator = "WMEAT")
+
+# 2002-2017: apply WMEAT growth estimates based on 2001
+mildata <- mil_expenditure_growth_estimator_cow_func(
+  df = mildata, iso = "SWZ", yr = 2001, restricted = c(2002:2017), estimator = "WMEAT")
+
+# 2018-2019
+
+# TODO: check COW 2000 expenditure
+
+x <- milexp.viewer("SWZ")
+
+# cow personnel
+# 2000-2019
+
+##### SYC(c) ----------------------------------------------------------------------
+# cow expenditure
+# 1978-1979
+# 1988
+# 1990
+# 2011
+# 2013-2019
+
+# cow personnel
+# 1995-1998
+
+##### SYR(c) ----------------------------------------------------------------------
+# cow expenditure
+# 2011: apply WMEAT growth estimates based on 2010
+mildata <- mil_expenditure_growth_estimator_cow_func(
+  df = mildata, iso = "SYC", yr = 2010, restricted = 2011, estimator = "IISS")
+
+## remove estimate flag for 2011
+mildata <- mildata %>%
+  dplyr::mutate(mil.expenditure.cow.est.flag  = dplyr::case_when(
+    iso3c == "SYR" & year == 2011 ~ 0,
+    .default = mil.expenditure.cow.est.flag
+  ))
+
+# 2012-2017: apply WMEAT growth estimates based on 2011
+mildata <- mil_expenditure_growth_estimator_cow_func(
+  df = mildata, iso = "SYR", yr = 2011, restricted = c(2012:2017), estimator = "WMEAT")
+
+# 2018-2019
+
+##### TCD ----------------------------------------------------------------------
+# cow est good
+
+##### TGO ----------------------------------------------------------------------
+# cow expenditure
+# 1992: calculate WMEAT 1992 as a percent of 1991 and 1993 values, apply proportions
+# to COW estimates, and average the two estimates
+mildata$mil.expenditure.cow[mildata$iso3c=="TGO"&mildata$year==1992] <- mil_expenditure_gap_estimator_cow_func(
+  df = mildata, "TGO", 1992, estimator = "WMEAT")
+
+##### THA ----------------------------------------------------------------------
+# cow est good
+
+##### TJK(c) ----------------------------------------------------------------------
+# cow expenditure
+# 1991
+
+# cow personnel
+# 1991
+
+##### TKM(c) ----------------------------------------------------------------------
+# cow expenditure
+# 1991
+# 2009: apply WMEAT growth estimates based on 2010
+mildata <- mil_expenditure_growth_estimator_cow_func(
+  df = mildata, iso = "TKM", yr = 2010, restricted = 2009, estimator = "IISS")
+
+# 2011: calculate IISS 2011 as a percent of 2010 and 2012 values, apply proportions
+# to COW estimates, and average the two estimates
+mildata$mil.expenditure.cow[mildata$iso3c=="TKM"&mildata$year==2011] <- mil_expenditure_gap_estimator_cow_func(
+  df = mildata, "TKM", 2011, estimator = "IISS")
+
+# 2013: apply IISS growth estimates based on 2012
+mildata <- mil_expenditure_growth_estimator_cow_func(
+  df = mildata, iso = "TKM", yr = 2012, restricted = 2013, estimator = "IISS")
+
+## remove estimate flag for 2013
+mildata <- mildata %>%
+  dplyr::mutate(mil.expenditure.cow.est.flag  = dplyr::case_when(
+    iso3c == "TKM" & year == 2013 ~ 0,
+    .default = mil.expenditure.cow.est.flag
+  ))
+
+# 2014-2017: apply WMEAT growth estimates based on 2013
+mildata <- mil_expenditure_growth_estimator_cow_func(
+  df = mildata, iso = "TKM", yr = 2013, restricted = c(2014:2017), estimator = "WMEAT")
+
+# 2018-2019
+
+
+##### TLS(c) ----------------------------------------------------------------------
+# cow expenditure
+# 1999-2009
+
+# cow personnel
+# 1999-2004
+
+##### TON(c) ----------------------------------------------------------------------
+
+##### TTO(c) ----------------------------------------------------------------------
+# cow expenditure
+# 1987-1988
+# 1990
+
+# 1993: calculate WMEAT 1993 as a percent of 1992 and 1994 values, apply proportions
+# to COW estimates, and average the two estimates
+mildata$mil.expenditure.cow[mildata$iso3c=="TTO"&mildata$year==1993] <- mil_expenditure_gap_estimator_cow_func(
+  df = mildata, "TTO", 1993, estimator = "WMEAT")
+
+x <- milexp.viewer("TTO")
+
+##### TUN ----------------------------------------------------------------------
+# cow est good
+
+##### TUR ----------------------------------------------------------------------
+# cow est good
+
+##### TUV(c) ----------------------------------------------------------------------
+
+##### TWN ----------------------------------------------------------------------
+# cow est good
+
+##### TZA ----------------------------------------------------------------------
+# cow est good
+
+##### UGA ----------------------------------------------------------------------
+# cow est good
+
+##### UKR(c) ----------------------------------------------------------------------
+# cow personnel
+# 1991
+
+##### URY(c) ----------------------------------------------------------------------
+# cow expenditure
+# 1947
+# 1949
+# 1951
+# 1954-1956
+
+##### USA ----------------------------------------------------------------------
+# cow est good
+
+##### UZB(c) ----------------------------------------------------------------------
+# cow expenditure
+# 1991-1993
+# 2008-2009
+
+# 2012-2013: apply IISS growth estimates based on 2011
+mildata <- mil_expenditure_growth_estimator_cow_func(
+  df = mildata, iso = "UZB", yr = 2011, restricted = c(2012:2013), estimator = "IISS")
+
+## remove estimate flag for 2012-2013
+mildata <- mildata %>%
+  dplyr::mutate(mil.expenditure.cow.est.flag  = dplyr::case_when(
+    iso3c == "UZB" & year %in% c(2012:2013) ~ 0,
+    .default = mil.expenditure.cow.est.flag
+  ))
+
+# 2014-2017: apply WMEAT growth estimates based on 2013
+mildata <- mil_expenditure_growth_estimator_cow_func(
+  df = mildata, iso = "UZB", yr = 2013, restricted = c(2014:2017), estimator = "WMEAT")
+
+# 2018-2019
+
+# cow personnel
+# 1991
+
+x <- milexp.viewer("UZB")
+
+##### VCT(c) ----------------------------------------------------------------------
+
+##### VEN(c) ----------------------------------------------------------------------
+# cow expenditure
+# 2013-2019
+
+##### VNM(c) ----------------------------------------------------------------------
+# cow expenditure
+# 1955-1960
+# 1974-1983
+# 1987
+
+##### VUT(c) ----------------------------------------------------------------------
+
+##### WSM(c) ----------------------------------------------------------------------
+
+##### YAR(c) ----------------------------------------------------------------------
+# cow expenditure
+# 1946-1959
+# 1991-1994 (check cyears)
+
+# cow personnel
+# 1991-1994 (check cyears)
+
+##### YEM(c) ----------------------------------------------------------------------
+# cow expenditure
+# 1990 (check cyears)
+
+# 2013-2014: apply IISS growth estimates based on 2012
+mildata <- mil_expenditure_growth_estimator_cow_func(
+  df = mildata, iso = "YEM", yr = 2012, restricted = c(2013:2014), estimator = "IISS")
+
+## remove estimate flag for 2013-2014
+mildata <- mildata %>%
+  dplyr::mutate(mil.expenditure.cow.est.flag  = dplyr::case_when(
+    iso3c == "YEM" & year %in% c(2013:2014) ~ 0,
+    .default = mil.expenditure.cow.est.flag
+  ))
+
+# 2015-2019
+
+##### YPR(c) ----------------------------------------------------------------------
+# cow expenditure
+# 1990 (check cyears)
+
+# cow personnel
+# 1990 (check cyears)
+
+##### YUG(!) ----------------------------------------------------------------------
+# looks good, but check codebook
+
+##### ZAF ----------------------------------------------------------------------
+# cow est good
+
+##### ZAN ----------------------------------------------------------------------
+# cow est good
+
+##### ZMB ----------------------------------------------------------------------
+# cow expenditure
+# 1992: apply WMEAT growth estimates based on 1993 (1991 WMEAT is NA)
+mildata <- mil_expenditure_growth_estimator_cow_func(
+  df = mildata, iso = "ZMB", yr = 1993, restricted = 1992, estimator = "WMEAT")
+
+##### ZWE ----------------------------------------------------------------------
+# cow expenditure
+# 2007-2009
 
 
 
@@ -1572,9 +3436,6 @@ cow$milex[cow$iso3c=="COG"&cow$year==1993] <- (107045916+74721810)/2
 # only based on 1990, not 1992 (1992 was a less certain estimate)
 cow$milex[cow$iso3c=="CAF"&cow$year==1991] <- 23453685
 
-# BWA
-cow$milex[cow$iso3c=="BWA"&cow$year==1992] <- (63309566+141006574)/2
-
 # BEN
 # current year exchange rate
 cow$milex[cow$iso3c=="BEN"&cow$year==2005] <- (77169550+47049614)/2
@@ -1586,9 +3447,6 @@ cow$milper[cow$iso3c=="BLR"&cow$year==1998] <- 78000
 
 # BDI
 cow$milex[cow$iso3c=="BDI"&cow$year==1992] <- (30834695+26270776)/2
-
-# ARM
-cow$milex[cow$iso3c=="ARM"&cow$year==1994] <- 71264675
 
 # AGO
 cow$milex[cow$iso3c=="AGO"&cow$year==1992] <- (690047211+1800969870)/2
