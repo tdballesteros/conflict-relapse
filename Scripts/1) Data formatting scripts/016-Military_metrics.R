@@ -3982,70 +3982,147 @@ mildata <- mildata %>%
 mildata$mil.personnel.wmeat[mildata$iso3c=="DZA"&mildata$year==2018] <- mildata$mil.personnel.wmeat[mildata$iso3c=="DZA"&mildata$year==2017]
 mildata$mil.personnel.wmeat[mildata$iso3c=="DZA"&mildata$year==2019] <- mildata$mil.personnel.wmeat[mildata$iso3c=="DZA"&mildata$year==2018]
 
-x <- milexp.viewer("DZA")
+# x <- milexp.viewer("DZA")
 # y <- milper.viewer("DZA")
 
-##### ECU(ce,we,se,wp) ----------------------------------------------------------------------
-# cow expenditure
-# 1948
+##### ECU ----------------------------------------------------------------------
 
-# wmeat expenditure
-# 1946-1962
-# 2018-2019
+##### cow expenditure
+# 1948: assume consistent growth between 1947 and 1949
+ecu.alpha <- (mildata$mil.expenditure.cow[mildata$iso3c=="ECU"&mildata$year==1949]/mildata$mil.expenditure.cow[mildata$iso3c=="ECU"&mildata$year==1947])^(1/2)
 
-# sipri expenditure
-# 1946-1952
+mildata$mil.expenditure.cow[mildata$iso3c=="ECU"&mildata$year==1948] <- mildata$mil.expenditure.cow[mildata$iso3c=="ECU"&mildata$year==1947] * ecu.alpha
+mildata$mil.expenditure.cow.alt[mildata$iso3c=="ECU"&mildata$year==1948] <- mildata$mil.expenditure.cow.alt[mildata$iso3c=="ECU"&mildata$year==1947] * ecu.alpha
+
+# 1992
+mildata$mil.expenditure.cow[mildata$iso3c=="ECU"&mildata$year==1992] <- mil_expenditure_gap_estimator_func(
+  df = mildata, col_missing = "COW", col_ref = "WMEAT", "ECU", 1992)
+mildata$mil.expenditure.cow.alt[mildata$iso3c=="ECU"&mildata$year==1992] <- mil_expenditure_gap_estimator_func(
+  df = mildata, col_missing = "COW", col_ref = "WMEAT", "ECU", 1992)
+
+##### wmeat expenditure
+# 1946-1962: apply COW growth rates to WMEAT
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.wmeat",
+  col_ref = "mil.expenditure.cow",
+  "ECU", 1963, restricted = c(1946:1962)
+)
+
+# 2018-2019: apply COW growth rates to WMEAT
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.wmeat",
+  col_ref = "mil.expenditure.cow",
+  "ECU", 2017, restricted = c(2018:2019)
+)
+
+##### sipri expenditure
+# 1946-1952: apply COW growth rates to SIPRI
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.sipri",
+  col_ref = "mil.expenditure.cow",
+  "ECU", 1953, restricted = c(1946:1952)
+)
+
 # 1954-1956
+mildata$mil.expenditure.sipri[mildata$iso3c=="ECU"&mildata$year==1954] <- mil_expenditure_distance_gap_estimator_func(
+  df = mildata, col_missing = "SIPRI", col_ref = "COW", "ECU", 1954, yr.minus.1 = 1953, yr.plus.1 = 1957)
+mildata$mil.expenditure.sipri[mildata$iso3c=="ECU"&mildata$year==1955] <- mil_expenditure_distance_gap_estimator_func(
+  df = mildata, col_missing = "SIPRI", col_ref = "COW", "ECU", 1955, yr.minus.1 = 1953, yr.plus.1 = 1957)
+mildata$mil.expenditure.sipri[mildata$iso3c=="ECU"&mildata$year==1956] <- mil_expenditure_distance_gap_estimator_func(
+  df = mildata, col_missing = "SIPRI", col_ref = "COW", "ECU", 1956, yr.minus.1 = 1953, yr.plus.1 = 1957)
 
-# cow personnel
+##### cow personnel
 # good
 
-# wmeat personnel
+##### wmeat personnel
 # 1946-1962: COW and WMEAT personnel match 1963-2000, so use COW personnel estimates
 mildata <- mildata %>%
   dplyr::mutate(mil.personnel.wmeat = ifelse(year %in% c(1946:1962)&iso3c=="ECU",mil.personnel.cow,mil.personnel.wmeat))
 
-# 2018-2019
+# 2018-2019: COW and WMEAT personnel match 2016-2017 so use COW personnel estimates
+mildata <- mildata %>%
+  dplyr::mutate(mil.personnel.wmeat = ifelse(year %in% c(2018:2019)&iso3c=="ECU",mil.personnel.cow,mil.personnel.wmeat))
 
-x <- milexp.viewer("ECU")
-y <- milper.viewer("ECU")
+# x <- milexp.viewer("ECU")
+# y <- milper.viewer("ECU")
 
-##### EGY(we,se,wp) ----------------------------------------------------------------------
-# cow expenditure
+##### EGY ----------------------------------------------------------------------
+
+##### cow expenditure
 # good
 
-# wmeat expenditure
-# 1946-1962
+##### wmeat expenditure
+# 1946-1962: apply COW growth rates to WMEAT
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.wmeat",
+  col_ref = "mil.expenditure.cow",
+  "EGY", 1963, restricted = c(1946:1962)
+)
+
 # 1981
-# 2018-2019
+mildata$mil.expenditure.wmeat[mildata$iso3c=="EGY"&mildata$year==1981] <- mil_expenditure_distance_gap_estimator_func(
+  df = mildata, col_missing = "WMEAT", col_ref = "COW", "EGY", 1981)
 
-# sipri expenditure
-# 1946-1961
+# 2018-2019: apply COW growth rates to WMEAT
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.wmeat",
+  col_ref = "mil.expenditure.cow",
+  "EGY", 2017, restricted = c(2018:2019)
+)
 
-# cow personnel
+##### sipri expenditure
+# 1946-1961: apply COW growth rates to SIPRI
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.sipri",
+  col_ref = "mil.expenditure.cow",
+  "EGY", 1963, restricted = c(1946:1961)
+)
+
+##### cow personnel
 # good
 
-# wmeat personnel
+##### wmeat personnel
 # 1946-1962: COW and WMEAT personnel match 1963-1999, so use COW personnel estimates
 mildata <- mildata %>%
   dplyr::mutate(mil.personnel.wmeat = ifelse(year %in% c(1946:1962)&iso3c=="EGY",mil.personnel.cow,mil.personnel.wmeat))
 
-# 2018-2019
+# 2018-2019: 2013-2014 - 2016-2017 growth rates 0% for both COW and WMEAT; apply COW's continued 0% growth to WMEAT
+mildata$mil.personnel.wmeat[mildata$iso3c=="EGY"&mildata$year==2018] <- mildata$mil.personnel.wmeat[mildata$iso3c=="EGY"&mildata$year==2017]
+mildata$mil.personnel.wmeat[mildata$iso3c=="EGY"&mildata$year==2019] <- mildata$mil.personnel.wmeat[mildata$iso3c=="EGY"&mildata$year==2018]
 
-x <- milexp.viewer("EGY")
-y <- milper.viewer("EGY")
+# x <- milexp.viewer("EGY")
+# y <- milper.viewer("EGY")
 
-##### ERI(ce,we,se,wp) ----------------------------------------------------------------------
-# cow expenditure
+##### ERI(ce,we,se) ----------------------------------------------------------------------
+
+##### cow expenditure
 # 2006-2008
+mildata$mil.expenditure.cow[mildata$iso3c=="ERI"&mildata$year==2006] <- mil_expenditure_distance_gap_estimator_func(
+  df = mildata, col_missing = "COW", col_ref = "WMEAT", "ERI", 2006, yr.minus.1 = 2005, yr.plus.1 = 2009)
+mildata$mil.expenditure.cow[mildata$iso3c=="ERI"&mildata$year==2007] <- mil_expenditure_distance_gap_estimator_func(
+  df = mildata, col_missing = "COW", col_ref = "WMEAT", "ERI", 2007, yr.minus.1 = 2005, yr.plus.1 = 2009)
+mildata$mil.expenditure.cow[mildata$iso3c=="ERI"&mildata$year==2008] <- mil_expenditure_distance_gap_estimator_func(
+  df = mildata, col_missing = "COW", col_ref = "WMEAT", "ERI", 2008, yr.minus.1 = 2005, yr.plus.1 = 2009)
+mildata$mil.expenditure.cow.alt[mildata$iso3c=="ERI"&mildata$year==2006] <- mil_expenditure_distance_gap_estimator_func(
+  df = mildata, col_missing = "COW", col_ref = "WMEAT", "ERI", 2006, yr.minus.1 = 2005, yr.plus.1 = 2009)
+mildata$mil.expenditure.cow.alt[mildata$iso3c=="ERI"&mildata$year==2007] <- mil_expenditure_distance_gap_estimator_func(
+  df = mildata, col_missing = "COW", col_ref = "WMEAT", "ERI", 2007, yr.minus.1 = 2005, yr.plus.1 = 2009)
+mildata$mil.expenditure.cow.alt[mildata$iso3c=="ERI"&mildata$year==2008] <- mil_expenditure_distance_gap_estimator_func(
+  df = mildata, col_missing = "COW", col_ref = "WMEAT", "ERI", 2008, yr.minus.1 = 2005, yr.plus.1 = 2009)
 
 # 2010: apply IISS proportions from 2011
-mildata <- mil_expenditure_growth_estimator_cow_func(
-  df = mildata, "ERI", yr = 2011, restricted = 2010)
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.cow",
+  col_ref = "defense.spending.iiss",
+  "ERI", 2011, restricted = 2010
+)
 
 # 2012-2013: apply IISS proportions from 2011
-mildata <- mil_expenditure_growth_estimator_cow_func(
-  df = mildata, "ERI", yr = 2011, restricted = c(2012:2013))
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.cow",
+  col_ref = "defense.spending.iiss",
+  "ERI", 2011, restricted = c(2012:2013)
+)
 
 ## remove estimate flag for 2012-2013
 mildata <- mildata %>%
@@ -4055,307 +4132,587 @@ mildata <- mildata %>%
   ))
 
 # 2014-2017: apply WMEAT proportions from 2013
-mildata <- mil_expenditure_growth_estimator_cow_func(
-  df = mildata, "ERI", yr = 2013, restricted = c(2014:2017), estimator = "WMEAT")
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.cow",
+  col_ref = "mil.expenditure.wmeat",
+  "ERI", 2013, restricted = c(2014:2017)
+)
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.cow.alt",
+  col_ref = "mil.expenditure.wmeat",
+  "ERI", 2013, restricted = c(2014:2017)
+)
 
-# wmeat expenditure
-# 1993-1994
 # 2018-2019
 
-# sipri expenditure
-# 2004-2019
+##### wmeat expenditure
+# 1993-1994: apply SIPRI growth rates to WMEAT
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.wmeat",
+  col_ref = "mil.expenditure.sipri",
+  "ERI", 1995, restricted = c(1993:1994)
+)
 
-# cow personnel
+# 2018-2019
+
+##### sipri expenditure
+# 2004-2017: apply WMEAT growth rates to SIPRI
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.sipri",
+  col_ref = "mil.expenditure.wmeat",
+  "ERI", 2003, restricted = c(2004:2017)
+)
+
+# 2018-2019
+
+##### cow personnel
 # good
 
-# wmeat personnel
+##### wmeat personnel
 # 1993-1994: COW and WMEAT personnel match 1995-1998, so use COW personnel estimates
 mildata <- mildata %>%
   dplyr::mutate(mil.personnel.wmeat = ifelse(year %in% c(1993:1994)&iso3c=="ERI",mil.personnel.cow,mil.personnel.wmeat))
 
-# 2018-2019
+# 2018-2019: 2011-2012 - 2016-2017 growth rates 0% for both COW and WMEAT; apply COW's continued 0% growth to WMEAT
+mildata$mil.personnel.wmeat[mildata$iso3c=="ERI"&mildata$year==2018] <- mildata$mil.personnel.wmeat[mildata$iso3c=="ERI"&mildata$year==2017]
+mildata$mil.personnel.wmeat[mildata$iso3c=="ERI"&mildata$year==2019] <- mildata$mil.personnel.wmeat[mildata$iso3c=="ERI"&mildata$year==2018]
 
 x <- milexp.viewer("ERI")
-y <- milper.viewer("ERI")
+# y <- milper.viewer("ERI")
 
-##### ESP(ce,we,se,wp) ----------------------------------------------------------------------
-# cow expenditure
-# 2013-2019 (non-alt)
+##### ESP(wp) ----------------------------------------------------------------------
 
-# wmeat expenditure
-# 1946-1962
-# 2018-2019
+##### cow expenditure
+# 2013-2019 (non-alt): apply IISS growth rates to COW
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.cow",
+  col_ref = "defense.spending.iiss",
+  "ESP", 2012, restricted = c(2013:2019)
+)
 
-# sipri expenditure
-# 1946-1948
+##### wmeat expenditure
+# 1949-1962: apply SIPRI growth rates to WMEAT
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.wmeat",
+  col_ref = "mil.expenditure.sipri",
+  "ESP", 1963, restricted = c(1949:1962)
+)
 
-# cow personnel
+# 1946-1948: apply COW growth rates to WMEAT
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.wmeat",
+  col_ref = "mil.expenditure.cow",
+  "ESP", 1949, restricted = c(1946:1948)
+)
+
+# 2018-2019: apply COW growth rates to WMEAT
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.wmeat",
+  col_ref = "mil.expenditure.cow",
+  "ESP", 2017, restricted = c(2018:2019)
+)
+
+##### sipri expenditure
+# 1946-1948: apply COW growth rates to SIPRI
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.sipri",
+  col_ref = "mil.expenditure.cow",
+  "ESP", 1949, restricted = c(1946:1948)
+)
+
+##### cow personnel
 # good
 
-# wmeat personnel
+##### wmeat personnel
 # 1945-1962: COW and WMEAT personnel match 1963-1976, so use COW personnel estimates
 mildata <- mildata %>%
-  dplyr::mutate(mil.personnel.wmeat = ifelse(year %in% c(1945:1962)&iso3c=="EGY",mil.personnel.cow,mil.personnel.wmeat))
+  dplyr::mutate(mil.personnel.wmeat = ifelse(year %in% c(1945:1962)&iso3c=="ESP",mil.personnel.cow,mil.personnel.wmeat))
 
 # 2018-2019
 
-x <- milexp.viewer("ESP")
+# x <- milexp.viewer("ESP")
 y <- milper.viewer("ESP")
 
 ##### EST(ce,we,se,cp,wp) ----------------------------------------------------------------------
-# cow expenditure
+
+##### cow expenditure
 # 1991
 
-# wmeat expenditure
-# 1991
-# 2018-2019
-
-# sipri expenditure
-# 1991-1992
-
-# cow personnel
+##### wmeat expenditure
 # 1991
 
-# wmeat personnel
+# 2018-2019: apply COW growth rates to WMEAT
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.wmeat",
+  col_ref = "mil.expenditure.cow",
+  "EST", 2017, restricted = c(2018:2019)
+)
+
+##### sipri expenditure
+# 1991
+
+# 1992: apply COW growth rates to SIPRI
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.sipri",
+  col_ref = "mil.expenditure.cow",
+  "EST", 1993, restricted = 1992
+)
+
+##### cow personnel
+# 1991
+
+##### wmeat personnel
 # 1991
 
 # 2018-2019: COW and WMEAT personnel match 2009-2017, so use COW personnel estimates
 mildata <- mildata %>%
   dplyr::mutate(mil.personnel.wmeat = ifelse(year %in% c(2018:2019)&iso3c=="EST",mil.personnel.cow,mil.personnel.wmeat))
 
+# TODO: check EST WMEAT armed personnel 1994
+
 x <- milexp.viewer("EST")
 y <- milper.viewer("EST")
 
 ##### ETH(ce,we,se,wp) ----------------------------------------------------------------------
-# cow expenditure
-# 1946-1958
 
-# wmeat expenditure
-# 1946-1962
-# 1981
-# 1983
-# 1992
-# 2018-2019
-
-# sipri expenditure
+##### cow expenditure
 # 1946-1956
 
-# cow personnel
+# 1957-1958: apply SIPRI growth rates to COW
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.cow",
+  col_ref = "mil.expenditure.sipri",
+  "ETH", 1959, restricted = c(1957:1958)
+)
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.cow.alt",
+  col_ref = "mil.expenditure.sipri",
+  "ETH", 1959, restricted = c(1957:1958)
+)
+
+##### wmeat expenditure
+# 1946-1956
+
+# 1957-1962: apply SIPRI growth rates to WMEAT
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.wmeat",
+  col_ref = "mil.expenditure.sipri",
+  "ETH", 1963, restricted = c(1957:1962)
+)
+
+# 1981
+mildata$mil.expenditure.wmeat[mildata$iso3c=="ETH"&mildata$year==1981] <- mil_expenditure_distance_gap_estimator_func(
+  df = mildata, col_missing = "WMEAT", col_ref = "SIPRI", "ETH", 1981)
+
+# 1983
+mildata$mil.expenditure.wmeat[mildata$iso3c=="ETH"&mildata$year==1983] <- mil_expenditure_gap_estimator_func(
+  df = mildata, col_missing = "WMEAT", col_ref = "SIPRI", "ETH", 1983)
+
+# 1992
+mildata$mil.expenditure.wmeat[mildata$iso3c=="ETH"&mildata$year==1992] <- mil_expenditure_distance_gap_estimator_func(
+  df = mildata, col_missing = "WMEAT", col_ref = "SIPRI", "ETH", 1992)
+
+# 2018-2019: apply COW growth rates to WMEAT
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.wmeat",
+  col_ref = "mil.expenditure.cow",
+  "ETH", 2017, restricted = c(2018:2019)
+)
+
+##### sipri expenditure
+# 1946-1956
+
+##### cow personnel
 # good
 
-# wmeat personnel
+##### wmeat personnel
 # 1946-1962
-# 2018-2019
+
+# 2018-2019: 2009-2010 - 2016-2017 growth rates 0% for both COW and WMEAT; apply COW's continued 0% growth to WMEAT
+mildata$mil.personnel.wmeat[mildata$iso3c=="ETH"&mildata$year==2018] <- mildata$mil.personnel.wmeat[mildata$iso3c=="ETH"&mildata$year==2017]
+mildata$mil.personnel.wmeat[mildata$iso3c=="ETH"&mildata$year==2019] <- mildata$mil.personnel.wmeat[mildata$iso3c=="ETH"&mildata$year==2018]
 
 x <- milexp.viewer("ETH")
 y <- milper.viewer("ETH")
 
-##### FIN(we,se,wp) ----------------------------------------------------------------------
-# cow expenditure
+##### FIN ----------------------------------------------------------------------
+
+##### cow expenditure
 # good
 
-# wmeat expenditure
-# 1946-1962
-# 2018-2019
+##### wmeat expenditure
+# 1946-1962: apply COW growth rates to WMEAT
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.wmeat",
+  col_ref = "mil.expenditure.cow",
+  "FIN", 1963, restricted = c(1946:1962)
+)
 
-# sipri expenditure
-# 1946-1957
+# 2018-2019: apply COW growth rates to WMEAT
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.wmeat",
+  col_ref = "mil.expenditure.cow",
+  "FIN", 2017, restricted = c(2018:2019)
+)
 
-# cow personnel
+##### sipri expenditure
+# 1946-1957: apply COW growth rates to SIPRI
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.sipri",
+  col_ref = "mil.expenditure.cow",
+  "FIN", 1958, restricted = c(1946:1957)
+)
+
+##### cow personnel
 # good
 
-# wmeat personnel
+##### wmeat personnel
 # 1945-1962: COW and WMEAT personnel match 1963-1976, so use COW personnel estimates
 mildata <- mildata %>%
   dplyr::mutate(mil.personnel.wmeat = ifelse(year %in% c(1945:1962)&iso3c=="FIN",mil.personnel.cow,mil.personnel.wmeat))
 
-# 2018-2019
+# 2018-2019: 2014-2015 - 2016-2017 growth rates 0% for both COW and WMEAT; apply COW's continued 0% growth to WMEAT
+mildata$mil.personnel.wmeat[mildata$iso3c=="FIN"&mildata$year==2018] <- mildata$mil.personnel.wmeat[mildata$iso3c=="FIN"&mildata$year==2017]
+mildata$mil.personnel.wmeat[mildata$iso3c=="FIN"&mildata$year==2019] <- mildata$mil.personnel.wmeat[mildata$iso3c=="FIN"&mildata$year==2018]
 
-x <- milexp.viewer("FIN")
-y <- milper.viewer("FIN")
+# x <- milexp.viewer("FIN")
+# y <- milper.viewer("FIN")
 
-##### FJI(ce,we,wp) ----------------------------------------------------------------------
-# cow expenditure
-# fix 2011
+##### FJI ----------------------------------------------------------------------
 
-# wmeat expenditure
-# 1970-1972; 1983; 2018-2019
+##### cow expenditure
+# 2011 (non-alt)
+mildata$mil.expenditure.cow[mildata$iso3c=="FJI"&mildata$year==2011] <- mil_expenditure_gap_estimator_func(
+  df = mildata, col_missing = "COW", col_ref = "IISS", "FJI", 2011)
 
-# sipri expenditure
+##### wmeat expenditure
+# 1970-1972: apply COW growth rates to WMEAT
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.wmeat",
+  col_ref = "mil.expenditure.cow",
+  "FJI", 1973, restricted = c(1970:1972)
+)
+
+# 1983
+mildata$mil.expenditure.wmeat[mildata$iso3c=="FJI"&mildata$year==1983] <- mil_expenditure_gap_estimator_func(
+  df = mildata, col_missing = "WMEAT", col_ref = "COW", "FJI", 1983)
+
+# 2018-2019: apply COW growth rates to WMEAT
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.wmeat",
+  col_ref = "mil.expenditure.cow",
+  "FJI", 2017, restricted = c(2018:2019)
+)
+
+##### sipri expenditure
 # good
 
-# cow personnel
+##### cow personnel
 # good
 
-# wmeat personnel
+##### wmeat personnel
 # 1970-1972: COW and WMEAT personnel match 1973-1982, so use COW personnel estimates
 mildata <- mildata %>%
   dplyr::mutate(mil.personnel.wmeat = ifelse(year %in% c(1970:1972)&iso3c=="FJI",mil.personnel.cow,mil.personnel.wmeat))
 
-# 1983
-# 2018-2019
+# 1983: COW and WMEAT personnel match 1973-1998, so use COW personnel estimates
+mildata <- mildata %>%
+  dplyr::mutate(mil.personnel.wmeat = ifelse(year==1983&iso3c=="FJI",mil.personnel.cow,mil.personnel.wmeat))
 
-x <- milexp.viewer("FJI")
-y <- milper.viewer("FJI")
+# 2018-2019: COW and WMEAT personnel match 2013-2017, so use COW personnel estimates
+mildata <- mildata %>%
+  dplyr::mutate(mil.personnel.wmeat = ifelse(year %in% c(2018:2019)&iso3c=="FJI",mil.personnel.cow,mil.personnel.wmeat))
+
+# x <- milexp.viewer("FJI")
+# y <- milper.viewer("FJI")
 
 ##### FRA(we,se,wp) ----------------------------------------------------------------------
-# cow expenditure
+
+##### cow expenditure
 # good
 
-# wmeat expenditure
-# 1946-1962
-# 2018-2019
+##### wmeat expenditure
+# 1946-1962: apply COW growth rates to WMEAT
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.wmeat",
+  col_ref = "mil.expenditure.cow",
+  "FRA", 1963, restricted = c(1946:1962)
+)
 
-# sipri expenditure
-# 1946-1948
+# 2018-2019: apply COW growth rates to WMEAT
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.wmeat",
+  col_ref = "mil.expenditure.cow",
+  "FRA", 2017, restricted = c(2018:2019)
+)
 
-# cow personnel
+##### sipri expenditure
+# 1946-1948: apply COW growth rates to SIPRI
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.sipri",
+  col_ref = "mil.expenditure.cow",
+  "FRA", 1949, restricted = c(1946:1948)
+)
+
+##### cow personnel
 # good
 
-# wmeat personnel
+##### wmeat personnel
 # 1945-1962: COW and WMEAT personnel match 1963-1981, so use COW personnel estimates
 mildata <- mildata %>%
   dplyr::mutate(mil.personnel.wmeat = ifelse(year %in% c(1945:1962)&iso3c=="FRA",mil.personnel.cow,mil.personnel.wmeat))
 
 # 2018-2019
 
-x <- milexp.viewer("FRA")
+# x <- milexp.viewer("FRA")
 y <- milper.viewer("FRA")
 
 ##### FSM(x) ----------------------------------------------------------------------
-# cow expenditure
+
+##### cow expenditure
 # 2013-2019
 
-# wmeat expenditure
+##### wmeat expenditure
 # N/A
 
-# sipri expenditure
+##### sipri expenditure
 # N/A
 
-# cow personnel
+##### cow personnel
 # 2013-2019
 
-# wmeat personnel
+##### wmeat personnel
 # N/A
 
 x <- milexp.viewer("FSM")
 y <- milper.viewer("FSM")
 
-##### GAB(ce,we,se,wp) ----------------------------------------------------------------------
-# cow expenditure
+##### GAB(ce,we,se) ----------------------------------------------------------------------
+
+##### cow expenditure
 # 1992-1993: estimate COW 1992-1993 as equidistant point based on WMEAT 1990-1994 values (WMEAT 1991 is NA)
-mildata$mil.expenditure.cow[mildata$iso3c=="GAB"&mildata$year==1992] <- mil_expenditure_distance_gap_estimator_cow_func(
-  df = mildata, iso = "GAB", yrs = c(1992:1993), estimator = "WMEAT", yr.minus.1 = 1990)[1]
-mildata$mil.expenditure.cow[mildata$iso3c=="GAB"&mildata$year==1993] <- mil_expenditure_distance_gap_estimator_cow_func(
-  df = mildata, iso = "GAB", yrs = c(1992:1993), estimator = "WMEAT", yr.minus.1 = 1990)[2]
+mildata$mil.expenditure.cow[mildata$iso3c=="GAB"&mildata$year==1992] <- mil_expenditure_distance_gap_estimator_func(
+  df = mildata, col_missing = "COW", col_ref = "WMEAT", "GAB", 1992, yr.minus.1 = 1990, yr.plus.1 = 1994)
+mildata$mil.expenditure.cow[mildata$iso3c=="GAB"&mildata$year==1993] <- mil_expenditure_distance_gap_estimator_func(
+  df = mildata, col_missing = "COW", col_ref = "WMEAT", "GAB", 1993, yr.minus.1 = 1990, yr.plus.1 = 1994)
+mildata$mil.expenditure.cow.alt[mildata$iso3c=="GAB"&mildata$year==1992] <- mil_expenditure_distance_gap_estimator_func(
+  df = mildata, col_missing = "COW", col_ref = "WMEAT", "GAB", 1992, yr.minus.1 = 1990, yr.plus.1 = 1994)
+mildata$mil.expenditure.cow.alt[mildata$iso3c=="GAB"&mildata$year==1993] <- mil_expenditure_distance_gap_estimator_func(
+  df = mildata, col_missing = "COW", col_ref = "WMEAT", "GAB", 1993, yr.minus.1 = 1990, yr.plus.1 = 1994)
 
 # 1991
 
-# wmeat expenditure
-# 1960-1962
+##### wmeat expenditure
+# 1960-1962: apply COW growth rates to WMEAT
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.wmeat",
+  col_ref = "mil.expenditure.cow",
+  "GAB", 1963, restricted = c(1960:1962)
+)
+
 # 1991
-# 2018-2019
 
-# sipri expenditure
-# 1960-1966
-# 1978
-# 1987-1999
-# 2007-2009
+# 2018-2019: apply COW growth rates to WMEAT
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.wmeat",
+  col_ref = "mil.expenditure.cow",
+  "GAB", 2017, restricted = c(2018:2019)
+)
 
-# cow personnel
+##### sipri expenditure
+# 1960-1966: apply COW growth rates to SIPRI
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.sipri",
+  col_ref = "mil.expenditure.cow",
+  "GAB", 1967, restricted = c(1960:1966)
+)
+
+# 1978: estimate SIPRI 1978 as equidistant points based on COW 1977-1979 values
+mildata$mil.expenditure.sipri[mildata$iso3c=="GAB"&mildata$year==1978] <- mil_expenditure_distance_gap_estimator_func(
+  df = mildata, col_missing = "SIPRI", col_ref = "COW", "GAB", 1978)
+
+# 1987-1990: apply COW growth rates to SIPRI
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.sipri",
+  col_ref = "mil.expenditure.cow",
+  "GAB", 1986, restricted = c(1987:1990)
+)
+
+# 1991
+
+# 1992-1999: apply COW growth rates to SIPRI
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.sipri",
+  col_ref = "mil.expenditure.cow",
+  "GAB", 2000, restricted = c(1992:1999)
+)
+
+# 2007-2009: estimate SIPRI 2007-2009 as equidistant points based on COW 2006-2010 values
+mildata$mil.expenditure.sipri[mildata$iso3c=="GAB"&mildata$year==2007] <- mil_expenditure_distance_gap_estimator_func(
+  df = mildata, col_missing = "SIPRI", col_ref = "COW", "GAB", 2007, yr.minus.1 = 2006, yr.plus.1 = 2010)
+mildata$mil.expenditure.sipri[mildata$iso3c=="GAB"&mildata$year==2008] <- mil_expenditure_distance_gap_estimator_func(
+  df = mildata, col_missing = "SIPRI", col_ref = "COW", "GAB", 2008, yr.minus.1 = 2006, yr.plus.1 = 2010)
+mildata$mil.expenditure.sipri[mildata$iso3c=="GAB"&mildata$year==2009] <- mil_expenditure_distance_gap_estimator_func(
+  df = mildata, col_missing = "SIPRI", col_ref = "COW", "GAB", 2009, yr.minus.1 = 2006, yr.plus.1 = 2010)
+
+##### cow personnel
 # good
 
-# wmeat personnel
+##### wmeat personnel
 # 1960-1962: COW and WMEAT personnel match 1963-1981, so use COW personnel estimates
 mildata <- mildata %>%
-  dplyr::mutate(mil.personnel.wmeat = ifelse(year %in% c(1962:1962)&iso3c=="GAB",mil.personnel.cow,mil.personnel.wmeat))
+  dplyr::mutate(mil.personnel.wmeat = ifelse(year %in% c(1960:1962)&iso3c=="GAB",mil.personnel.cow,mil.personnel.wmeat))
 
-# 2018-2019
+# 2018-2019: 2000-2001 - 2016-2017 growth rates 0% for both COW and WMEAT; apply COW's continued 0% growth to WMEAT
+mildata$mil.personnel.wmeat[mildata$iso3c=="GAB"&mildata$year==2018] <- mildata$mil.personnel.wmeat[mildata$iso3c=="GAB"&mildata$year==2017]
+mildata$mil.personnel.wmeat[mildata$iso3c=="GAB"&mildata$year==2019] <- mildata$mil.personnel.wmeat[mildata$iso3c=="GAB"&mildata$year==2018]
 
 x <- milexp.viewer("GAB")
-y <- milper.viewer("GAB")
+# y <- milper.viewer("GAB")
 
-##### GBR(we,se,wp) ----------------------------------------------------------------------
-# cow expenditure
+##### GBR(wp) ----------------------------------------------------------------------
+
+##### cow expenditure
 # good
 
-# wmeat expenditure
-# 1946-1962
-# 2018-2019
+##### wmeat expenditure
+# 1946-1962: apply COW growth rates to WMEAT
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.wmeat",
+  col_ref = "mil.expenditure.cow",
+  "GBR", 1963, restricted = c(1946:1962)
+)
 
-# sipri expenditure
-# 1946-1949
+# 2018-2019: apply COW growth rates to WMEAT
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.wmeat",
+  col_ref = "mil.expenditure.cow",
+  "GBR", 2017, restricted = c(2018:2019)
+)
 
-# cow personnel
+##### sipri expenditure
+# 1946-1949: apply COW growth rates to SIPRI
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.sipri",
+  col_ref = "mil.expenditure.cow",
+  "GBR", 1950, restricted = c(1946:1949)
+)
+
+##### cow personnel
 # good
 
-# wmeat personnel
+##### wmeat personnel
 # 1945-1962: COW and WMEAT personnel match 1963-1969, so use COW personnel estimates
 mildata <- mildata %>%
   dplyr::mutate(mil.personnel.wmeat = ifelse(year %in% c(1945:1962)&iso3c=="GBR",mil.personnel.cow,mil.personnel.wmeat))
 
 # 2018-2019
 
-x <- milexp.viewer("GBR")
+# x <- milexp.viewer("GBR")
 y <- milper.viewer("GBR")
 
 ##### GEO(ce,we,se,cp,wp) ----------------------------------------------------------------------
 # TODO: check COW 1992 expenditure value - looks like there is an extra 0
 
-# cow expenditure
+##### cow expenditure
 # 1991
 # 1993
 
-# wmeat expenditure
+##### wmeat expenditure
 # 1991
 # 1994
-# 2018-2019
 
-# sipri expenditure
-# 1991-1995
+# 2018-2019: apply COW growth rates to WMEAT
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.wmeat",
+  col_ref = "mil.expenditure.cow",
+  "GEO", 2017, restricted = c(2018:2019)
+)
 
-# cow personnel
+##### sipri expenditure
+# 1991-1993
+
+# 1994-1995: apply COW growth rates to SIPRI
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.sipri",
+  col_ref = "mil.expenditure.cow",
+  "GEO", 1996, restricted = c(1994:1995)
+)
+
+##### cow personnel
 # 1991
 
-# wmeat personnel
+##### wmeat personnel
 # 1991
 # 1992
-# 2018-2019
+
+# 2018-2019: 2008-2009 - 2016-2017 growth rates 0% for both COW and WMEAT; apply COW's continued 0% growth to WMEAT
+mildata$mil.personnel.wmeat[mildata$iso3c=="GEO"&mildata$year==2018] <- mildata$mil.personnel.wmeat[mildata$iso3c=="GEO"&mildata$year==2017]
+mildata$mil.personnel.wmeat[mildata$iso3c=="GEO"&mildata$year==2019] <- mildata$mil.personnel.wmeat[mildata$iso3c=="GEO"&mildata$year==2018]
 
 x <- milexp.viewer("GEO")
 y <- milper.viewer("GEO")
 
-##### GHA(we,se,wp) ----------------------------------------------------------------------
-# cow expenditure
+##### GHA ----------------------------------------------------------------------
+
+##### cow expenditure
 # good
 
-# wmeat expenditure
-# 1957-1962
+##### wmeat expenditure
+# 1957-1962: apply COW growth rates to WMEAT
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.wmeat",
+  col_ref = "mil.expenditure.cow",
+  "GHA", 1963, restricted = c(1957:1962)
+)
+
 # 1983
-# 2018-2019
+mildata$mil.expenditure.wmeat[mildata$iso3c=="GHA"&mildata$year==1983] <- mil_expenditure_distance_gap_estimator_func(
+  df = mildata, col_missing = "WMEAT", col_ref = "COW", "GHA", 1983)
 
-# sipri expenditure
-# 1957
+# 2018-2019: apply COW growth rates to WMEAT
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.wmeat",
+  col_ref = "mil.expenditure.cow",
+  "GHA", 2017, restricted = c(2018:2019)
+)
+
+##### sipri expenditure
+# 1957: apply COW growth rates to SIPRI
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.sipri",
+  col_ref = "mil.expenditure.cow",
+  "GHA", 1958, restricted = 1957
+)
+
 # 1967
+mildata$mil.expenditure.sipri[mildata$iso3c=="GHA"&mildata$year==1967] <- mil_expenditure_gap_estimator_func(
+  df = mildata, col_missing = "SIPRI", col_ref = "WMEAT", "GHA", 1967)
 
-# cow personnel
+##### cow personnel
 # good
 
-# wmeat personnel
+##### wmeat personnel
 # 1957-1962: COW and WMEAT personnel match 1963-1998, so use COW personnel estimates
 mildata <- mildata %>%
   dplyr::mutate(mil.personnel.wmeat = ifelse(year %in% c(1957:1962)&iso3c=="GHA",mil.personnel.cow,mil.personnel.wmeat))
 
-# 2018-2019
+# 2018-2019: 2012-2013 - 2016-2017 growth rates 0% for both COW and WMEAT; apply COW's continued 0% growth to WMEAT
+mildata$mil.personnel.wmeat[mildata$iso3c=="GHA"&mildata$year==2018] <- mildata$mil.personnel.wmeat[mildata$iso3c=="GHA"&mildata$year==2017]
+mildata$mil.personnel.wmeat[mildata$iso3c=="GHA"&mildata$year==2019] <- mildata$mil.personnel.wmeat[mildata$iso3c=="GHA"&mildata$year==2018]
 
-x <- milexp.viewer("GHA")
-y <- milper.viewer("GHA")
+# x <- milexp.viewer("GHA")
+# y <- milper.viewer("GHA")
 
 ##### GIN(ce,we,se) ----------------------------------------------------------------------
-# cow expenditure
+
+##### cow expenditure
 # 2012-2013; 2015-2019: apply IISS growth estimates based on 2011
-mildata <- mil_expenditure_growth_estimator_cow_func(
-  df = mildata, iso = "GIN", yr = 2011, restricted = c(2012:2013,2015:2019))
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.cow",
+  col_ref = "defense.spending.iiss",
+  "GIN", 2011, restricted = c(2012:2013,2015:2019)
+)
 
 ## remove estimate flag for 2012-2013, but not 2015-2019 due to the 2014 gap
 mildata <- mildata %>%
@@ -4366,13 +4723,13 @@ mildata <- mildata %>%
 
 # 2010: calculate IISS 2010 as a percent of 2009 and 2011 values, apply proportions
 # to COW estimates, and average the two estimates
-mildata$mil.expenditure.cow[mildata$iso3c=="GIN"&mildata$year==2010] <- mil_expenditure_gap_estimator_cow_func(
-  df = mildata, "GIN", 2010, estimator = "IISS")
+mildata$mil.expenditure.cow[mildata$iso3c=="GIN"&mildata$year==2010] <- mil_expenditure_gap_estimator_func(
+  df = mildata, col_missing = "COW", col_ref = "IISS", "GIN", 2010)
 
 # 2014: calculate WMEAT 2014 as a percent of 2013 and 2015 values, apply proportions
 # to COW estimates, and average the two estimates
-mildata$mil.expenditure.cow[mildata$iso3c=="GIN"&mildata$year==2014] <- mil_expenditure_gap_estimator_cow_func(
-  df = mildata, "GIN", 2014, estimator = "WMEAT")
+mildata$mil.expenditure.cow[mildata$iso3c=="GIN"&mildata$year==2014] <- mil_expenditure_gap_estimator_func(
+  df = mildata, col_missing = "COW", col_ref = "WMEAT", "GIN", 2014)
 
 # 1958-1959
 
@@ -4380,31 +4737,71 @@ mildata$mil.expenditure.cow[mildata$iso3c=="GIN"&mildata$year==2014] <- mil_expe
 
 # 1992: calculate WMEAT 1992 as a percent of 1991 and 1994 values (WMEAT 1993 is NA),
 # apply proportions to COW estimates, and average the two estimates
-mildata$mil.expenditure.cow[mildata$iso3c=="GIN"&mildata$year==1992] <- mil_expenditure_gap_estimator_cow_func(
-  df = mildata, "GIN", 1992, estimator = "WMEAT", yr.plus.1 = 1994)
+mildata$mil.expenditure.cow[mildata$iso3c=="GIN"&mildata$year==1992] <- mil_expenditure_gap_estimator_func(
+  df = mildata, col_missing = "COW", col_ref = "WMEAT", "GIN", 1992, yr.plus.1 = 1994)
+mildata$mil.expenditure.cow.alt[mildata$iso3c=="GIN"&mildata$year==1992] <- mil_expenditure_gap_estimator_func(
+  df = mildata, col_missing = "COW", col_ref = "WMEAT", "GIN", 1992, yr.plus.1 = 1994)
 
-# wmeat expenditure
-# 1960-1962
+##### wmeat expenditure
+# 1960-1962: apply COW growth rates to WMEAT
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.wmeat",
+  col_ref = "mil.expenditure.cow",
+  "GIN", 1963, restricted = c(1960:1962)
+)
+
 # 1976-1980
 # 1982-1983
 # 1985-1987
-# 1989
-# 1993
-# 1995-1996
-# 2018-2019
 
-# sipri expenditure
-# 1960-1964
+# 1989
+mildata$mil.expenditure.wmeat[mildata$iso3c=="GIN"&mildata$year==1989] <- mil_expenditure_gap_estimator_func(
+  df = mildata, col_missing = "WMEAT", col_ref = "COW", "GIN", 1989)
+
+# 1993
+mildata$mil.expenditure.wmeat[mildata$iso3c=="GIN"&mildata$year==1993] <- mil_expenditure_distance_gap_estimator_func(
+  df = mildata, col_missing = "WMEAT", col_ref = "COW", "GIN", 1993, yr.minus.1 = 1991)
+
+# 1995-1996
+mildata$mil.expenditure.wmeat[mildata$iso3c=="GIN"&mildata$year==1995] <- mil_expenditure_gap_estimator_func(
+  df = mildata, col_missing = "WMEAT", col_ref = "COW", "GIN", 1995, yr.minus.1 = 1994, yr.plus.1 = 1997)
+mildata$mil.expenditure.wmeat[mildata$iso3c=="GIN"&mildata$year==1996] <- mil_expenditure_gap_estimator_func(
+  df = mildata, col_missing = "WMEAT", col_ref = "COW", "GIN", 1996, yr.minus.1 = 1994, yr.plus.1 = 1997)
+
+# 2018-2019: apply COW growth rates to WMEAT
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.wmeat",
+  col_ref = "mil.expenditure.cow",
+  "GIN", 2017, restricted = c(2018:2019)
+)
+
+##### sipri expenditure
+# 1960-1964: apply COW growth rates to SIPRI
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.sipri",
+  col_ref = "mil.expenditure.cow",
+  "GIN", 1965, restricted = c(1960:1964)
+)
+
 # 1967
+mildata$mil.expenditure.sipri[mildata$iso3c=="GIN"&mildata$year==1967] <- mil_expenditure_gap_estimator_func(
+  df = mildata, col_missing = "SIPRI", col_ref = "COW", "GIN", 1967)
+
 # 1974-1977
 # 1983-1990
+
 # 1995-1996
+mildata$mil.expenditure.sipri[mildata$iso3c=="GIN"&mildata$year==1995] <- mil_expenditure_gap_estimator_func(
+  df = mildata, col_missing = "SIPRI", col_ref = "COW", "GIN", 1995, yr.minus.1 = 1994, yr.plus.1 = 1997)
+mildata$mil.expenditure.sipri[mildata$iso3c=="GIN"&mildata$year==1996] <- mil_expenditure_gap_estimator_func(
+  df = mildata, col_missing = "SIPRI", col_ref = "COW", "GIN", 1996, yr.minus.1 = 1994, yr.plus.1 = 1997)
+
 # 2005-2011
 
-# cow personnel
+##### cow personnel
 # good
 
-# wmeat personnel
+##### wmeat personnel
 # 1958-1962: COW and WMEAT personnel match 1963-1966, so use COW personnel estimates
 mildata <- mildata %>%
   dplyr::mutate(mil.personnel.wmeat = ifelse(year %in% c(1958:1962)&iso3c=="GIN",mil.personnel.cow,mil.personnel.wmeat))
@@ -4414,13 +4811,17 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="GIN"&mildata$year==2018] <- mildata$
 mildata$mil.personnel.wmeat[mildata$iso3c=="GIN"&mildata$year==2019] <- mildata$mil.personnel.wmeat[mildata$iso3c=="GIN"&mildata$year==2018]
 
 x <- milexp.viewer("GIN")
-y <- milper.viewer("GIN")
+# y <- milper.viewer("GIN")
 
 ##### GMB(ce,we,se,wp) ----------------------------------------------------------------------
-# cow expenditure
+
+##### cow expenditure
 # 2012-2015: apply IISS growth estimates based on 2011
-mildata <- mil_expenditure_growth_estimator_cow_func(
-  df = mildata, iso = "GMB", yr = 2011, restricted = c(2012:2015))
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.cow",
+  col_ref = "defense.spending.iiss",
+  "GMB", 2011, restricted = c(2012:2015)
+)
 
 ## remove estimate flag for 2012-2015
 mildata <- mildata %>%
@@ -4430,35 +4831,65 @@ mildata <- mildata %>%
   ))
 
 # 2016-2017: apply WMEAT growth estimates based on 2015 COW estimate
-mildata <- mil_expenditure_growth_estimator_cow_func(
-  df = mildata, iso = "GMB", yr = 2015, restricted = c(2016:2017), estimator = "WMEAT")
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.cow",
+  col_ref = "mil.expenditure.wmeat",
+  "GMB", 2015, restricted = c(2016:2017)
+)
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.cow.alt",
+  col_ref = "mil.expenditure.wmeat",
+  "GMB", 2015, restricted = c(2016:2017)
+)
 
-# 2018-2019: 
+# 2018-2019: apply SIPRI growth estimates based on 2015 COW estimate
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.cow",
+  col_ref = "mil.expenditure.sipri",
+  "GMB", 2015, restricted = c(2018:2019)
+)
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.cow.alt",
+  col_ref = "mil.expenditure.sipri",
+  "GMB", 2015, restricted = c(2018:2019)
+)
 
 # 2010: estimate COW 2010 as equidistant point based on IISS 2009-2011 values
-mildata$mil.expenditure.cow[mildata$iso3c=="GMB"&mildata$year==2010] <- mil_expenditure_distance_gap_estimator_cow_func(
-  df = mildata, "GMB", 2010, estimator = "IISS")
+mildata$mil.expenditure.cow[mildata$iso3c=="GMB"&mildata$year==2010] <- mil_expenditure_distance_gap_estimator_func(
+  df = mildata, col_missing = "COW", col_ref = "IISS", "GMB", 2010)
 
 # 1990-1992: 
 # 1986: 
 # 1984: 
 
-# wmeat expenditure
+##### wmeat expenditure
 # 1965-1972
 # 1984-1987
 # 1989
 # 1991
-# 2018-2019
 
-# sipri expenditure
+# 2018-2019: apply SIPRI growth estimates based on 2015 WMEAT estimate
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.wmeat",
+  col_ref = "mil.expenditure.sipri",
+  "GMB", 2015, restricted = c(2018:2019)
+)
+
+##### sipri expenditure
 # 1965-1982
+
 # 2010-2011
+mildata$mil.expenditure.sipri[mildata$iso3c=="GMB"&mildata$year==2010] <- mil_expenditure_distance_gap_estimator_func(
+  df = mildata, col_missing = "SIPRI", col_ref = "WMEAT", "GMB", 2010, yr.minus.1 = 2009, yr.plus.1 = 2012)
+mildata$mil.expenditure.sipri[mildata$iso3c=="GMB"&mildata$year==2011] <- mil_expenditure_distance_gap_estimator_func(
+  df = mildata, col_missing = "SIPRI", col_ref = "WMEAT", "GMB", 2011, yr.minus.1 = 2009, yr.plus.1 = 2012)
+
 # 2016-2017
 
-# cow personnel
+##### cow personnel
 # good
 
-# wmeat personnel
+##### wmeat personnel
 # 1965-1966
 # 1974
 
@@ -4469,11 +4900,29 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="GMB"&mildata$year==2019] <- mildata$
 x <- milexp.viewer("GMB")
 y <- milper.viewer("GMB")
 
-##### GNB(ce,we,se,wp) ----------------------------------------------------------------------
-# cow military expenditure
+##### GNB(ce,we,se) ----------------------------------------------------------------------
+
+##### cow expenditure
+# 1975
+# 1988
+# 1991
+
+# 1992-1993: estimate COW 1992-1993 as equidistant point based on WMEAT 1989-1994 values (WMEAT 1989-1990 is NA)
+mildata$mil.expenditure.cow[mildata$iso3c=="GNB"&mildata$year==1992] <- mil_expenditure_distance_gap_estimator_func(
+  df = mildata, col_missing = "COW", col_ref = "WMEAT", "GNB", 1992, yr.minus.1 = 1989, yr.plus.1 = 1994)
+mildata$mil.expenditure.cow[mildata$iso3c=="GNB"&mildata$year==1993] <- mil_expenditure_distance_gap_estimator_func(
+  df = mildata, col_missing = "COW", col_ref = "WMEAT", "GNB", 1993, yr.minus.1 = 1989, yr.plus.1 = 1994)
+mildata$mil.expenditure.cow.alt[mildata$iso3c=="GNB"&mildata$year==1992] <- mil_expenditure_distance_gap_estimator_func(
+  df = mildata, col_missing = "COW", col_ref = "WMEAT", "GNB", 1992, yr.minus.1 = 1989, yr.plus.1 = 1994)
+mildata$mil.expenditure.cow.alt[mildata$iso3c=="GNB"&mildata$year==1993] <- mil_expenditure_distance_gap_estimator_func(
+  df = mildata, col_missing = "COW", col_ref = "WMEAT", "GNB", 1993, yr.minus.1 = 1989, yr.plus.1 = 1994)
+
 # 2013: apply IISS growth estimates based on 2012
-mildata <- mil_expenditure_growth_estimator_cow_func(
-  df = mildata, iso = "GNB", yr = 2012, restricted = 2013)
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.cow",
+  col_ref = "defense.spending.iiss",
+  "GNB", 2012, restricted = 2013
+)
 
 ## remove estimate flag for 2013
 mildata <- mildata %>%
@@ -4482,31 +4931,37 @@ mildata <- mildata %>%
     .default = mil.expenditure.cow.est.flag
   ))
 
-# 2014-2017: apply WMEAT growth estimates based on 2013 COW estimate
-mildata <- mil_expenditure_growth_estimator_cow_func(
-  df = mildata, iso = "GNB", yr = 2013, restricted = c(2014:2017), estimator = "WMEAT")
-
-# 1975
-# 1988
-# 1991
-
-# 1992-1993: estimate COW 1992-1993 as equidistant point based on WMEAT 1989-1994 values (WMEAT 1989-1990 is NA)
-mildata$mil.expenditure.cow[mildata$iso3c=="GNB"&mildata$year==1992] <- mil_expenditure_distance_gap_estimator_cow_func(
-  df = mildata, "GNB", c(1992:1993), estimator = "WMEAT", yr.minus.1 = 1989)
-mildata$mil.expenditure.cow[mildata$iso3c=="GNB"&mildata$year==1993] <- mil_expenditure_distance_gap_estimator_cow_func(
-  df = mildata, "GNB", c(1992:1993), estimator = "WMEAT", yr.minus.1 = 1989)[2]
+# 2014-2017: apply SIPRI growth rates to COW
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.cow",
+  col_ref = "mil.expenditure.sipri",
+  "GNB", 2013, restricted = c(2014:2017)
+)
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.cow.alt",
+  col_ref = "mil.expenditure.sipri",
+  "GNB", 2013, restricted = c(2014:2017)
+)
 
 # 2018-2019
 
-# wmeat expenditure
+##### wmeat expenditure
 # 1975
 # 1983
 # 1988
 # 1990-1991
 # 2018-2019
 
-# sipri expenditure
-# 1974-1981
+##### sipri expenditure
+# 1974-1975
+
+# 1976-1981: apply COW growth rates to SIPRI
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.sipri",
+  col_ref = "mil.expenditure.cow",
+  "GNB", 1982, restricted = c(1976:1981)
+)
+
 # 1988
 # 1990-1993
 # 1999
@@ -4514,30 +4969,34 @@ mildata$mil.expenditure.cow[mildata$iso3c=="GNB"&mildata$year==1993] <- mil_expe
 # 2006-2008
 # 2018-2019
 
-# cow personnel
+##### cow personnel
 # good
 
-# wmeat personnel
+##### wmeat personnel
 # 2018-2019: 2011-12 - 2016-17 growth rates 0% for both COW and WMEAT; apply COW's continued 0% growth to WMEAT
 mildata$mil.personnel.wmeat[mildata$iso3c=="GNB"&mildata$year==2018] <- mildata$mil.personnel.wmeat[mildata$iso3c=="GNB"&mildata$year==2017]
 mildata$mil.personnel.wmeat[mildata$iso3c=="GNB"&mildata$year==2019] <- mildata$mil.personnel.wmeat[mildata$iso3c=="GNB"&mildata$year==2018]
 
 x <- milexp.viewer("GNB")
-y <- milper.viewer("GNB")
+# y <- milper.viewer("GNB")
 
-##### GNQ(ce,we,se,wp) ----------------------------------------------------------------------
-# cow expenditure
+##### GNQ(ce,we,se) ----------------------------------------------------------------------
+
+##### cow expenditure
 # 1977-1979
 # 1983-1993
 # 2010
 
-# 2010: estimate COW 2010 as equidistant point based on IISS 2009-2011 values
-mildata$mil.expenditure.cow[mildata$iso3c=="GNQ"&mildata$year==2010] <- mil_expenditure_distance_gap_estimator_cow_func(
-  df = mildata, "GNQ", 2010, estimator = "IISS")
+# 2010 (non-alt): estimate COW 2010 as equidistant point based on IISS 2009-2011 values
+mildata$mil.expenditure.cow[mildata$iso3c=="GNQ"&mildata$year==2010] <- mil_expenditure_distance_gap_estimator_func(
+  df = mildata, col_missing = "COW", col_ref = "IISS", "GNQ", 2010)
 
 # 2012-2013: apply IISS growth estimates based on 2011 COW estimate
-mildata <- mil_expenditure_growth_estimator_cow_func(
-  df = mildata, iso = "GNQ", yr = 2011, restricted = c(2012:2013), estimator = "IISS")
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.cow",
+  col_ref = "defense.spending.iiss",
+  "GNQ", 2011, restricted = c(2012:2013)
+)
 
 ## remove estimate flag for 2012-2013
 mildata <- mildata %>%
@@ -4548,44 +5007,78 @@ mildata <- mildata %>%
 
 # 2014-2019
 
-# wmeat expenditure
+##### wmeat expenditure
 # 1968
 # 1976-1980
 # 1982-1993
 # 2010-2013
 # 2015-2019
 
-# sipri expenditure
+##### sipri expenditure
 # 1968-1993
 # 1996-2006
 # 2010-2013
 # 2019
 
-# cow personnel
+##### cow personnel
 # good
 
-# wmeat personnel
-# 1968
-# 2018-2019
+##### wmeat personnel
+# 1968: COW and WMEAT personnel match 1969-1998, so use COW personnel estimates
+mildata <- mildata %>%
+  dplyr::mutate(mil.personnel.wmeat = ifelse(year==1968&iso3c=="GNQ",mil.personnel.cow,mil.personnel.wmeat))
+
+# 2018-2019: 2004-05 - 2016-17 growth rates 0% for both COW and WMEAT; apply COW's continued 0% growth to WMEAT
+mildata$mil.personnel.wmeat[mildata$iso3c=="GNQ"&mildata$year==2018] <- mildata$mil.personnel.wmeat[mildata$iso3c=="GNQ"&mildata$year==2017]
+mildata$mil.personnel.wmeat[mildata$iso3c=="GNQ"&mildata$year==2019] <- mildata$mil.personnel.wmeat[mildata$iso3c=="GNQ"&mildata$year==2018]
 
 x <- milexp.viewer("GNQ")
-y <- milper.viewer("GNQ")
+# y <- milper.viewer("GNQ")
 
-##### GRC(ce,we,se,wp) ----------------------------------------------------------------------
-# cow expenditure
-# 2013-2019 (non-alt)
+##### GRC(wp) ----------------------------------------------------------------------
 
-# wmeat expenditure
-# 1946-1962
-# 2018-2019
+##### cow expenditure
+# 2013-2019 (non-alt): apply IISS growth estimates based on 2012 COW estimate
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.cow",
+  col_ref = "defense.spending.iiss",
+  "GRC", 2012, restricted = c(2013:2019)
+)
 
-# sipri expenditure
-# 1946-1948
+## remove estimate flag for 2013-2019
+mildata <- mildata %>%
+  dplyr::mutate(mil.expenditure.cow.est.flag  = dplyr::case_when(
+    iso3c == "GRC" & year %in% c(2013:2019) ~ 0,
+    .default = mil.expenditure.cow.est.flag
+  ))
 
-# cow personnel
+##### wmeat expenditure
+# 1946-1962: apply COW growth rates to WMEAT
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.wmeat",
+  col_ref = "mil.expenditure.cow",
+  "GRC", 1963, restricted = c(1946:1962)
+)
+
+# 2018-2019: apply IISS growth rates to WMEAT
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.wmeat",
+  col_ref = "defense.spending.iiss",
+  "GRC", 2017, restricted = c(2018:2019)
+)
+
+##### sipri expenditure
+# 1946-1948: apply COW growth rates to SIPRI
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.sipri",
+  col_ref = "mil.expenditure.cow",
+  "GRC", 1949, restricted = c(1946:1948)
+)
+
+##### cow personnel
 # good
 
-# wmeat personnel
+##### wmeat personnel
 # 1945-1962: COW and WMEAT personnel match 1963-1976, so use COW personnel estimates
 mildata <- mildata %>%
   dplyr::mutate(mil.personnel.wmeat = ifelse(year %in% c(1945:1962)&iso3c=="GRC",mil.personnel.cow,mil.personnel.wmeat))
@@ -4596,120 +5089,244 @@ x <- milexp.viewer("GRC")
 y <- milper.viewer("GRC")
 
 ##### GRD(x) ----------------------------------------------------------------------
-# cow expenditure
+
+##### cow expenditure
 # 1978-1981
 # 1984-1993
 
-# wmeat expenditure
+##### wmeat expenditure
 # N/A
 
-# sipri expenditure
+##### sipri expenditure
 # N/A
 
-# cow personnel
+##### cow personnel
 # good
 
-# wmeat personnel
+##### wmeat personnel
 # N/A
 
 x <- milexp.viewer("GRD")
 y <- milper.viewer("GRD")
 
-##### GTM(we,se,wp) ----------------------------------------------------------------------
-# cow expenditure
+##### GTM ----------------------------------------------------------------------
+
+##### cow expenditure
 # good
 
-# wmeat expenditure
-# 1946-1962
-# 2018-2019
+##### wmeat expenditure
+# 1946-1962: apply COW growth rates to WMEAT
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.wmeat",
+  col_ref = "mil.expenditure.cow",
+  "GTM", 1963, restricted = c(1946:1962)
+)
 
-# sipri expenditure
-# 1946-1954
+# 2018-2019: apply COW growth rates to WMEAT
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.wmeat",
+  col_ref = "mil.expenditure.cow",
+  "GTM", 2017, restricted = c(2018:2019)
+)
 
-# cow personnel
+##### sipri expenditure
+# 1946-1954: apply COW growth rates to SIPRI
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.sipri",
+  col_ref = "mil.expenditure.cow",
+  "GTM", 1955, restricted = c(1946:1954)
+)
+
+##### cow personnel
 # good
 
-# wmeat personnel
+##### wmeat personnel
 # 1946-1962: COW and WMEAT personnel match 1963-1978, so use COW personnel estimates
 mildata <- mildata %>%
   dplyr::mutate(mil.personnel.wmeat = ifelse(year %in% c(1946:1962)&iso3c=="GTM",mil.personnel.cow,mil.personnel.wmeat))
 
-# 2018-2019
+# 2018-2019: 2016-17 growth rates 0% for both COW and WMEAT; apply COW's continued 0% growth to WMEAT
+mildata$mil.personnel.wmeat[mildata$iso3c=="GTM"&mildata$year==2018] <- mildata$mil.personnel.wmeat[mildata$iso3c=="GTM"&mildata$year==2017]
+mildata$mil.personnel.wmeat[mildata$iso3c=="GTM"&mildata$year==2019] <- mildata$mil.personnel.wmeat[mildata$iso3c=="GTM"&mildata$year==2018]
 
-x <- milexp.viewer("GTM")
-y <- milper.viewer("GTM")
+# x <- milexp.viewer("GTM")
+# y <- milper.viewer("GTM")
 
-##### GUY(ce,we,se,wp) ----------------------------------------------------------------------
-# cow expenditure
+##### GUY ----------------------------------------------------------------------
+
+##### cow expenditure
 # 1992
+mildata$mil.expenditure.cow[mildata$iso3c=="GUY"&mildata$year==1992] <- mil_expenditure_distance_gap_estimator_func(
+  df = mildata, col_missing = "COW", col_ref = "SIPRI", "GUY", 1992)
+mildata$mil.expenditure.cow.alt[mildata$iso3c=="GUY"&mildata$year==1992] <- mil_expenditure_distance_gap_estimator_func(
+  df = mildata, col_missing = "COW", col_ref = "SIPRI", "GUY", 1992)
+
 # 2005-2008
+mildata$mil.expenditure.cow[mildata$iso3c=="GUY"&mildata$year==2005] <- mil_expenditure_distance_gap_estimator_func(
+  df = mildata, col_missing = "COW", col_ref = "SIPRI", "GUY", 2005, yr.minus.1 = 2004, yr.plus.1 = 2009)
+mildata$mil.expenditure.cow[mildata$iso3c=="GUY"&mildata$year==2006] <- mil_expenditure_distance_gap_estimator_func(
+  df = mildata, col_missing = "COW", col_ref = "SIPRI", "GUY", 2006, yr.minus.1 = 2004, yr.plus.1 = 2009)
+mildata$mil.expenditure.cow[mildata$iso3c=="GUY"&mildata$year==2007] <- mil_expenditure_distance_gap_estimator_func(
+  df = mildata, col_missing = "COW", col_ref = "SIPRI", "GUY", 2007, yr.minus.1 = 2004, yr.plus.1 = 2009)
+mildata$mil.expenditure.cow[mildata$iso3c=="GUY"&mildata$year==2008] <- mil_expenditure_distance_gap_estimator_func(
+  df = mildata, col_missing = "COW", col_ref = "SIPRI", "GUY", 2008, yr.minus.1 = 2004, yr.plus.1 = 2009)
+mildata$mil.expenditure.cow.alt[mildata$iso3c=="GUY"&mildata$year==2005] <- mil_expenditure_distance_gap_estimator_func(
+  df = mildata, col_missing = "COW", col_ref = "SIPRI", "GUY", 2005, yr.minus.1 = 2004, yr.plus.1 = 2009)
+mildata$mil.expenditure.cow.alt[mildata$iso3c=="GUY"&mildata$year==2006] <- mil_expenditure_distance_gap_estimator_func(
+  df = mildata, col_missing = "COW", col_ref = "SIPRI", "GUY", 2006, yr.minus.1 = 2004, yr.plus.1 = 2009)
+mildata$mil.expenditure.cow.alt[mildata$iso3c=="GUY"&mildata$year==2007] <- mil_expenditure_distance_gap_estimator_func(
+  df = mildata, col_missing = "COW", col_ref = "SIPRI", "GUY", 2007, yr.minus.1 = 2004, yr.plus.1 = 2009)
+mildata$mil.expenditure.cow.alt[mildata$iso3c=="GUY"&mildata$year==2008] <- mil_expenditure_distance_gap_estimator_func(
+  df = mildata, col_missing = "COW", col_ref = "SIPRI", "GUY", 2008, yr.minus.1 = 2004, yr.plus.1 = 2009)
 
-# wmeat expenditure
+##### wmeat expenditure
 # 1983
+mildata$mil.expenditure.wmeat[mildata$iso3c=="GUY"&mildata$year==1983] <- mil_expenditure_distance_gap_estimator_func(
+  df = mildata, col_missing = "WMEAT", col_ref = "SIPRI", "GUY", 1983)
+
 # 1986-1987
-# 2018-2019
+mildata$mil.expenditure.wmeat[mildata$iso3c=="GUY"&mildata$year==1986] <- mil_expenditure_distance_gap_estimator_func(
+  df = mildata, col_missing = "WMEAT", col_ref = "COW", "GUY", 1986, yr.minus.1 = 1985, yr.plus.1 = 1988)
+mildata$mil.expenditure.wmeat[mildata$iso3c=="GUY"&mildata$year==1987] <- mil_expenditure_distance_gap_estimator_func(
+  df = mildata, col_missing = "WMEAT", col_ref = "COW", "GUY", 1987, yr.minus.1 = 1985, yr.plus.1 = 1988)
 
-# sipri expenditure
-# 1966-1972
+# 2018-2019: apply COW growth rates to WMEAT
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.wmeat",
+  col_ref = "mil.expenditure.cow",
+  "GUY", 2017, restricted = c(2018:2019)
+)
+
+##### sipri expenditure
+# 1966-1972: apply WMEAT growth rates to SIPRI
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.sipri",
+  col_ref = "mil.expenditure.wmeat",
+  "GUY", 1973, restricted = c(1966:1972)
+)
+
 # 1997-1999
+mildata$mil.expenditure.sipri[mildata$iso3c=="GUY"&mildata$year==1997] <- mil_expenditure_distance_gap_estimator_func(
+  df = mildata, col_missing = "SIPRI", col_ref = "WMEAT", "GUY", 1997, yr.minus.1 = 1996, yr.plus.1 = 2000)
+mildata$mil.expenditure.sipri[mildata$iso3c=="GUY"&mildata$year==1998] <- mil_expenditure_distance_gap_estimator_func(
+  df = mildata, col_missing = "SIPRI", col_ref = "WMEAT", "GUY", 1998, yr.minus.1 = 1996, yr.plus.1 = 2000)
+mildata$mil.expenditure.sipri[mildata$iso3c=="GUY"&mildata$year==1999] <- mil_expenditure_distance_gap_estimator_func(
+  df = mildata, col_missing = "SIPRI", col_ref = "WMEAT", "GUY", 1999, yr.minus.1 = 1996, yr.plus.1 = 2000)
 
-# cow personnel
+##### cow personnel
 # good
 
-# wmeat personnel
-# 2018-2019
+##### wmeat personnel
+# 2018-2019: 2016-17 growth rates 0% for both COW and WMEAT; apply COW's continued 0% growth to WMEAT
+mildata$mil.personnel.wmeat[mildata$iso3c=="GUY"&mildata$year==2018] <- mildata$mil.personnel.wmeat[mildata$iso3c=="GUY"&mildata$year==2017]
+mildata$mil.personnel.wmeat[mildata$iso3c=="GUY"&mildata$year==2019] <- mildata$mil.personnel.wmeat[mildata$iso3c=="GUY"&mildata$year==2018]
 
-x <- milexp.viewer("GUY")
-y <- milper.viewer("GUY")
+# x <- milexp.viewer("GUY")
+# y <- milper.viewer("GUY")
 
-##### HND(we,se,wp) ----------------------------------------------------------------------
-# cow expenditure
+##### HND(wp) ----------------------------------------------------------------------
+
+##### cow expenditure
 # good
 
-# wmeat expenditure
-# 1946-1962
+##### wmeat expenditure
+# 1951-1962: apply SIPRI growth rates to WMEAT
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.wmeat",
+  col_ref = "mil.expenditure.sipri",
+  "HND", 1963, restricted = c(1951:1962)
+)
+
+# 1946-1950: apply COW growth rates to WMEAT
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.wmeat",
+  col_ref = "mil.expenditure.sipri",
+  "HND", 1951, restricted = c(1946:1950)
+)
+
 # 1980-1983
-# 2018-2019
+mildata$mil.expenditure.wmeat[mildata$iso3c=="HND"&mildata$year==1980] <- mil_expenditure_gap_estimator_func(
+  df = mildata, col_missing = "WMEAT", col_ref = "COW", "HND", 1980, yr.minus.1 = 1979, yr.plus.1 = 1984)
+mildata$mil.expenditure.wmeat[mildata$iso3c=="HND"&mildata$year==1981] <- mil_expenditure_gap_estimator_func(
+  df = mildata, col_missing = "WMEAT", col_ref = "COW", "HND", 1981, yr.minus.1 = 1979, yr.plus.1 = 1984)
+mildata$mil.expenditure.wmeat[mildata$iso3c=="HND"&mildata$year==1982] <- mil_expenditure_gap_estimator_func(
+  df = mildata, col_missing = "WMEAT", col_ref = "COW", "HND", 1982, yr.minus.1 = 1979, yr.plus.1 = 1984)
+mildata$mil.expenditure.wmeat[mildata$iso3c=="HND"&mildata$year==1983] <- mil_expenditure_gap_estimator_func(
+  df = mildata, col_missing = "WMEAT", col_ref = "COW", "HND", 1983, yr.minus.1 = 1979, yr.plus.1 = 1984)
 
-# sipri expenditure
+# 2018-2019: apply SIPRI growth rates to WMEAT
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.wmeat",
+  col_ref = "mil.expenditure.sipri",
+  "HND", 2017, restricted = c(2018:2019)
+)
+
+##### sipri expenditure
 # 1946-1950: apply COW growth rates to SIPRI
 mildata <- mil_expenditure_growth_estimator_func(
   mildata,col_missing = "mil.expenditure.sipri",
   col_ref = "mil.expenditure.cow",
-  "HUN", 1951, restricted = c(1946:1950)
+  "HND", 1951, restricted = c(1946:1950)
 )
 
 # 1992
-# 1994-1999
+mildata$mil.expenditure.sipri[mildata$iso3c=="HND"&mildata$year==1992] <- mil_expenditure_distance_gap_estimator_func(
+  df = mildata, col_missing = "SIPRI", col_ref = "COW", "HND", 1992)
 
-# cow personnel
+# 1994-1999
+mildata$mil.expenditure.sipri[mildata$iso3c=="HND"&mildata$year==1994] <- mil_expenditure_gap_estimator_func(
+  df = mildata, col_missing = "SIPRI", col_ref = "WMEAT", "HND", 1994, yr.minus.1 = 1993, yr.plus.1 = 2000)
+mildata$mil.expenditure.sipri[mildata$iso3c=="HND"&mildata$year==1995] <- mil_expenditure_gap_estimator_func(
+  df = mildata, col_missing = "SIPRI", col_ref = "WMEAT", "HND", 1995, yr.minus.1 = 1993, yr.plus.1 = 2000)
+mildata$mil.expenditure.sipri[mildata$iso3c=="HND"&mildata$year==1996] <- mil_expenditure_gap_estimator_func(
+  df = mildata, col_missing = "SIPRI", col_ref = "WMEAT", "HND", 1996, yr.minus.1 = 1993, yr.plus.1 = 2000)
+mildata$mil.expenditure.sipri[mildata$iso3c=="HND"&mildata$year==1997] <- mil_expenditure_gap_estimator_func(
+  df = mildata, col_missing = "SIPRI", col_ref = "WMEAT", "HND", 1997, yr.minus.1 = 1993, yr.plus.1 = 2000)
+mildata$mil.expenditure.sipri[mildata$iso3c=="HND"&mildata$year==1998] <- mil_expenditure_gap_estimator_func(
+  df = mildata, col_missing = "SIPRI", col_ref = "WMEAT", "HND", 1998, yr.minus.1 = 1993, yr.plus.1 = 2000)
+mildata$mil.expenditure.sipri[mildata$iso3c=="HND"&mildata$year==1999] <- mil_expenditure_gap_estimator_func(
+  df = mildata, col_missing = "SIPRI", col_ref = "WMEAT", "HND", 1999, yr.minus.1 = 1993, yr.plus.1 = 2000)
+
+##### cow personnel
 # good
 
-# wmeat personnel
+##### wmeat personnel
 # 1946-1962: COW and WMEAT personnel match 1963-1977, so use COW personnel estimates
 mildata <- mildata %>%
   dplyr::mutate(mil.personnel.wmeat = ifelse(year %in% c(1946:1962)&iso3c=="HND",mil.personnel.cow,mil.personnel.wmeat))
 
 # 2018-2019
 
-x <- milexp.viewer("HND")
+# x <- milexp.viewer("HND")
 y <- milper.viewer("HND")
 
-##### HRV(we,wp) ----------------------------------------------------------------------
-# cow expenditure
+##### HRV(wp) ----------------------------------------------------------------------
+
+##### cow expenditure
 # good
 
-# wmeat expenditure
-# 1992-1994
-# 2018-2019
+##### wmeat expenditure
+# 1992-1994: apply COW growth rates to WMEAT
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.wmeat",
+  col_ref = "mil.expenditure.cow",
+  "HRV", 1995, restricted = c(1992:1994)
+)
 
-# sipri expenditure
+# 2018-2019: apply COW growth rates to WMEAT
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.wmeat",
+  col_ref = "mil.expenditure.cow",
+  "HRV", 2017, restricted = c(2018:2019)
+)
+
+##### sipri expenditure
 # good
 
-# cow personnel
+##### cow personnel
 # good
 
-# wmeat personnel
+##### wmeat personnel
 # 1993
 # 2018-2019
 
@@ -4717,34 +5334,35 @@ x <- milexp.viewer("HRV")
 y <- milper.viewer("HRV")
 
 ##### HTI(ce,we,se,cp,wp) ----------------------------------------------------------------------
-# cow expenditure
+
+##### cow expenditure
 # 1986
 
 # 1993-1994: apply WMEAT growth estimates based on 1992 COW estimate
-mildata <- mil_expenditure_growth_estimator_cow_func(
-  df = mildata, iso = "HTI", yr = 1992, restricted = c(1993:1994), estimator = "WMEAT")
+# mildata <- mil_expenditure_growth_estimator_cow_func(
+#   df = mildata, iso = "HTI", yr = 1992, restricted = c(1993:1994), estimator = "WMEAT")
 
 # 2004-2009
 # 2010-2019
 
-# wmeat expenditure
+##### wmeat expenditure
 # 1946-1962
 # 1986
 # 2010-2019
 
-# sipri expenditure
+##### sipri expenditure
 # 1946-1987
 # 1996-2012
 
-# cow personnel
+##### cow personnel
 # 2000
 # 2002-2004
 # 2007
 
-# wmeat personnel
+##### wmeat personnel
 # 1945-1962: COW and WMEAT personnel match 1963-1999, so use COW personnel estimates
 mildata <- mildata %>%
-  dplyr::mutate(mil.personnel.wmeat = ifelse(year %in% c(1945:1962)&iso3c=="HND",mil.personnel.cow,mil.personnel.wmeat))
+  dplyr::mutate(mil.personnel.wmeat = ifelse(year %in% c(1945:1962)&iso3c=="HTI",mil.personnel.cow,mil.personnel.wmeat))
 
 # 2018-2019
 
@@ -4752,10 +5370,11 @@ x <- milexp.viewer("HTI")
 y <- milper.viewer("HTI")
 
 ##### HUN(wp) ----------------------------------------------------------------------
-# cow expenditure
+
+##### cow expenditure
 # good
 
-# wmeat expenditure
+##### wmeat expenditure
 # 1946-1962: apply COW growth rates to WMEAT
 mildata <- mil_expenditure_growth_estimator_func(
   mildata,col_missing = "mil.expenditure.wmeat",
@@ -4770,7 +5389,7 @@ mildata <- mil_expenditure_growth_estimator_func(
   "HUN", 2017, restricted = c(2018:2019)
 )
 
-# sipri expenditure
+##### sipri expenditure
 # 1946-1967: apply COW growth rates to SIPRI
 mildata <- mil_expenditure_growth_estimator_func(
   mildata,col_missing = "mil.expenditure.sipri",
@@ -4778,10 +5397,10 @@ mildata <- mil_expenditure_growth_estimator_func(
   "HUN", 1968, restricted = c(1946:1967)
 )
 
-# cow personnel
+##### cow personnel
 # good
 
-# wmeat personnel
+##### wmeat personnel
 # 1946-1962: COW and WMEAT personnel match 1963-1976, so use COW personnel estimates
 mildata <- mildata %>%
   dplyr::mutate(mil.personnel.wmeat = ifelse(year %in% c(1946:1962)&iso3c=="HUN",mil.personnel.cow,mil.personnel.wmeat))
@@ -4795,11 +5414,12 @@ mildata <- mildata %>%
 x <- milexp.viewer("HUN")
 y <- milper.viewer("HUN")
 
-##### IDN(wp) ----------------------------------------------------------------------
-# cow expenditure
+##### IDN ----------------------------------------------------------------------
+
+##### cow expenditure
 # good
 
-# wmeat expenditure
+##### wmeat expenditure
 # 1949-1962: apply COW growth rates to WMEAT
 mildata <- mil_expenditure_growth_estimator_func(
   mildata,col_missing = "mil.expenditure.wmeat",
@@ -4814,7 +5434,7 @@ mildata <- mil_expenditure_growth_estimator_func(
   "IDN", 2017, restricted = c(2018:2019)
 )
 
-# sipri expenditure
+##### sipri expenditure
 # 1946-1973: apply COW growth rates to SIPRI
 mildata <- mil_expenditure_growth_estimator_func(
   mildata,col_missing = "mil.expenditure.sipri",
@@ -4822,34 +5442,65 @@ mildata <- mil_expenditure_growth_estimator_func(
   "IDN", 1974, restricted = c(1949:1973)
 )
 
-# cow personnel
+##### cow personnel
 # good
 
-# wmeat personnel
+##### wmeat personnel
 # 1949-1962: COW and WMEAT personnel match 1963-1982, so use COW personnel estimates
 mildata <- mildata %>%
   dplyr::mutate(mil.personnel.wmeat = ifelse(year %in% c(1949:1962)&iso3c=="IDN",mil.personnel.cow,mil.personnel.wmeat))
 
-# 2018-2019
+# 2018-2019: 2014-15 - 2016-17 growth rates 0% for both COW and WMEAT; apply COW's continued 0% growth to WMEAT
+mildata$mil.personnel.wmeat[mildata$iso3c=="IDN"&mildata$year==2018] <- mildata$mil.personnel.wmeat[mildata$iso3c=="IDN"&mildata$year==2017]
+mildata$mil.personnel.wmeat[mildata$iso3c=="IDN"&mildata$year==2019] <- mildata$mil.personnel.wmeat[mildata$iso3c=="IDN"&mildata$year==2018]
 
-x <- milexp.viewer("IDN")
-y <- milper.viewer("IDN")
+# x <- milexp.viewer("IDN")
+# y <- milper.viewer("IDN")
 
-##### IND(ce,we,se,wp) ----------------------------------------------------------------------
-# cow expenditure (non-alt)
-# 2013-2019
+##### IND(wp) ----------------------------------------------------------------------
 
-# wmeat expenditure
-# 1947-1962
-# 2018-2019
+##### cow expenditure (non-alt)
+# 2013-2019 (non-alt): apply IISS growth estimates based on 2012 COW estimate
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.cow",
+  col_ref = "defense.spending.iiss",
+  "IND", 2012, restricted = c(2013:2019)
+)
 
-# sipri expenditure
-# 1947-1955
+## remove estimate flag for 2013-2019
+mildata <- mildata %>%
+  dplyr::mutate(mil.expenditure.cow.est.flag  = dplyr::case_when(
+    iso3c == "IND" & year %in% c(2013:2019) ~ 0,
+    .default = mil.expenditure.cow.est.flag
+  ))
 
-# cow personnel
+##### wmeat expenditure
+# 1947-1962: apply COW growth rates to WMEAT
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.wmeat",
+  col_ref = "mil.expenditure.cow",
+  "IND", 1963, restricted = c(1947:1962)
+)
+
+# 2018-2019: apply IISS growth rates to WMEAT
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.wmeat",
+  col_ref = "defense.spending.iiss",
+  "IND", 2017, restricted = c(2018:2019)
+)
+
+##### sipri expenditure
+# 1947-1955: apply COW growth rates to SIPRI
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.sipri",
+  col_ref = "mil.expenditure.cow",
+  "IND", 1956, restricted = c(1947:1955)
+)
+
+##### cow personnel
 # good
 
-# wmeat personnel
+##### wmeat personnel
 # 1947-1962: COW and WMEAT personnel match 1963-1964, so use COW personnel estimates
 mildata <- mildata %>%
   dplyr::mutate(mil.personnel.wmeat = ifelse(year %in% c(1947:1962)&iso3c=="IND",mil.personnel.cow,mil.personnel.wmeat))
@@ -4860,56 +5511,99 @@ x <- milexp.viewer("IND")
 y <- milper.viewer("IND")
 
 ##### IRL ----------------------------------------------------------------------
-# cow expenditure
+
+##### cow expenditure
 # good
 
-# wmeat expenditure
-# 1946-1962
-# 2018-2019
+##### wmeat expenditure
+# 1946-1962: apply COW growth rates to WMEAT
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.wmeat",
+  col_ref = "mil.expenditure.cow",
+  "IRL", 1963, restricted = c(1946:1963)
+)
 
-# sipri expenditure
-# 1946-1957
+# 2018-2019: apply COW growth rates to WMEAT
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.wmeat",
+  col_ref = "mil.expenditure.cow",
+  "IRL", 2017, restricted = c(2018:2019)
+)
 
-# cow personnel
+##### sipri expenditure
+# 1946-1957: apply COW growth rates to SIPRI
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.sipri",
+  col_ref = "mil.expenditure.cow",
+  "IRL", 1958, restricted = c(1946:1957)
+)
+
+##### cow personnel
 # good
 
-# wmeat personnel
+##### wmeat personnel
 # 1945-1962: COW and WMEAT personnel match 1963-1976, so use COW personnel estimates
 mildata <- mildata %>%
   dplyr::mutate(mil.personnel.wmeat = ifelse(year %in% c(1945:1962)&iso3c=="IRL",mil.personnel.cow,mil.personnel.wmeat))
 
 # 2018-2019: COW and WMEAT personnel match 2009-2017, so use COW personnel estimates
 mildata <- mildata %>%
-  dplyr::mutate(mil.personnel.wmeat = ifelse(year %in% c(2018-2019)&iso3c=="IRL",mil.personnel.cow,mil.personnel.wmeat))
+  dplyr::mutate(mil.personnel.wmeat = ifelse(year %in% c(2018:2019)&iso3c=="IRL",mil.personnel.cow,mil.personnel.wmeat))
 
-x <- milexp.viewer("IRL")
-y <- milper.viewer("IRL")
+# x <- milexp.viewer("IRL")
+# y <- milper.viewer("IRL")
 
-##### IRN(we,se) ----------------------------------------------------------------------
-# cow expenditure
+##### IRN ----------------------------------------------------------------------
+
+##### cow expenditure
 # 1981: calculate WMEAT 1981 as a percent of 1980 and 1982 values, apply proportions
 # to COW estimates, and average the two estimates
-mildata$mil.expenditure.cow[mildata$iso3c=="IRN"&mildata$year==1981] <- mil_expenditure_gap_estimator_cow_func(
-  df = mildata, "IRN", 1981, estimator = "WMEAT")
-
-mildata$mil.expenditure.cow.alt[mildata$iso3c=="IRN"&mildata$year==1981] <- mil_expenditure_gap_estimator_cow_func(
-  df = mildata, "IRN", 1981, estimator = "WMEAT")
+mildata$mil.expenditure.cow[mildata$iso3c=="IRN"&mildata$year==1981] <- mil_expenditure_distance_gap_estimator_func(
+  df = mildata, col_missing = "COW", col_ref = "WMEAT", "IRN", 1981)
+mildata$mil.expenditure.cow.alt[mildata$iso3c=="IRN"&mildata$year==1981] <- mil_expenditure_distance_gap_estimator_func(
+  df = mildata, col_missing = "COW", col_ref = "WMEAT", "IRN", 1981)
 
 # 2013-2019: apply IISS growth estimates based on 2012 COW estimate
-mildata <- mil_expenditure_growth_estimator_cow_func(
-  df = mildata, iso = "IRN", yr = 2012, restricted = c(2013:2019), estimator = "IISS")
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.cow",
+  col_ref = "defense.spending.iiss",
+  "IRN", 2012, restricted = c(2013:2019)
+)
 
-# wmeat expenditure
-# 1946-1962
-# 2018-2019
+## remove estimate flag for 2013-2019
+mildata <- mildata %>%
+  dplyr::mutate(mil.expenditure.cow.est.flag  = dplyr::case_when(
+    iso3c == "IRN" & year %in% c(2013:2019) ~ 0,
+    .default = mil.expenditure.cow.est.flag
+  ))
 
-# sipri expenditure
-# 1946-1959
+##### wmeat expenditure
+# 1946-1962: apply COW growth rates to WMEAT
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.wmeat",
+  col_ref = "mil.expenditure.cow",
+  "IRN", 1963, restricted = c(1946:1962)
+)
 
-# cow personnel
+# 2018-2019: apply IISS growth estimates based on 2017 WMEAT estimate
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.wmeat",
+  col_ref = "defense.spending.iiss",
+  "IRN", 2017, restricted = c(2018:2019)
+)
+
+##### sipri expenditure
+# 1946-1959: apply COW growth rates to SIPRI
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.sipri",
+  col_ref = "mil.expenditure.cow",
+  "IRN", 1960, restricted = c(1946:1959)
+)
+
+##### cow personnel
 # good
 
-# wmeat personnel
+##### wmeat personnel
 # 1945-1962: COW and WMEAT personnel match 1963-1980, so use COW personnel estimates
 mildata <- mildata %>%
   dplyr::mutate(mil.personnel.wmeat = ifelse(year %in% c(1945:1962)&iso3c=="IRN",mil.personnel.cow,mil.personnel.wmeat))
@@ -4918,26 +5612,125 @@ mildata <- mildata %>%
 mildata$mil.personnel.wmeat[mildata$iso3c=="IRN"&mildata$year==2018] <- mildata$mil.personnel.wmeat[mildata$iso3c=="IRN"&mildata$year==2017]
 mildata$mil.personnel.wmeat[mildata$iso3c=="IRN"&mildata$year==2019] <- mildata$mil.personnel.wmeat[mildata$iso3c=="IRN"&mildata$year==2018]
 
-x <- milexp.viewer("IRN")
-y <- milper.viewer("IRN")
+# x <- milexp.viewer("IRN")
+# y <- milper.viewer("IRN")
 
-##### IRQ(ce,we,se) ----------------------------------------------------------------------
-# cow expenditure
-# 2002-2008
+##### IRQ ----------------------------------------------------------------------
 
-# wmeat expenditure
-# 1946-1962
+##### cow expenditure
+# 2002-2004: apply WMEAT growth rates to COW
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.cow",
+  col_ref = "mil.expenditure.wmeat",
+  "IRQ", 2001, restricted = c(2002:2004)
+)
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.cow.alt",
+  col_ref = "mil.expenditure.wmeat",
+  "IRQ", 2001, restricted = c(2002:2004)
+)
+
+# 2005-2008
+mildata$mil.expenditure.cow[mildata$iso3c=="IRQ"&mildata$year==2005] <- mil_expenditure_distance_gap_estimator_func(
+  df = mildata, col_missing = "COW", col_ref = "SIPRI", "IRQ", 2005, yr.minus.1 = 2004, yr.plus.1 = 2009)
+mildata$mil.expenditure.cow[mildata$iso3c=="IRQ"&mildata$year==2006] <- mil_expenditure_distance_gap_estimator_func(
+  df = mildata, col_missing = "COW", col_ref = "SIPRI", "IRQ", 2006, yr.minus.1 = 2004, yr.plus.1 = 2009)
+mildata$mil.expenditure.cow[mildata$iso3c=="IRQ"&mildata$year==2007] <- mil_expenditure_distance_gap_estimator_func(
+  df = mildata, col_missing = "COW", col_ref = "SIPRI", "IRQ", 2007, yr.minus.1 = 2004, yr.plus.1 = 2009)
+mildata$mil.expenditure.cow[mildata$iso3c=="IRQ"&mildata$year==2008] <- mil_expenditure_distance_gap_estimator_func(
+  df = mildata, col_missing = "COW", col_ref = "SIPRI", "IRQ", 2008, yr.minus.1 = 2004, yr.plus.1 = 2009)
+mildata$mil.expenditure.cow.alt[mildata$iso3c=="IRQ"&mildata$year==2005] <- mil_expenditure_distance_gap_estimator_func(
+  df = mildata, col_missing = "COW", col_ref = "SIPRI", "IRQ", 2005, yr.minus.1 = 2004, yr.plus.1 = 2009)
+mildata$mil.expenditure.cow.alt[mildata$iso3c=="IRQ"&mildata$year==2006] <- mil_expenditure_distance_gap_estimator_func(
+  df = mildata, col_missing = "COW", col_ref = "SIPRI", "IRQ", 2006, yr.minus.1 = 2004, yr.plus.1 = 2009)
+mildata$mil.expenditure.cow.alt[mildata$iso3c=="IRQ"&mildata$year==2007] <- mil_expenditure_distance_gap_estimator_func(
+  df = mildata, col_missing = "COW", col_ref = "SIPRI", "IRQ", 2007, yr.minus.1 = 2004, yr.plus.1 = 2009)
+mildata$mil.expenditure.cow.alt[mildata$iso3c=="IRQ"&mildata$year==2008] <- mil_expenditure_distance_gap_estimator_func(
+  df = mildata, col_missing = "COW", col_ref = "SIPRI", "IRQ", 2008, yr.minus.1 = 2004, yr.plus.1 = 2009)
+
+##### wmeat expenditure
+# 1946-1962: apply COW growth rates to WMEAT
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.wmeat",
+  col_ref = "mil.expenditure.cow",
+  "IRQ", 1963, restricted = c(1946:1962)
+)
+
 # 1992-1994
-# 2018-2019
+mildata$mil.expenditure.wmeat[mildata$iso3c=="IRQ"&mildata$year==1992] <- mil_expenditure_distance_gap_estimator_func(
+  df = mildata, col_missing = "WMEAT", col_ref = "COW", "IRQ", 1992, yr.minus.1 = 1991, yr.plus.1 = 1995)
+mildata$mil.expenditure.wmeat[mildata$iso3c=="IRQ"&mildata$year==1993] <- mil_expenditure_distance_gap_estimator_func(
+  df = mildata, col_missing = "WMEAT", col_ref = "COW", "IRQ", 1993, yr.minus.1 = 1991, yr.plus.1 = 1995)
+mildata$mil.expenditure.wmeat[mildata$iso3c=="IRQ"&mildata$year==1994] <- mil_expenditure_distance_gap_estimator_func(
+  df = mildata, col_missing = "WMEAT", col_ref = "COW", "IRQ", 1994, yr.minus.1 = 1991, yr.plus.1 = 1995)
 
-# sipri expenditure
-# 1946-1956
-# 1982-2003
+# 2018-2019: apply COW growth rates to WMEAT
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.wmeat",
+  col_ref = "mil.expenditure.cow",
+  "IRQ", 2017, restricted = c(2018:2019)
+)
 
-# cow personnel
+##### sipri expenditure
+# 1946-1956: apply COW growth rates to SIPRI
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.sipri",
+  col_ref = "mil.expenditure.cow",
+  "IRQ", 1957, restricted = c(1946:1956)
+)
+
+# 1982-2001
+mildata$mil.expenditure.sipri[mildata$iso3c=="IRQ"&mildata$year==1982] <- mil_expenditure_gap_estimator_func(
+  df = mildata, col_missing = "SIPRI", col_ref = "COW", "IRQ", 1982, yr.minus.1 = 1980, yr.plus.1 = 2009)
+mildata$mil.expenditure.sipri[mildata$iso3c=="IRQ"&mildata$year==1983] <- mil_expenditure_gap_estimator_func(
+  df = mildata, col_missing = "SIPRI", col_ref = "COW", "IRQ", 1983, yr.minus.1 = 1980, yr.plus.1 = 2009)
+mildata$mil.expenditure.sipri[mildata$iso3c=="IRQ"&mildata$year==1984] <- mil_expenditure_gap_estimator_func(
+  df = mildata, col_missing = "SIPRI", col_ref = "COW", "IRQ", 1984, yr.minus.1 = 1980, yr.plus.1 = 2009)
+mildata$mil.expenditure.sipri[mildata$iso3c=="IRQ"&mildata$year==1985] <- mil_expenditure_gap_estimator_func(
+  df = mildata, col_missing = "SIPRI", col_ref = "COW", "IRQ", 1985, yr.minus.1 = 1980, yr.plus.1 = 2009)
+mildata$mil.expenditure.sipri[mildata$iso3c=="IRQ"&mildata$year==1986] <- mil_expenditure_gap_estimator_func(
+  df = mildata, col_missing = "SIPRI", col_ref = "COW", "IRQ", 1986, yr.minus.1 = 1980, yr.plus.1 = 2009)
+mildata$mil.expenditure.sipri[mildata$iso3c=="IRQ"&mildata$year==1987] <- mil_expenditure_gap_estimator_func(
+  df = mildata, col_missing = "SIPRI", col_ref = "COW", "IRQ", 1987, yr.minus.1 = 1980, yr.plus.1 = 2009)
+mildata$mil.expenditure.sipri[mildata$iso3c=="IRQ"&mildata$year==1988] <- mil_expenditure_gap_estimator_func(
+  df = mildata, col_missing = "SIPRI", col_ref = "COW", "IRQ", 1988, yr.minus.1 = 1980, yr.plus.1 = 2009)
+mildata$mil.expenditure.sipri[mildata$iso3c=="IRQ"&mildata$year==1989] <- mil_expenditure_gap_estimator_func(
+  df = mildata, col_missing = "SIPRI", col_ref = "COW", "IRQ", 1989, yr.minus.1 = 1980, yr.plus.1 = 2009)
+mildata$mil.expenditure.sipri[mildata$iso3c=="IRQ"&mildata$year==1990] <- mil_expenditure_gap_estimator_func(
+  df = mildata, col_missing = "SIPRI", col_ref = "COW", "IRQ", 1990, yr.minus.1 = 1980, yr.plus.1 = 2009)
+mildata$mil.expenditure.sipri[mildata$iso3c=="IRQ"&mildata$year==1991] <- mil_expenditure_gap_estimator_func(
+  df = mildata, col_missing = "SIPRI", col_ref = "COW", "IRQ", 1991, yr.minus.1 = 1980, yr.plus.1 = 2009)
+mildata$mil.expenditure.sipri[mildata$iso3c=="IRQ"&mildata$year==1992] <- mil_expenditure_gap_estimator_func(
+  df = mildata, col_missing = "SIPRI", col_ref = "COW", "IRQ", 1992, yr.minus.1 = 1980, yr.plus.1 = 2009)
+mildata$mil.expenditure.sipri[mildata$iso3c=="IRQ"&mildata$year==1993] <- mil_expenditure_gap_estimator_func(
+  df = mildata, col_missing = "SIPRI", col_ref = "COW", "IRQ", 1993, yr.minus.1 = 1980, yr.plus.1 = 2009)
+mildata$mil.expenditure.sipri[mildata$iso3c=="IRQ"&mildata$year==1994] <- mil_expenditure_gap_estimator_func(
+  df = mildata, col_missing = "SIPRI", col_ref = "COW", "IRQ", 1994, yr.minus.1 = 1980, yr.plus.1 = 2009)
+mildata$mil.expenditure.sipri[mildata$iso3c=="IRQ"&mildata$year==1995] <- mil_expenditure_gap_estimator_func(
+  df = mildata, col_missing = "SIPRI", col_ref = "COW", "IRQ", 1995, yr.minus.1 = 1980, yr.plus.1 = 2009)
+mildata$mil.expenditure.sipri[mildata$iso3c=="IRQ"&mildata$year==1996] <- mil_expenditure_gap_estimator_func(
+  df = mildata, col_missing = "SIPRI", col_ref = "COW", "IRQ", 1996, yr.minus.1 = 1980, yr.plus.1 = 2009)
+mildata$mil.expenditure.sipri[mildata$iso3c=="IRQ"&mildata$year==1997] <- mil_expenditure_gap_estimator_func(
+  df = mildata, col_missing = "SIPRI", col_ref = "COW", "IRQ", 1997, yr.minus.1 = 1980, yr.plus.1 = 2009)
+mildata$mil.expenditure.sipri[mildata$iso3c=="IRQ"&mildata$year==1998] <- mil_expenditure_gap_estimator_func(
+  df = mildata, col_missing = "SIPRI", col_ref = "COW", "IRQ", 1998, yr.minus.1 = 1980, yr.plus.1 = 2009)
+mildata$mil.expenditure.sipri[mildata$iso3c=="IRQ"&mildata$year==1999] <- mil_expenditure_gap_estimator_func(
+  df = mildata, col_missing = "SIPRI", col_ref = "COW", "IRQ", 1999, yr.minus.1 = 1980, yr.plus.1 = 2009)
+mildata$mil.expenditure.sipri[mildata$iso3c=="IRQ"&mildata$year==2000] <- mil_expenditure_gap_estimator_func(
+  df = mildata, col_missing = "SIPRI", col_ref = "COW", "IRQ", 2000, yr.minus.1 = 1980, yr.plus.1 = 2009)
+mildata$mil.expenditure.sipri[mildata$iso3c=="IRQ"&mildata$year==2001] <- mil_expenditure_gap_estimator_func(
+  df = mildata, col_missing = "SIPRI", col_ref = "COW", "IRQ", 2001, yr.minus.1 = 1980, yr.plus.1 = 2009)
+
+# 2002-2003
+mildata$mil.expenditure.sipri[mildata$iso3c=="IRQ"&mildata$year==2002] <- mil_expenditure_gap_estimator_func(
+  df = mildata, col_missing = "SIPRI", col_ref = "WMEAT", "IRQ", 2002, yr.minus.1 = 2001, yr.plus.1 = 2004)
+mildata$mil.expenditure.sipri[mildata$iso3c=="IRQ"&mildata$year==2003] <- mil_expenditure_gap_estimator_func(
+  df = mildata, col_missing = "SIPRI", col_ref = "WMEAT", "IRQ", 2003, yr.minus.1 = 2001, yr.plus.1 = 2004)
+
+##### cow personnel
 # good
 
-# wmeat personnel
+##### wmeat personnel
 # 1946-1962: COW and WMEAT personnel match 1963-1977, so use COW personnel estimates
 mildata <- mildata %>%
   dplyr::mutate(mil.personnel.wmeat = ifelse(year %in% c(1946:1962)&iso3c=="IRQ",mil.personnel.cow,mil.personnel.wmeat))
@@ -4946,26 +5739,28 @@ mildata <- mildata %>%
 mildata$mil.personnel.wmeat[mildata$iso3c=="IRQ"&mildata$year==2018] <- mildata$mil.personnel.wmeat[mildata$iso3c=="IRQ"&mildata$year==2017]
 mildata$mil.personnel.wmeat[mildata$iso3c=="IRQ"&mildata$year==2019] <- mildata$mil.personnel.wmeat[mildata$iso3c=="IRQ"&mildata$year==2018]
 
-x <- milexp.viewer("IRQ")
-y <- milper.viewer("IRQ")
+# x <- milexp.viewer("IRQ")
+# y <- milper.viewer("IRQ")
 
 ##### ISL(ce,we,se) ----------------------------------------------------------------------
 
-# cow expenditure
+##### cow expenditure
 # 2002-2004
 # 2007-2019
 
-# wmeat expenditure
+##### wmeat expenditure
 # 1946-1972
 # 2018-2019
 
-# sipri expenditure
+##### sipri expenditure
 # 1946-1948
 
-# cow personnel
-# good
+##### cow personnel
+# 2000-2001: COW and WMEAT personnel match 1973-2017, so use COW personnel estimates
+mildata <- mildata %>%
+  dplyr::mutate(mil.personnel.cow = ifelse(year %in% c(2000:2001)&iso3c=="ISL",mil.personnel.wmeat,mil.personnel.cow))
 
-# wmeat personnel
+##### wmeat personnel
 # 1945-1972: COW and WMEAT personnel match 1973-2017, so use COW personnel estimates
 mildata <- mildata %>%
   dplyr::mutate(mil.personnel.wmeat = ifelse(year %in% c(1945:1972)&iso3c=="ISL",mil.personnel.cow,mil.personnel.wmeat))
@@ -4975,14 +5770,14 @@ mildata <- mildata %>%
   dplyr::mutate(mil.personnel.wmeat = ifelse(year %in% c(2018:2019)&iso3c=="ISL",mil.personnel.cow,mil.personnel.wmeat))
 
 x <- milexp.viewer("ISL")
-y <- milper.viewer("ISL")
+# y <- milper.viewer("ISL")
 
-##### ISR(wp) ----------------------------------------------------------------------
+##### ISR ----------------------------------------------------------------------
 
-# cow expenditure
+##### cow expenditure
 # good
 
-# wmeat expenditure
+##### wmeat expenditure
 # 1948-1962: apply COW growth rates to WMEAT
 mildata <- mil_expenditure_growth_estimator_func(
   mildata,col_missing = "mil.expenditure.wmeat",
@@ -4997,7 +5792,7 @@ mildata <- mil_expenditure_growth_estimator_func(
   "ISR", 2017, restricted = c(2018:2019)
 )
 
-# sipri expenditure
+##### sipri expenditure
 # 1948-1950: apply COW growth rates to SIPRI
 mildata <- mil_expenditure_growth_estimator_func(
   mildata,col_missing = "mil.expenditure.sipri",
@@ -5005,42 +5800,72 @@ mildata <- mil_expenditure_growth_estimator_func(
   "ISR", 1951, restricted = c(1948:1950)
 )
 
-# cow personnel
+##### cow personnel
 # good
 
-# wmeat personnel
+##### wmeat personnel
 # 1948-1962: COW and WMEAT personnel match 1963-1973, so use COW personnel estimates
 mildata <- mildata %>%
   dplyr::mutate(mil.personnel.wmeat = ifelse(year %in% c(1948:1962)&iso3c=="ISR",mil.personnel.cow,mil.personnel.wmeat))
 
-# 2018-2019
+# 2018-2019: 2008-09 - 2016-17 growth rates 0% for both COW and WMEAT; apply COW's continued 0% growth to WMEAT
+mildata$mil.personnel.wmeat[mildata$iso3c=="ISR"&mildata$year==2018] <- mildata$mil.personnel.wmeat[mildata$iso3c=="ISR"&mildata$year==2017]
+mildata$mil.personnel.wmeat[mildata$iso3c=="ISR"&mildata$year==2019] <- mildata$mil.personnel.wmeat[mildata$iso3c=="ISR"&mildata$year==2018]
 
-x <- milexp.viewer("ISR")
-y <- milper.viewer("ISR")
+# x <- milexp.viewer("ISR")
+# y <- milper.viewer("ISR")
 
-##### ITA(ce,we,se,wp) ----------------------------------------------------------------------
+##### ITA(wp) ----------------------------------------------------------------------
 
-# cow expenditure
-# 2013-2019 (non-alt)
+##### cow expenditure
+# 2013-2019 (non-alt): apply IISS growth estimates based on 2012 COW estimate
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.cow",
+  col_ref = "defense.spending.iiss",
+  "ITA", 2012, restricted = c(2013:2019)
+)
 
-# wmeat expenditure
-# 1946-1962
-# 2018-2019
+## remove estimate flag for 2013-2019
+mildata <- mildata %>%
+  dplyr::mutate(mil.expenditure.cow.est.flag  = dplyr::case_when(
+    iso3c == "ITA" & year %in% c(2013:2019) ~ 0,
+    .default = mil.expenditure.cow.est.flag
+  ))
 
-# sipri expenditure
-# 1946-1948
+##### wmeat expenditure
+# 1946-1962: apply COW growth rates to WMEAT
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.wmeat",
+  col_ref = "mil.expenditure.cow",
+  "ITA", 1963, restricted = c(1946:1962)
+)
 
-# cow personnel
+# 2018-2019: apply IISS growth rates to WMEAT
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.wmeat",
+  col_ref = "defense.spending.iiss",
+  "ITA", 2017, restricted = c(2018:2019)
+)
+
+##### sipri expenditure
+# 1946-1948: apply COW growth rates to SIPRI
+mildata <- mil_expenditure_growth_estimator_func(
+  mildata,col_missing = "mil.expenditure.sipri",
+  col_ref = "mil.expenditure.cow",
+  "ITA", 1949, restricted = c(1946:1948)
+)
+
+##### cow personnel
 # good
 
-# wmeat personnel
+##### wmeat personnel
 # 1945-1962: COW and WMEAT personnel match 1963-1965, so use COW personnel estimates
 mildata <- mildata %>%
   dplyr::mutate(mil.personnel.wmeat = ifelse(year %in% c(1945:1962)&iso3c=="ITA",mil.personnel.cow,mil.personnel.wmeat))
 
 # 2018-2019
 
-x <- milexp.viewer("ITA")
+# x <- milexp.viewer("ITA")
 y <- milper.viewer("ITA")
 
 ##### JAM(we,se) ----------------------------------------------------------------------
