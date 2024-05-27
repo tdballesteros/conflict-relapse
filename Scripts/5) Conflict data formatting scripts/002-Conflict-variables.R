@@ -2,6 +2,7 @@
 # This stript uses the formatted conflict data and calculates conflict ID-year level variables.
 
 ### load libraries ----------------------------------------------------------------------
+library(readxl)
 library(countrycode)
 library(dplyr)
 
@@ -10,6 +11,8 @@ conflict_years <- read.csv("Data files/Formatted data files/conflict_years.csv")
 cd <- read.csv("Data files/Raw data files/contdird.csv")
 conflict_table <- read.csv("Data files/Formatted data files/conflict_table.csv")
 conflict_full_data <- read.csv("Data files/Formatted data files/conflict_full_data.csv")
+# conflict_termination_data <- readxl::read_xlsx("Data files/Raw data files/ucdp-term-conf-2015.xlsx")
+conflict_termination_data <- readxl::read_xlsx("Data files/Raw data files/ucdp-term-acd-3-2021.xlsx")
 
 ### years since conflict ----------------------------------------------------------------------
 
@@ -243,12 +246,50 @@ conf_length2 <- conf_length2 %>%
   dplyr::right_join(conflict_years,by=c("confid","year")) %>%
   dplyr::select(confid,iso3c,year,conf_length)
 
+### conflict termination ----------------------------------------------------------------------
+
+conf_term <- conflict_termination_data %>%
+  dplyr::rename(
+    confid = conflict_id,
+    end_year = year) %>%
+  dplyr::filter(
+    type_of_conflict > 2,
+    confterm == 1) %>%
+  dplyr::select(confid,end_year,outcome)
+
+# replace confid 442 end year with 2011 to match the termination dataset coding
+conf_term$end_year[conf_term$confid==442] <- 2011
+
+# format conflict data
+conflict_termination <- conflict_full_data %>%
+  dplyr::group_by(confid,grouping) %>%
+  dplyr::mutate(end_year = dplyr::case_when(
+    conflict == 1 ~ max(year,na.rm=TRUE),
+    conflict == 0 ~ min(year,na.rm=TRUE)-1
+  )) %>%
+  dplyr::ungroup() %>%
+  
+  # merge in termination data
+  dplyr::left_join(conf_term,by=c("confid","end_year")) %>%
+  dplyr::select(confid,iso3c,year,conflict,outcome) %>%
+  
+  # recode outcome variable
+  dplyr::mutate(outcome = dplyr::case_match(outcome,
+    1 ~ "1: Peace Agreement",
+    2 ~ "2: Ceasefire Agreement",
+    3 ~ "3: Government Victory",
+    4 ~ "4: Non-Government Victory",
+    5 ~ "5: Low Activity",
+    6 ~ "6: Actor Ceases to Exist"
+  ))
+
 ### merge data ----------------------------------------------------------------------
 conflict_variables <- dplyr::full_join(years_since_conf,other_conf,by=c("confid","year")) %>%
   dplyr::full_join(neigh_in_conf,by=c("confid","iso3c","year")) %>%
   dplyr::full_join(prev_relap,by=c("confid","iso3c","year")) %>%
-  dplyr::full_join(conf_length2,by=c("confid","iso3c","year"))
+  dplyr::full_join(conf_length2,by=c("confid","iso3c","year")) %>%
+  dplyr::full_join(conflict_termination,by=c("confid","iso3c","year"))
   
 ### write data ----------------------------------------------------------------------
-# writes formatted dataframes as csv files
+# writes formatted dataframe as csv files
 write.csv(conflict_variables,"Data files/Formatted data files/conflict_variables.csv",row.names = FALSE)
