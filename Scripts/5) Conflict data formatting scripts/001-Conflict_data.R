@@ -242,6 +242,7 @@ ucdp5 <- ucdp4 %>%
 
 ### write data ----------------------------------------------------------------------
 # writes formatted dataframes as csv files
+write.csv(ucdp3,"Data files/Formatted data files/conflict_full_data.csv",row.names = FALSE)
 write.csv(ucdp4,"Data files/Formatted data files/conflict_years.csv",row.names = FALSE)
 write.csv(ucdp5,"Data files/Formatted data files/conflict_table.csv",row.names = FALSE)
 
