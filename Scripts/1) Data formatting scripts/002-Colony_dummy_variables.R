@@ -37,9 +37,40 @@ colonialism$country[colonialism$iso3c=="YPR"] <- "South Yemen"
 colonialism$country[colonialism$iso3c=="YUG"] <- "Yugoslavia"
 colonialism$country[colonialism$iso3c=="ZAN"] <- "Zanzibar"
 
+# create a factor variable with colonizer names
+colonialism_factor <- colonialism %>%
+  dplyr::select(-c(country,colony)) %>%
+  tidyr::pivot_longer(2:10, names_to = "colonizer", values_to = "binary") %>%
+  dplyr::filter(binary == 1) %>%
+  dplyr::select(-binary) %>%
+  dplyr::mutate(
+    colonizer = dplyr::case_match(
+      colonizer,
+      "colony_gbr" ~ "Colony of GBR",
+      "colony_fra" ~ "Colony of FRA",
+      "colony_esp" ~ "Colony of ESP",
+      "colony_prt" ~ "Colony of PRT",
+      # Collapsing BEL, ITA, NLD, and USA into other
+      "colony_nld" ~ "Colony of another country",
+      "colony_ita" ~ "Colony of another country",
+      "colony_bel" ~ "Colony of another country",
+      "colony_usa" ~ "Colony of another country",
+      "colony_other" ~ "Colony of another country"
+    )
+  )
+
+# merge factor variable into main dataframe
+colonialism <- colonialism %>%
+  dplyr::left_join(colonialism_factor,by="iso3c") %>%
+  # repalce NA for non-colonized countries
+  dplyr::mutate(colonizer = dplyr::case_when(
+    is.na(colonizer) ~ "Not colonized",
+    .default = colonizer
+  ))
+
 ### write data ----------------------------------------------------------------------
 # writes formatted dataframe as csv files
-write.csv(colonialism,"Data files/Formatted data files/colonialsim.csv",row.names = FALSE)
+write.csv(colonialism,"Data files/Formatted data files/colonialism.csv",row.names = FALSE)
 
 ### codebook ----------------------------------------------------------------------
 # iso3c
@@ -68,3 +99,6 @@ write.csv(colonialism,"Data files/Formatted data files/colonialsim.csv",row.name
 ## colony_other
 ### A dummy variable coding whether the last colonial power prior to independence was another Western country
 ### or a special arrangement of colonial powers.
+## colonizer
+### A variable specifying if the country was a colony of the United Kingdom, France, Spain, Portugal, another country,
+### or not colonized.
