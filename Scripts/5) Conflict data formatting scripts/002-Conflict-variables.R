@@ -1,5 +1,5 @@
 
-# This stript uses the formatted conflict data and calculates conflict ID-year level variables.
+# This script uses the formatted conflict data and calculates conflict ID-year level variables.
 
 ### load libraries ----------------------------------------------------------------------
 library(readxl)
