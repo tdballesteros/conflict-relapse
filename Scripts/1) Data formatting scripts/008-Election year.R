@@ -3,62 +3,96 @@
 # year. Note that not all elections are scheduled a year in advance, so the predictive power
 # of an election in the subsequent year should be used with caution.
 
-# TODO: years since last nat'l election - NA for grouping 1
-
 ### load libraries ----------------------------------------------------------------------
 library(readxl)
 library(countrycode)
 library(dplyr)
 
 ### load data file ----------------------------------------------------------------------
-elec <- readxl::read_excel("~/Downloads/idea_export_40_5f18dedb47ec1.xls")
+elec <- readxl::read_xls("~/Downloads/NELDA 6.0/NELDA.xls")
 
 ### data formatting ----------------------------------------------------------------------
-elec <- elec %>%
-  # filter out EU Parliament elections
-  dplyr::filter(`Election type` != "EU Parliament") %>%
-  dplyr::select(Country,Year) %>%
-  # using the countrycode package, add iso3c code based on country name
-  dplyr::mutate(iso3c = countrycode::countrycode(Country,"country.name","iso3c")) %>%
-  dplyr::relocate(iso3c,.before = Country) %>%
-  dplyr::rename_with(tolower) %>%
-  # filter out non-sovereign entities
-  dplyr::filter(iso3c %!in% c("ABW","AIA","ANT","BMU","COK","CYM","FRO","GIB","GRL","VGB"))
-
-# manually add iso3c codes to missing country names: Kosovo;
-# Yugoslavia, FR/Union of Serbia and Montenegro; Yugoslavia, SFR (1943-1992)
-elec$iso3c[elec$country=="Kosovo"] <- "KSV"
-elec$iso3c[elec$country=="Yugoslavia, FR/Union of Serbia and Montenegro"] <- "SRB"
-elec$iso3c[elec$country=="Yugoslavia, SFR (1943-1992)"] <- "YUG"
 
 elec <- elec %>%
-  # filter out Netherlands Antilles
-  dplyr::filter(country != "Netherlands Antilles") %>%
-  dplyr::select(-country) %>%
-  # using the countrycode package, add country name based on iso3c code
-  dplyr::mutate(country = countrycode::countrycode(iso3c,"iso3c","country.name"))
+  
+  dplyr::rename(country_name = country) %>%
+  
+  dplyr::mutate(
+    
+    # using the countrycode package, add iso3c code based on country name
+    iso3c = dplyr::case_when(
+      country_name == "Abkhazia" ~ "ABK",
+      country_name == "Czechoslovakia" ~ "CZE",
+      country_name == "East Germany" ~ "DDR",
+      country_name == "Kosovo" ~ "KSV",
+      country_name == "Republic of Vietnam" ~ "RVN",
+      country_name == "South Ossetia" ~ "SOT",
+      country_name == "South Yemen" ~ "YPR",
+      .default = countrycode::countrycode(country_name,"country.name","iso3c")
+    ),
+    
+    # using the countrycode package, add country name based on iso3c code to standardize country names
+    country = dplyr::case_when(
+      iso3c == "ABK" ~ "Abkhazia",
+      iso3c == "DDR" ~ "East Germany",
+      iso3c == "KSV" ~ "Kosovo",
+      iso3c == "RVN" ~ "South Vietnam",
+      iso3c == "SOT" ~ "South Ossetia",
+      iso3c == "YPR" ~ "South Yemen",
+      .default = countrycode::countrycode(iso3c,"iso3c","country.name")
+    )) %>%
+  
+  dplyr::select(iso3c,country,year) %>%
+  unique() %>%
+  dplyr::filter(year <= 2019) %>%
+  
+  dplyr::mutate(
+    
+    # format select country's iso3c codes
+    iso3c = dplyr::case_when(
+      # format Soviet Union
+      iso3c == "RUS" & year %in% c(1946:1990) ~ "SOV",
+      # format West Germany
+      iso3c == "DEU" & year %in% c(1946:1989) ~ "BRD",
+      # format North Yemen
+      iso3c == "YEM" & year %in% c(1946:1990) ~ "YAR",
+      .default = iso3c
+    ),
+    
+    # format select country's names
+    country = dplyr::case_when(
+      # format Soviet Union
+      iso3c == "RUS" & year %in% c(1946:1990) ~ "Soviet Union",
+      # format Czechoslovakia
+      iso3c == "CZE" & year %in% c(1946:1992) ~ "Czechoslovakia",
+      # format West Germany
+      iso3c == "DEU" & year %in% c(1946:1989) ~ "West Germany",
+      # format North Yemen
+      iso3c == "YEM" & year %in% c(1946:1990) ~ "North Yemen",
+      .default = country
+    ))
+  
+# ERI, PSE, SSD, YUG, BRN missing?
+# BGD 1970 election?
+
+
+##########################
 
 ### election dummy variable ----------------------------------------------------------------------
 elec <- elec %>%
   # create dummy variable for years where a national parliament/presidential election was held
   dplyr::mutate(natelec = 1) %>%
   dplyr::full_join(expand.grid(iso3c = unique(elec$iso3c), year = c(1945:2019))) %>%
-  dplyr::mutate(natelec = ifelse(is.na(natelec),0,natelec),
-                # using the countrycode package, add country name based on iso3c code
-                country = countrycode(iso3c,"iso3c","country.name")) %>%
+  dplyr::mutate(natelec = ifelse(is.na(natelec),0,natelec)) %>%
   unique()
-
-# manually add country names to missing iso3c codes: ANT, KSV, YUG
-elec$country[elec$iso3c=="ANT"] <- "Netherlands Antilles"
-elec$country[elec$iso3c=="KSV"] <- "Kosovo"
-elec$country[elec$iso3c=="YUG"] <- "Yugoslavia"
 
 ### prior/next year election dummy variable ----------------------------------------------------------------------
 # create dummy variables for national election happening in the next year (natelec.n) and
 # happened in the prior year (natelec.l)
 elec_next <- elec %>%
   dplyr::mutate(year = year - 1) %>%
-  dplyr::rename(natelec.n = natelec)
+  dplyr::rename(natelec.n = natelec) %>%
+  dplyr::select(-country)
 
 elec_last <- elec %>%
   dplyr::mutate(year = year + 1) %>%
@@ -66,26 +100,39 @@ elec_last <- elec %>%
 
 # join next and prior year election variables with main dataset
 elec <- elec %>%
-  dplyr::full_join(elec_next,by=c("iso3c","country","year")) %>%
-  dplyr::full_join(elec_last,by=c("iso3c","country","year")) %>%
+  dplyr::select(-country) %>%
+  dplyr::full_join(elec_next,by=c("iso3c","year")) %>%
+  dplyr::full_join(elec_last,by=c("iso3c","year")) %>%
   dplyr::mutate(natelec.n = ifelse(is.na(natelec.n),0,natelec.n),
                 natelec.l = ifelse(is.na(natelec.l),0,natelec.l)) %>%
   # remove 2020 and 2021 - the future
-  dplyr::filter(year < 2020)
+  dplyr::filter(year < 2020) %>%
+  dplyr::select(-country)
 
 ### expand dataset ----------------------------------------------------------------------
 elec <- elec %>%
+  
   # expand dataframe to have all iso3c-year combos from 1946 - 2019
   dplyr::full_join(expand.grid(iso3c = unique(elec$iso3c), year = c(1945:2019))) %>%
-  # using the countrycode package, add country name based on iso3c code
-  dplyr::mutate(country = countrycode::countrycode(iso3c,"iso3c","country.name")) %>%
-  dplyr::arrange(iso3c,year)
-
-elec$country[elec$iso3c=="KSV"] <- "Kosovo"
-elec$country[elec$iso3c=="YUG"] <- "Yugoslavia"
-
-# filter out year 1944
-elec <- elec %>%
+  
+  dplyr::mutate(
+    # using the countrycode package, add country name based on iso3c code to standardize country names
+    country = dplyr::case_when(
+      iso3c == "ABK" ~ "Abkhazia",
+      iso3c == "BRD" ~ "West Germany",
+      iso3c == "DDR" ~ "East Germany",
+      iso3c == "KSV" ~ "Kosovo",
+      iso3c == "RVN" ~ "South Vietnam",
+      iso3c == "SOT" ~ "South Ossetia",
+      iso3c == "SOV" ~ "Soviet Union",
+      iso3c == "YAR" ~ "North Yemen",
+      iso3c == "YPR" ~ "South Yemen",
+      iso3c == "YUG" ~ "Yugoslavia",
+      .default = countrycode::countrycode(iso3c,"iso3c","country.name")
+      )) %>%
+      dplyr::arrange(iso3c,year) %>%
+  
+  # filter out year 1944
   dplyr::filter(year > 1944)
 
 ### years since last election ----------------------------------------------------------------------
@@ -101,7 +148,7 @@ elec.df1 <- data.frame()
 
 for(iso in elec_iso_list){
   
-  df <- elec_yrs_since %>%
+  df <- elec %>% #elec_yrs_since %>%
     dplyr::filter(iso3c == iso)
   
   # pull minimum year
@@ -146,7 +193,7 @@ for(i in 1:nrow(elec.list)){
                   grouping == elec.list$grouping[i]) %>%
     dplyr::arrange(year)
   
-  df$yrsince <- row.names(df)
+  df$years_since_last_elec <- row.names(df)
   
   elec.df2 <- rbind(elec.df2,df)
   
@@ -154,7 +201,8 @@ for(i in 1:nrow(elec.list)){
 
 elec <- elec %>%
   dplyr::left_join(elec.df2 %>%
-                     dplyr::select(-natelec),by=c("iso3c","country","year"))
+                     dplyr::select(-c(natelec,natelec.n,natelec.l,country,grouping)),
+                   by=c("iso3c","year"))
 
 ### write data ----------------------------------------------------------------------
 # writes formatted dataframe as csv files

@@ -5,6 +5,7 @@
 library(readxl)
 library(countrycode)
 library(tibble)
+library(MTS)
 library(dplyr)
 library(tidyr)
 
@@ -12,6 +13,7 @@ library(tidyr)
 '%!in%' <- function(x,y)!('%in%'(x,y))
 
 ### load data files ----------------------------------------------------------------------
+
 # population data from United Nations Department of Economic and Social Affairs, Population Division
 # 1950 - 1984
 pd1 <- readxl::read_excel("Data files/Raw data files/AnnualTotPopMidYear-20200708071736.xlsx", sheet = 2, skip = 1)
@@ -21,93 +23,124 @@ pd2 <- readxl::read_excel("Data files/Raw data files/AnnualTotPopMidYear-2020070
 # Correlates of War data file
 cow.pop <- read.csv("Data files/Raw data files/NMC_5_0.csv")
 
+# Maddison Project Dataset (MPD)
+mpd <- readxl::read_xlsx("Data files/Raw data files/mpd2018.xlsx",
+                         sheet = "Full data")
+
+# Gleditsch
+pop.gl <- utils::read.delim("Data files/Raw data files/gdpv6.txt")
+
 ### format data ----------------------------------------------------------------------
 #### UN datasets ----------------------------------------------------------------------
+
 # merge datasets
 pd <- dplyr::full_join(pd1,pd2,by=c("ISO 3166-1 numeric code","Location")) %>%
+  
   # drop ISO 3166-1 code and data notes columns
   select(-c(`ISO 3166-1 numeric code`,Note.x,Note.y)) %>%
-  # filter out non-countries (regions and economic groups)
-  dplyr::filter(Location %!in% c("World","More developed regions","Less developed regions",
-                                 "Least developed countries","Less developed regions, excluding least developed countries",
-                                 "Less developed regions, excluding China","High-income countries",
-                                 "Middle-income countries","Lower-middle-income countries",
-                                 "Upper-middle-income countries","Low-income countries","Sub-Saharan Africa",
-                                 "Africa","Eastern Africa","Middle Africa","Northern Africa","Southern Africa",
-                                 "Western Africa","Asia","Eastern Asia","Central Asia","Southern Asia",
-                                 "South-Eastern Asia","Western Asia","Europe","Eastern Europe","Northern Europe",
-                                 "Southern Europe","Western Europe","Latin America and the Caribbean","Caribbean",
-                                 "Central America","South America","North America","Oceania","Australia/New Zealand",
-                                 "Melanesia","Polynesia","South-Central Asia","Northern America","Micronesia"),
-                # filter out country sub-units + Holy See (not including Puerto Rico and Western Sahara)
-                Location %!in% c("Mayotte","Réunion","Saint Helena","China, Hong Kong SAR","China, Macao SAR","Channel Islands",
-                                 "Faeroe Islands","Isle of Man","Gibraltar","Holy See","Anguilla","Aruba","British Virgin Islands",
-                                 "Caribbean Netherlands","Cayman Islands","Curaçao","Guadeloupe","Martinique","Montserrat",
-                                 "Sint Maarten (Dutch part)","Turks and Caicos Islands","United States Virgin Islands",
-                                 "Falkland Islands (Malvinas)","French Guiana","Bermuda","Greenland","Saint Pierre and Miquelon",
-                                 "New Caledonia","Guam","Northern Mariana Islands","American Samoa","Cook Islands","French Polynesia",
-                                 "Niue","Tokelau","Wallis and Futuna Islands")) %>%
+  
+
+  dplyr::filter(
+    # filter out non-countries (regions and economic groups)
+    Location %!in% c(
+      "World","More developed regions","Less developed regions","Least developed countries",
+      "Less developed regions, excluding least developed countries","Less developed regions, excluding China",
+      "High-income countries","Middle-income countries","Lower-middle-income countries","Upper-middle-income countries",
+      "Low-income countries","Sub-Saharan Africa","Africa","Eastern Africa","Middle Africa","Northern Africa",
+      "Southern Africa","Western Africa","Asia","Eastern Asia","Central Asia","Southern Asia","South-Eastern Asia",
+      "Western Asia","Europe","Eastern Europe","Northern Europe","Southern Europe","Western Europe",
+      "Latin America and the Caribbean","Caribbean","Central America","South America","North America","Oceania",
+      "Australia/New Zealand","Melanesia","Polynesia","South-Central Asia","Northern America","Micronesia"
+      ),
+    # filter out country sub-units + Holy See (not including Puerto Rico and Western Sahara)
+    Location %!in% c(
+      "Mayotte","Réunion","Saint Helena","China, Hong Kong SAR","China, Macao SAR","Channel Islands","Faeroe Islands",
+      "Isle of Man","Gibraltar","Holy See","Anguilla","Aruba","British Virgin Islands","Caribbean Netherlands",
+      "Cayman Islands","Curaçao","Guadeloupe","Martinique","Montserrat","Sint Maarten (Dutch part)",
+      "Turks and Caicos Islands","United States Virgin Islands","Falkland Islands (Malvinas)","French Guiana","Bermuda",
+      "Greenland","Saint Pierre and Miquelon","New Caledonia","Guam","Northern Mariana Islands","American Samoa",
+      "Cook Islands","French Polynesia","Niue","Tokelau","Wallis and Futuna Islands"
+      )) %>%
+  
   # convert to long data
-  tidyr::pivot_longer(2:71, names_to = "year", values_to = "un.pop")
-
-# add Puerto Rico and Western Sahara to USA / MAR populations, respectively
-pd$Location[pd$Location=="Puerto Rico"] <- "United States of America"
-pd$Location[pd$Location=="Western Sahara"] <- "Morocco"
-
-pd <- pd %>%
+  tidyr::pivot_longer(2:71, names_to = "year", values_to = "un.pop") %>%
+  
+  # add Puerto Rico and Western Sahara to USA / MAR populations, respectively
+  dplyr::mutate(
+    Location = dplyr::case_when(
+      Location == "Puerto Rico" ~ "United States of America",
+      Location == "Western Sahara" ~ "Morocco",
+      .default = Location
+    )) %>%
+  
   dplyr::group_by(Location,year) %>%
   dplyr::summarise(un.pop = sum(un.pop)) %>%
   dplyr::ungroup() %>%
+  
   # convert to full value
-  dplyr::mutate(un.pop = 1000 * un.pop,
-                # using the countrycode package, add iso3c based on country name
-                iso3c = countrycode::countrycode(Location,"country.name","iso3c"),
-                # using the countrycode package, add country name based on iso3c code
-                country = countrycode::countrycode(iso3c,"iso3c","country.name"),
-                year = as.numeric(year)) %>%
+  dplyr::mutate(
+    un.pop = 1000 * un.pop,
+    year = as.numeric(year),
+    
+    # using the countrycode package, add iso3c based on country name
+    iso3c = countrycode::countrycode(Location,"country.name","iso3c"),
+    
+    # using the countrycode package, add country name based on iso3c code
+    # to standardize country names
+    country = countrycode::countrycode(iso3c,"iso3c","country.name")
+    ) %>%
+  
   # move iso3c variable first
   dplyr::relocate(iso3c, .before = Location) %>%
   dplyr::relocate(country, .after = iso3c) %>%
   dplyr::select(-Location)
 
 #### COW dataset ----------------------------------------------------------------------
+
 cow.pop <- cow.pop %>%
   as.data.frame() %>%
   dplyr::filter(year > 1945) %>%
+  
   # convert to full value
-  dplyr::mutate(tpop = 1000 * tpop,
-                # using the countrycode package, add iso3c based on country COW abbreviation
-                iso3c = countrycode::countrycode(stateabb,"cowc","iso3c"),
-                # using the countrycode package, add country name based on iso3c code
-                country = countrycode::countrycode(iso3c,"iso3c","country.name"))
-
-# manually add iso3c codes to missing stateabb codes: CZE, GDR, GFR, KOS, RVN, YAR, YPR, YUG, ZAN
-cow.pop$iso3c[cow.pop$stateabb=="CZE"] <- "CZE"
-cow.pop$iso3c[cow.pop$stateabb=="GDR"] <- "DDR"
-cow.pop$iso3c[cow.pop$stateabb=="GFR"] <- "BRD"
-cow.pop$iso3c[cow.pop$stateabb=="KOS"] <- "KSV"
-cow.pop$iso3c[cow.pop$stateabb=="RVN"] <- "RVN"
-cow.pop$iso3c[cow.pop$stateabb=="YAR"] <- "YAR"
-cow.pop$iso3c[cow.pop$stateabb=="YPR"] <- "YPR"
-cow.pop$iso3c[cow.pop$stateabb=="YUG"] <- "YUG"
-cow.pop$iso3c[cow.pop$stateabb=="ZAN"] <- "ZAN"
-
-# manually add country names to missing iso3c codes: BRD, CZE, DDR, KSV, RVN, YAR, YPR, YUG, ZAN
-cow.pop$country[cow.pop$iso3c=="BRD"] <- "West Germany"
-cow.pop$country[cow.pop$iso3c=="CZE"] <- "Czechia"
-cow.pop$country[cow.pop$iso3c=="DDR"] <- "East Germany"
-cow.pop$country[cow.pop$iso3c=="KSV"] <- "Kosovo"
-cow.pop$country[cow.pop$iso3c=="RVN"] <- "South Vietnam"
-cow.pop$country[cow.pop$iso3c=="YAR"] <- "North Yemen"
-cow.pop$country[cow.pop$iso3c=="YPR"] <- "South Yemen"
-cow.pop$country[cow.pop$iso3c=="YUG"] <- "Yugoslavia"
-cow.pop$country[cow.pop$iso3c=="ZAN"] <- "Zanzibar"
-
-cow.pop <- cow.pop %>%
+  dplyr::mutate(
+    tpop = 1000 * tpop,
+    year = as.numeric(year),
+    
+    # using the countrycode package, add iso3c based on country COW abbreviation
+    iso3c = dplyr::case_when(
+      # manually add iso3c codes to missing stateabb codes: CZE, GDR, GFR, KOS, RVN, YAR, YPR, YUG, ZAN
+      stateabb == "CZE" ~ "CZE",
+      stateabb == "GDR" ~ "DDR",
+      stateabb == "GFR" ~ "BRD",
+      stateabb == "KOS" ~ "KSV",
+      stateabb == "RVN" ~ "RVN",
+      stateabb == "YAR" ~ "YAR",
+      stateabb == "YPR" ~ "YPR",
+      stateabb == "YUG" ~ "YUG",
+      stateabb == "ZAN" ~ "ZAN",
+      .default = countrycode::countrycode(stateabb,"cowc","iso3c")
+      ),
+    
+    # using the countrycode package, add country name based on iso3c code
+    # to standardize country names
+    country = dplyr::case_when(
+      iso3c == "BRD" ~ "West Germany",
+      iso3c == "CZE" ~ "Czechia",
+      iso3c == "DDR" ~ "East Germany",
+      iso3c == "KSV" ~ "Kosovo",
+      iso3c == "RVN" ~ "South Vietnam",
+      iso3c == "YAR" ~ "North Yemen",
+      iso3c == "YPR" ~ "South Yemen",
+      iso3c == "YUG" ~ "Yugoslavia",
+      iso3c == "ZAN" ~ "Zanzibar",
+      .default = countrycode::countrycode(iso3c,"iso3c","country.name")
+      )) %>%
+  
   dplyr::select(iso3c,country,year,tpop) %>%
   dplyr::rename(cow.pop = tpop)
 
 #### Maddison Project Dataset (MPD) ----------------------------------------------------------------------
+
 # codebook (available on sheet "Legend")
 ## countrycode: 3-letter ISO country code
 ## country: Country name
@@ -119,20 +152,28 @@ cow.pop <- cow.pop %>%
 ## i_bm: For benchmark observations: 1: ICP PPP estimates, 2: Historical income benchmarks, 3: Real wages and urbanization,
 ### 4: Multiple of subsistence, 5: Braithwaite (1968) PPPs
 
-mpd <- readxl::read_xlsx("Data files/Raw data files/mpd2018.xlsx",
-                         sheet = "Full data") %>%
+mpd <- mpd %>%
   dplyr::rename(iso3c = countrycode) %>%
-  # convert population estimates to full number
-  dplyr::mutate(pop = pop * 1000,
-                # using the countrycode package, add country name based on iso3c code to standardize country names
-                country = countrycode::countrycode(iso3c,"iso3c","country.name"))
 
-# recode CSK and SUN to CZE and SOV; add YUG name
-mpd$country[mpd$iso3c=="CSK"] <- "Czechoslovakia" # other entries coded as "Czechia," though this includes Czechoslovakia
-mpd$country[mpd$iso3c=="SUN"] <- "Soviet Union"
-mpd$country[mpd$iso3c=="YUG"] <- "Yugoslavia"
-#mpd$iso3c[mpd$iso3c=="CSK"] <- "CZE"
-mpd$iso3c[mpd$iso3c=="SUN"] <- "SOV"
+  dplyr::mutate(
+    # convert population estimates to full number
+    pop = pop * 1000,
+    
+    # using the countrycode package, add country name based on iso3c code to standardize country names
+    country = dplyr::case_when(
+      iso3c == "CSK" ~ "Czechoslovakia", # other entries coded as "Czechia," though this includes Czechoslovakia
+      iso3c == "SUN" ~ "Soviet Union",
+      iso3c == "YUG" ~ "Yugoslavia",
+      .default = countrycode::countrycode(iso3c,"iso3c","country.name")
+    ),
+    
+    # add in Soviet Union iso3c code
+    iso3c = dplyr::case_when(
+      # iso3c == "CSK" ~ "CZE",
+      iso3c == "SUN" ~ "SOV",
+      .default = iso3c
+    ))
+
 
 # add Puerto Rico population to USA population
 for(u in 1940:2016){
@@ -141,74 +182,90 @@ for(u in 1940:2016){
   
 }
 
+# filter out Puerto Rico
+mpd <- mpd %>%
+  dplyr::filter(iso3c != "PRI")
+
 #### Gleditsch ----------------------------------------------------------------------
-pop.gl <- utils::read.delim("Data files/Raw data files/gdpv6.txt") %>%
+
+pop.gl <- pop.gl %>%
+  
   # using the countrycode package, add iso3c based on country name
-  dplyr::mutate(iso3c = countrycode::countrycode(stateid,"gwc","iso3c")) %>%
+  dplyr::mutate(iso3c = dplyr::case_when(
+    stateid == "AAB" ~ "ATG",
+    stateid == "ABK" ~ "ABK", # Abkhazia
+    stateid == "AND" ~ "AND",
+    stateid == "CZE" ~ "CZE", # Czechoslovakia
+    stateid == "DMA" ~ "DMA",
+    stateid == "DRV" ~ "VNM", # North Vietnam and unified Vietnam
+    stateid == "FSM" ~ "FSM",
+    stateid == "GDR" ~ "DDR",
+    stateid == "GRN" ~ "GRD",
+    stateid == "KBI" ~ "KIR",
+    stateid == "KOS" ~ "KSV",
+    stateid == "LIE" ~ "LIE",
+    stateid == "MNC" ~ "MCO",
+    stateid == "MSI" ~ "MHL",
+    stateid == "NAU" ~ "NRU",
+    stateid == "PAL" ~ "PLW",
+    stateid == "SEY" ~ "SYC",
+    stateid == "SKN" ~ "KNA",
+    stateid == "SLU" ~ "LCA",
+    stateid == "SMN" ~ "SLB",
+    stateid == "SOT" ~ "SOT", # South Ossetia
+    stateid == "STP" ~ "STP",
+    stateid == "SVG" ~ "VCT",
+    stateid == "TBT" ~ "TBT", # Tibet
+    stateid == "TON" ~ "TON",
+    stateid == "TUV" ~ "TUV",
+    stateid == "VAN" ~ "VUT",
+    stateid == "WSM" ~ "WSM",
+    stateid == "YEM" ~ "YEM", # North Yemen and unified Yemen
+    stateid == "YPR" ~ "YPR",
+    stateid == "YUG" ~ "YUG",
+    stateid == "ZAN" ~ "ZAN",
+    stateid == "RVN" ~ "RVN",
+    stateid == "SNM" ~ "SMR",
+    .default = countrycode::countrycode(stateid,"gwc","iso3c"))
+  ) %>%
+  
   # move iso3c variable first
   dplyr::relocate(iso3c, .before = statenum)
-
-# codes iso3c values missing from the countrycode package
-pop.gl$iso3c[pop.gl$stateid=="AAB"] <- "ATG"
-pop.gl$iso3c[pop.gl$stateid=="ABK"] <- "ABK" # Abkhazia
-pop.gl$iso3c[pop.gl$stateid=="AND"] <- "AND"
-pop.gl$iso3c[pop.gl$stateid=="CZE"] <- "CZE" # Czechoslovakia
-pop.gl$iso3c[pop.gl$stateid=="DMA"] <- "DMA"
-pop.gl$iso3c[pop.gl$stateid=="DRV"] <- "VNM" # North Vietnam and unified Vietnam
-pop.gl$iso3c[pop.gl$stateid=="FSM"] <- "FSM"
-pop.gl$iso3c[pop.gl$stateid=="GDR"] <- "DDR"
-pop.gl$iso3c[pop.gl$stateid=="GRN"] <- "GRD"
-pop.gl$iso3c[pop.gl$stateid=="KBI"] <- "KIR"
-pop.gl$iso3c[pop.gl$stateid=="KOS"] <- "KSV"
-pop.gl$iso3c[pop.gl$stateid=="LIE"] <- "LIE"
-pop.gl$iso3c[pop.gl$stateid=="MNC"] <- "MCO"
-pop.gl$iso3c[pop.gl$stateid=="MSI"] <- "MHL"
-pop.gl$iso3c[pop.gl$stateid=="NAU"] <- "NRU"
-pop.gl$iso3c[pop.gl$stateid=="PAL"] <- "PLW"
-pop.gl$iso3c[pop.gl$stateid=="SEY"] <- "SYC"
-pop.gl$iso3c[pop.gl$stateid=="SKN"] <- "KNA"
-pop.gl$iso3c[pop.gl$stateid=="SLU"] <- "LCA"
-pop.gl$iso3c[pop.gl$stateid=="SMN"] <- "SLB"
-pop.gl$iso3c[pop.gl$stateid=="SOT"] <- "SOT" # South Osseita
-pop.gl$iso3c[pop.gl$stateid=="STP"] <- "STP"
-pop.gl$iso3c[pop.gl$stateid=="SVG"] <- "VCT"
-pop.gl$iso3c[pop.gl$stateid=="TBT"] <- "TBT" # Tibet
-pop.gl$iso3c[pop.gl$stateid=="TON"] <- "TON"
-pop.gl$iso3c[pop.gl$stateid=="TUV"] <- "TUV"
-pop.gl$iso3c[pop.gl$stateid=="VAN"] <- "VUT"
-pop.gl$iso3c[pop.gl$stateid=="WSM"] <- "WSM"
-pop.gl$iso3c[pop.gl$stateid=="YEM"] <- "YEM" # North Yemen and unified Yemen
-pop.gl$iso3c[pop.gl$stateid=="YPR"] <- "YPR"
-pop.gl$iso3c[pop.gl$stateid=="YUG"] <- "YUG"
-pop.gl$iso3c[pop.gl$stateid=="ZAN"] <- "ZAN"
-pop.gl$iso3c[pop.gl$stateid=="RVN"] <- "RVN"
-pop.gl$iso3c[pop.gl$stateid=="SNM"] <- "SMR"
 
 pop.gl$iso3c[pop.gl$iso3c=="DEU"&pop.gl$year<1991] <- "BRD" # recodes Germany before 1991 as West Germany
 pop.gl$iso3c[pop.gl$iso3c=="YEM"&pop.gl$year<1991] <- "YAR" # recodes Yemen before 1991 as North Yemen
 
 pop.gl <- pop.gl %>%
-  # using the countrycode package, add country name based on iso3c value
-  dplyr::mutate(country = countrycode::countrycode(iso3c,"iso3c","country.name"),
-                gl.pop = pop * 1000) %>%
-  dplyr::select(iso3c,country,year,gl.pop)
-
-# codes country name values missing from the countrycode package
-pop.gl$country[pop.gl$iso3c=="ABK"] <- "Abkhazia"
-pop.gl$country[pop.gl$iso3c=="SOT"] <- "South Ossetia"
-pop.gl$country[pop.gl$iso3c=="TBT"] <- "Tibet"
-pop.gl$country[pop.gl$iso3c=="BRD"] <- "West Germany"
-pop.gl$country[pop.gl$iso3c=="DDR"] <- "East Germany"
-pop.gl$country[pop.gl$iso3c=="KSV"] <- "Kosovo"
-pop.gl$country[pop.gl$iso3c=="YUG"] <- "Yugoslavia"
-pop.gl$country[pop.gl$iso3c=="YAR"] <- "North Yemen"
-pop.gl$country[pop.gl$iso3c=="YPR"] <- "South Yemen"
-pop.gl$country[pop.gl$iso3c=="RVN"] <- "South Vietnam"
-pop.gl$country[pop.gl$iso3c=="ZAN"] <- "Zanzibar"
+  
+  dplyr::mutate(
+    gl.pop = pop * 1000,
+    
+    # using the countrycode package, add country name based on iso3c value to standardize names
+    country = countrycode::countrycode(iso3c,"iso3c","country.name"),) %>%
+  
+  dplyr::select(iso3c,country,year,gl.pop) %>%
+  
+  # codes country name values missing from the countrycode package
+  dplyr::mutate(
+    country = dplyr::case_when(
+      iso3c == "ABK" ~ "Abkhazia",
+      iso3c == "SOT" ~ "South Ossetia",
+      iso3c == "TBT" ~ "Tibet",
+      iso3c == "BRD" ~ "West Germany",
+      iso3c == "DDR" ~ "East Germany",
+      iso3c == "KSV" ~ "Kosovo",
+      iso3c == "YUG" ~ "Yugoslavia",
+      iso3c == "YAR" ~ "North Yemen",
+      iso3c == "YPR" ~ "South Yemen",
+      iso3c == "RVN" ~ "South Vietnam",
+      iso3c == "ZAN" ~ "Zanzibar"
+    )
+  )
 
 #### merge dataset ----------------------------------------------------------------------
 pd <- pd %>%
-  dplyr::full_join(cow.pop,by=c("iso3c","country","year"))
+  dplyr::full_join(cow.pop,by=c("iso3c","country","year")) %>%
+  dplyr::select("year","iso3c","un.pop","cow.pop")
 
 ### estimate functions ----------------------------------------------------------------------
 # this function is used to estimate cow.pop based on the relative difference in the population between two
@@ -1248,19 +1305,21 @@ for(iso in estimate.growth.1940s){
 
 ### calculate 2013-2019 estimates ----------------------------------------------------------------------
 # list of countries to estimate COW 2013-2019 populations using UN growth rates
-estimate.cow.2010s <- c("AFG", "AGO", "ALB", "AND", "ARE", "ARG", "ARM", "ATG", "AUS", "AUT", "AZE", "BDI", "BEL", "BEN", "BFA",
-                        "BGD", "BGR", "BHR", "BHS", "BIH", "BLR", "BLZ", "BOL", "BRA", "BRB", "BRN", "BTN", "BWA", "CAF", "CAN",
-                        "CHE", "CHL", "CHN", "CIV", "CMR", "COD", "COG", "COL", "COM", "CPV", "CRI", "CUB", "CYP", "CZE", "DEU",
-                        "DJI", "DMA", "DNK", "DOM", "DZA", "ECU", "EGY", "ERI", "ESP", "EST", "ETH", "FIN", "FJI", "FRA", "FSM",
-                        "GAB", "GBR", "GEO", "GHA", "GIN", "GMB", "GNB", "GNQ", "GRC", "GRD", "GTM", "GUY", "HND", "HRV", "HTI",
-                        "HUN", "IDN", "IND", "IRL", "IRN", "IRQ", "ISL", "ITA", "JAM", "JOR", "JPN", "KAZ", "KEN", "KGZ", "KHM",
-                        "KIR", "KNA", "KOR", "KWT", "LAO", "LBN", "LBR", "LBY", "LCA", "LIE", "LKA", "LSO", "LTU", "LUX", "LVA",
-                        "MAR", "MCO", "MDA", "MDG", "MDV", "MEX", "MHL", "MKD", "MLI", "MLT", "MMR", "MNE", "MNG", "MOZ", "MRT",
-                        "MUS", "MWI", "MYS", "NAM", "NER", "NGA", "NIC", "NLD", "NOR", "NPL", "NRU", "NZL", "OMN", "PAK", "PAN",
-                        "PER", "PHL", "PLW", "PNG", "POL", "PRK", "PRT", "PRY", "QAT", "ROU", "RUS", "RWA", "SAU", "SDN", "SEN",
-                        "SGP", "SLB", "SLE", "SLV", "SMR", "SOM", "SSD", "STP", "SUR", "SVK", "SVN", "SWE", "SWZ", "SYC", "SYR",
-                        "TCD", "TGO", "THA", "TJK", "TKM", "TLS", "TON", "TTO", "TUN", "TUR", "TUV", "TWN", "TZA", "UGA", "UKR",
-                        "URY", "USA", "UZB", "VCT", "VEN", "VNM", "VUT", "WSM", "YEM", "ZAF", "ZMB", "ZWE")
+estimate.cow.2010s <- c(
+  "AFG", "AGO", "ALB", "AND", "ARE", "ARG", "ARM", "ATG", "AUS", "AUT", "AZE", "BDI", "BEL", "BEN", "BFA",
+  "BGD", "BGR", "BHR", "BHS", "BIH", "BLR", "BLZ", "BOL", "BRA", "BRB", "BRN", "BTN", "BWA", "CAF", "CAN",
+  "CHE", "CHL", "CHN", "CIV", "CMR", "COD", "COG", "COL", "COM", "CPV", "CRI", "CUB", "CYP", "CZE", "DEU",
+  "DJI", "DMA", "DNK", "DOM", "DZA", "ECU", "EGY", "ERI", "ESP", "EST", "ETH", "FIN", "FJI", "FRA", "FSM",
+  "GAB", "GBR", "GEO", "GHA", "GIN", "GMB", "GNB", "GNQ", "GRC", "GRD", "GTM", "GUY", "HND", "HRV", "HTI",
+  "HUN", "IDN", "IND", "IRL", "IRN", "IRQ", "ISL", "ITA", "JAM", "JOR", "JPN", "KAZ", "KEN", "KGZ", "KHM",
+  "KIR", "KNA", "KOR", "KWT", "LAO", "LBN", "LBR", "LBY", "LCA", "LIE", "LKA", "LSO", "LTU", "LUX", "LVA",
+  "MAR", "MCO", "MDA", "MDG", "MDV", "MEX", "MHL", "MKD", "MLI", "MLT", "MMR", "MNE", "MNG", "MOZ", "MRT",
+  "MUS", "MWI", "MYS", "NAM", "NER", "NGA", "NIC", "NLD", "NOR", "NPL", "NRU", "NZL", "OMN", "PAK", "PAN",
+  "PER", "PHL", "PLW", "PNG", "POL", "PRK", "PRT", "PRY", "QAT", "ROU", "RUS", "RWA", "SAU", "SDN", "SEN",
+  "SGP", "SLB", "SLE", "SLV", "SMR", "SOM", "SSD", "STP", "SUR", "SVK", "SVN", "SWE", "SWZ", "SYC", "SYR",
+  "TCD", "TGO", "THA", "TJK", "TKM", "TLS", "TON", "TTO", "TUN", "TUR", "TUV", "TWN", "TZA", "UGA", "UKR",
+  "URY", "USA", "UZB", "VCT", "VEN", "VNM", "VUT", "WSM", "YEM", "ZAF", "ZMB", "ZWE"
+  )
 
 # 2013-2019: apply UN population growth rates to COW's 2012 population estimate
 for(iso in estimate.cow.2010s){
