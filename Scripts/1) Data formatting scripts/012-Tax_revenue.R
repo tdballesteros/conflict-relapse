@@ -5,6 +5,7 @@ library(readxl)
 library(countrycode)
 library(imputeTS)
 library(stringr)
+library(modelr)
 library(dplyr)
 library(tidyr)
 
@@ -13,19 +14,23 @@ library(tidyr)
 
 ### load datasets ----------------------------------------------------------------------
 # World Bank - Tax Revenue (% of GDP) - GC.TAX.TOTL.GD.ZS
-tax.wb <- read.csv("Data files/Raw data files/API_GC.TAX.TOTL.GD.ZS_DS2_en_csv_v2_1124880.csv",skip=4)
+tax.wb <- read.csv("Data files/Raw data files/API_GC.TAX.TOTL.GD.ZS_DS2_en_csv_v2_1124880.csv",
+                   skip = 4)
 
 # IMF - General_government_Percent_of_GDP [imf2]
-tax.imf2 <- readxl::read_xlsx("Data files/Raw data files/General_government_Percent_of_GDP_T.xlsx", sheet = 2)
+tax.imf2 <- readxl::read_xlsx("Data files/Raw data files/General_government_Percent_of_GDP_T.xlsx",
+                              sheet = 2)
 
 # OECD - Total Tax Revenue (TOTALTAX) - Tax revenue as % of GDP (TAXGDP)
 tax.oecd <- read.csv("Data files/Raw data files/RS_GBL_29062020081531984.csv")
 
 # IMF World Revenue Longitudinal Data (WoRLD)
-tax.imf <- readxl::read_xlsx("Data files/Raw data files/Tax_Revenue_in_Percent_of_GDP.xlsx", sheet = 1, skip = 1)
+tax.imf <- readxl::read_xlsx("Data files/Raw data files/Tax_Revenue_in_Percent_of_GDP.xlsx",
+                             sheet = 1, skip = 1)
 
 # ICTD / UNU-WIDER
-tax.ictd <- readxl::read_xlsx("~/Downloads/ICTDWIDERGRD_2020.xlsx", sheet = 2)
+tax.ictd <- readxl::read_xlsx("~/Downloads/ICTDWIDERGRD_2020.xlsx",
+                              sheet = 2)
 
 # Artbetman and Kugler [AK] 2013
 # https://www.researchgate.net/publication/271588312_RPC_v21_2013_components old version
@@ -37,19 +42,26 @@ tax.wb <- tax.wb %>%
   dplyr::select(-c(Indicator.Name,Indicator.Code,X)) %>%
   tidyr::pivot_longer(3:62, names_to = "year", values_to = "value") %>%
   dplyr::mutate(year = as.numeric(stringr::str_sub(year, start = 2, end = 5))) %>%
-  # filter out groups of countries
-  dplyr::filter(Country.Code %!in% c("ARB","CSS","CEB","EAR","EAP","EAS","LDC","MEA","MNA","TEA","TMN",
-                                     "ECA","ECS","EMU","EUU","FCS","HIC","HPC","IBD","IDA","IDX","INX",
-                                     "LAC","LCN","LMC","LMY","LTE","MIC","NAC","OED","OSS","PRE","PSS",
-                                     "PST","SAS","SSA","SSF","SST","TEC","TLA","TSA","TSS","UMC","WLD",
-                                     "IDB","IBT"),
-                # filter out territories / non-sovereign entities
-                Country.Code %!in% c("ABW","ASM","BMU","CHI","CUW","CYM","FRO","GIB","GRL","GUM","HKG",
-                                     "IMN","MAC","MAF","MNP","NCL","PYF","SXM","TCA","VGB","VIR","PRI"),
-                # filter out countries with no data in the dataset
-                Country.Code %!in% c("AND","ATG","BRN","COM","CUB","DJI","DMA","ERI","GRD","GUY","HTI",
-                                     "LBY","LIC","LIE","MNE","OMN","PRK","QAT","SLE","SSD","STP","SUR",
-                                     "SWZ","SYR","TCD","TKM","TUV","VEN","VNM","XKX","YEM")) %>%
+  
+  dplyr::filter(Country.Code %!in% c(
+    # filter out groups of countries
+    "ARB","CSS","CEB","EAR","EAP","EAS","LDC","MEA","MNA","TEA","TMN","ECA","ECS","EMU",
+    "EUU","FCS","HIC","HPC","IBD","IDA","IDX","INX","LAC","LCN","LMC","LMY","LTE","MIC",
+    "NAC","OED","OSS","PRE","PSS","PST","SAS","SSA","SSF","SST","TEC","TLA","TSA","TSS",
+    "UMC","WLD","IDB","IBT"
+    ),
+    # filter out territories / non-sovereign entities
+    Country.Code %!in% c(
+      "ABW","ASM","BMU","CHI","CUW","CYM","FRO","GIB","GRL","GUM","HKG","IMN","MAC","MAF",
+      "MNP","NCL","PYF","SXM","TCA","VGB","VIR","PRI"
+      ),
+    # filter out countries with no data in the dataset
+    Country.Code %!in% c(
+      "AND","ATG","BRN","COM","CUB","DJI","DMA","ERI","GRD","GUY","HTI","LBY","LIC","LIE",
+      "MNE","OMN","PRK","QAT","SLE","SSD","STP","SUR","SWZ","SYR","TCD","TKM","TUV","VEN",
+      "VNM","XKX","YEM"
+      )) %>%
+  
   dplyr::select(-Country.Name) %>%
   dplyr::rename(iso3c = Country.Code,
                 wb.value = value)
@@ -58,9 +70,11 @@ tax.wb <- tax.wb %>%
 tax.imf <- tax.imf[,-seq(from = 3, to = 57, by = 2)] %>%
   tidyr::pivot_longer(2:29, names_to = "year", values_to = "imf.value") %>%
   dplyr::rename(country = 1) %>%
-  dplyr::mutate(year = as.numeric(year),
-                # using the countrycode package, add iso3c based on country name
-                iso3c = countrycode::countrycode(country,"country.name","iso3c")) %>%
+  dplyr::mutate(
+    year = as.numeric(year),
+    # using the countrycode package, add iso3c based on country name
+    iso3c = countrycode::countrycode(country,"country.name","iso3c")
+    ) %>%
   dplyr::select(iso3c,year,imf.value)
 
 #### IMF [IMF2] data ----------------------------------------------------------------------
@@ -69,21 +83,23 @@ tax.imf2 <- tax.imf2 %>%
   dplyr::rename(country = 1) %>%
   dplyr::filter(country != "NA" & country != "Scale: Units") %>%
   dplyr::rename(imf2.value = value) %>%
-  dplyr::mutate(year = as.numeric(year),
-                # using the countrycode package, add iso3c based on country name
-                iso3c = countrycode::countrycode(country, "country.name", "iso3c"))
-
-tax.imf2$iso3c[tax.imf2$country=="Kosovo, Rep. of"] <- "KSV"
-
-tax.imf2 <- tax.imf2 %>%
+  dplyr::mutate(
+    year = as.numeric(year),
+    # using the countrycode package, add iso3c based on country name
+    iso3c = dplyr::case_when(
+      country == "Kosovo, Rep. of" ~ "KSV",
+      .default = countrycode::countrycode(country, "country.name", "iso3c")
+      )) %>%
   dplyr::select(-country)
 
 #### OECD data ----------------------------------------------------------------------
 tax.oecd <- tax.oecd %>%
   # using the countrycode package, add iso3c based on country name
   dplyr::mutate(iso3c = countrycode::countrycode(Country, "country.name","iso3c")) %>%
-  dplyr::filter(iso3c %!in% c(419,"AFRIC","COK","OAVG","TKL"),
-                Country %!in% c("Latin America and the Caribbean","OECD - Average","Africa")) %>%
+  dplyr::filter(
+    iso3c %!in% c("419","AFRIC","COK","OAVG","TKL"),
+    Country %!in% c("Latin America and the Caribbean","OECD - Average","Africa")
+    ) %>%
   dplyr::select(iso3c,Year,Value) %>%
   dplyr::rename(year = Year,
                 oecd.value = Value)
@@ -94,14 +110,14 @@ tax.ictd <- tax.ictd[-c(1:2),] %>%
   dplyr::select(Country,ISO,Year,`...24`) %>%
   dplyr::rename_with(tolower) %>%
   dplyr::rename(ictd.value = 4) %>%
-  dplyr::mutate(year = as.numeric(year),
-                ictd.value = 100*as.numeric(ictd.value),
-                # using the countrycode package, add iso3c based on country name
-                iso3c = countrycode::countrycode(country,"country.name","iso3c"))
-
-tax.ictd$iso3c[tax.ictd$country=="Kosovo"] <- "KSV"
-
-tax.ictd <- tax.ictd %>%
+  dplyr::mutate(
+    year = as.numeric(year),
+    ictd.value = 100*as.numeric(ictd.value),
+    # using the countrycode package, add iso3c based on country name
+    iso3c = dplyr::case_when(
+      country == "Kosovo" ~ "KSV",
+      .default = countrycode::countrycode(country,"country.name","iso3c")
+      )) %>%
   dplyr::select(iso3c,year,ictd.value) %>%
   # filter out territories / non-sovereign entities
   dplyr::filter(iso3c %!in% c("ABW","AIA","HKG","MAC","MSR"))
@@ -110,16 +126,17 @@ tax.ictd <- tax.ictd %>%
 tax.ak <- tax.ak %>%
   dplyr::select(country,year,tax) %>%
   # using the countrycode package, add iso3c based on country name
-  dplyr::mutate(iso3c = countrycode::countrycode(country,"country.name","iso3c")) %>%
-  dplyr::filter(country %!in% c("Faeore Islands","Netherlands Antilles"),
-                iso3c %!in% c("ASM","AIA","ATG","ABW","BHS","BRB","BMU","BTN","BRN","CYM","HKG",
-                              "MAC","DMA","PYF","GRL","GRD","GUM","KIR","MHL","FSM","MLT","MNE",
-                              "MSR","NRU","NCL","SLB","KNA","LCA","VCT","TON","VUT","PLW","WSM",
-                              "SMR"))
-
-tax.ak$iso3c[tax.ak$country=="Guinea-Bissaau"] <- "GNB"
-
-tax.ak <- tax.ak %>%
+  dplyr::mutate(
+    iso3c = countrycode::countrycode(country,"country.name","iso3c"),
+    # fix error in Guinea-Bissau's spelling
+    country = ifelse(country=="Guinea-Bissaau","Guinea-Bissau",country)
+    ) %>%
+  dplyr::filter(
+    country %!in% c("Faeore Islands","Netherlands Antilles"),
+    iso3c %!in% c("ASM","AIA","ATG","ABW","BHS","BRB","BMU","BTN","BRN","CYM","HKG","MAC","DMA",
+                  "PYF","GRL","GRD","GUM","KIR","MHL","FSM","MLT","MNE","MSR","NRU","NCL","SLB",
+                  "KNA","LCA","VCT","TON","VUT","PLW","WSM","SMR"
+                  )) %>%
   dplyr::mutate(ak.value = tax * 100) %>%
   dplyr::select(iso3c,year,ak.value)
 
@@ -129,25 +146,212 @@ taxrev <- dplyr::full_join(tax.ictd,tax.oecd,by=c("iso3c","year")) %>%
   dplyr::full_join(tax.wb,by=c("iso3c","year")) %>%
   dplyr::full_join(tax.imf2,by=c("iso3c","year")) %>%
   dplyr::full_join(tax.ak,by=c("iso3c","year")) %>%
+  
   # using the countrycode package, add country name based on iso3c code
-  dplyr::mutate(country = countrycode::countrycode(iso3c,"iso3c","country.name")) %>%
+  dplyr::mutate(country = dplyr::case_when(
+    iso3c == "KSV" ~ "Kosovo",
+    .default = countrycode::countrycode(iso3c,"iso3c","country.name")
+  )) %>%
   dplyr::relocate(country, .after = iso3c) %>%
   dplyr::rowwise() %>%
-  dplyr::mutate(country = ifelse(iso3c=="KSV","Kosovo",country),
-                max = max(ictd.value,oecd.value,imf.value,wb.value,imf2.value,ak.value,na.rm=TRUE),
-                min = min(ictd.value,oecd.value,imf.value,wb.value,imf2.value,ak.value,na.rm=TRUE),
-  # dplyr::mutate(max = max(ictd.value,oecd.value,imf.value,wb.value,na.rm=TRUE),
-  #               min = min(ictd.value,oecd.value,imf.value,wb.value,na.rm=TRUE),
-                diff = max - min) %>%
+  dplyr::mutate(
+    max = max(ictd.value,oecd.value,imf.value,wb.value,imf2.value,ak.value,na.rm=TRUE),
+    min = min(ictd.value,oecd.value,imf.value,wb.value,imf2.value,ak.value,na.rm=TRUE),
+    diff = max - min) %>%
   # replace Infs with NAs
-  dplyr::mutate_all(~ifelse(is.infinite(.), NA, .))
+  dplyr::mutate_all(~ifelse(is.infinite(.), NA, .)) %>%
+  dplyr::arrange(iso3c,year)
 
 for(i in 1:nrow(taxrev)){
   taxrev$points[i] <- sum(!is.na(taxrev$ictd.value[i]),!is.na(taxrev$oecd.value[i]),!is.na(taxrev$imf.value[i]),
                           !is.na(taxrev$wb.value[i]),!is.na(taxrev$imf2.value[i]),!is.na(taxrev$ak.value[i]))
 }
 
-### X-to-AK comparison function ----------------------------------------------------------------------
+
+### Functions  ----------------------------------------------------------------------
+#### 5-year modeling function  ----------------------------------------------------------------------
+
+# this function takes all timeseries with 6 years of data and models a linear regression based on the values
+# compared to ak values and growths compared to ak growths. the estimates are then weighted by relative r2 values.
+tax.5yr.model.est <- function(df = taxrev, iso, missingyears = c(2014:2017)){
+  
+  modelyears <- c((min(missingyears)-5):(min(missingyears)-1))
+
+  df_iso_all <- taxrev %>%
+    dplyr::filter(
+      iso3c == iso
+    ) %>%
+    dplyr::arrange(year)
+  
+  # calculate growth rates
+  for(y in c(min(df_iso_all$year):max(df_iso_all$year))){
+    
+    df_iso_all$ictd.growth[df_iso_all$year==y] <- (df_iso_all$ictd.value[df_iso_all$year==y]-df_iso_all$ictd.value[df_iso_all$year==y-1])/df_iso_all$ictd.value[df_iso_all$year==y-1]
+    df_iso_all$oecd.growth[df_iso_all$year==y] <- (df_iso_all$oecd.value[df_iso_all$year==y]-df_iso_all$oecd.value[df_iso_all$year==y-1])/df_iso_all$oecd.value[df_iso_all$year==y-1]
+    df_iso_all$imf.growth[df_iso_all$year==y] <- (df_iso_all$imf.value[df_iso_all$year==y]-df_iso_all$imf.value[df_iso_all$year==y-1])/df_iso_all$imf.value[df_iso_all$year==y-1]
+    df_iso_all$wb.growth[df_iso_all$year==y] <- (df_iso_all$wb.value[df_iso_all$year==y]-df_iso_all$wb.value[df_iso_all$year==y-1])/df_iso_all$wb.value[df_iso_all$year==y-1]
+    df_iso_all$imf2.growth[df_iso_all$year==y] <- (df_iso_all$imf2.value[df_iso_all$year==y]-df_iso_all$imf2.value[df_iso_all$year==y-1])/df_iso_all$imf2.value[df_iso_all$year==y-1]
+    df_iso_all$ak.growth[df_iso_all$year==y] <- (df_iso_all$ak.value[df_iso_all$year==y]-df_iso_all$ak.value[df_iso_all$year==y-1])/df_iso_all$ak.value[df_iso_all$year==y-1]
+    
+  }
+  
+  df_iso_modelyears <- df_iso_all %>%
+    dplyr::filter(
+      iso3c == iso,
+      year %in% c(modelyears)
+    ) %>%
+    dplyr::arrange(year)
+  
+  
+  # filter out incomplete modelyears timeseries data
+  yr_count <- length(missingyears) + length(modelyears)
+  
+  df_missing <- df_iso_all %>%
+    dplyr::filter(
+      year %in% modelyears | year %in% missingyears
+    ) %>%
+    dplyr::select(ictd.value,oecd.value,imf.value,wb.value,imf2.value,ak.value,
+                  ictd.growth,oecd.growth,imf.growth,wb.growth,imf2.growth,ak.growth) %>%
+    tidyr::pivot_longer(1:12, names_to = "timeseries", values_to = "value") %>%
+    tidyr::drop_na(value) %>%
+    dplyr::group_by(timeseries) %>%
+    dplyr::tally(name = "year_count") %>%
+    dplyr::ungroup() %>%
+    dplyr::filter(year_count == yr_count) %>%
+    dplyr::pull("timeseries")
+  
+  # re-add ak.value and ak.growth
+  df_missing <- c(df_missing,"ak.value","ak.growth")
+  
+  df_iso_modelyears_value <- df_iso_modelyears %>%
+    dplyr::select(all_of(df_missing)) %>%
+    dplyr::select(contains("value"))
+  
+  df_iso_modelyears_growth <- df_iso_modelyears %>%
+    dplyr::select(all_of(df_missing)) %>%
+    dplyr::select(contains("growth"))
+  
+  model.value <- stats::glm(ak.value ~ ., data = df_iso_modelyears_value)
+  # summary(model.value)
+  
+  x.r2 <- 1-(model.value$deviance/model.value$null.deviance)
+
+  model.growth <- stats::glm(ak.growth ~ ., data = df_iso_modelyears_growth)
+  # summary(model.growth)
+  
+  y.r2 <- 1-(model.growth$deviance/model.growth$null.deviance)
+  
+  df_iso_pred <- df_iso_all %>%
+    modelr::add_predictions(model = model.value, var = "ak.value.est") %>%
+    modelr::add_predictions(model = model.growth, var = "ak.growth.est")
+
+  df_iso_pred <- df_iso_pred %>%
+    dplyr::mutate(ak.value.est.growth = ak.value)
+    
+  for(z in missingyears){
+  
+    df_iso_pred$ak.value.est.growth[df_iso_pred$year==z] <- df_iso_pred$ak.value.est.growth[df_iso_pred$year==(z-1)] * (1 + df_iso_pred$ak.growth.est[df_iso_pred$year==z])
+    
+  }
+  
+  df_iso_pred <- df_iso_pred %>%
+    dplyr::mutate(
+      ak.value.x.weighted = ak.value.est * (x.r2/(x.r2+y.r2)),
+      ak.value.y.weighted = ak.value.est.growth * (y.r2/(x.r2+y.r2)),
+      ak.final.est = ak.value.x.weighted + ak.value.y.weighted
+      ) %>%
+    dplyr::select(iso3c,year,ak.final.est) %>%
+    dplyr::mutate(
+      ak.final.est = dplyr::case_when(
+        year %in% missingyears ~ ak.final.est,
+        .default = NA
+      ))
+  
+  df <- df %>%
+    dplyr::left_join(df_iso_pred,by=c("iso3c","year")) %>%
+    dplyr::mutate(ak.value = coalesce(ak.value,ak.final.est)) %>%
+    dplyr::select(-ak.final.est)
+  
+  return(df)
+  
+}
+
+#### 5-year closest match function ----------------------------------------------------------------------
+# this function looks at the five years prior to a missing AK value and calculates the average proportional
+# difference between each other time series compared to AK, for purposes of applying that time series' year-over-year
+# change to extend the AK time series
+tax.5yr.closest <- function(df = taxrev, iso, missingyr){
+  
+  # time series missing values for missingyr variable
+  df_missing <- df %>%
+    dplyr::filter(iso3c == iso,
+                  year == missingyr) %>%
+    dplyr::select(ictd.value,oecd.value,imf.value,wb.value,imf2.value) %>%
+    tidyr::pivot_longer(1:5, names_to = "timeseries", values_to = "value")
+  
+  df_missing$timeseries <- stringr::str_sub(df_missing$timeseries, end = -7)
+  
+  df_missing <- df_missing %>%
+    dplyr::filter(is.na(value)) %>%
+    dplyr::pull(timeseries)
+ 
+  df2 <- df %>%
+    dplyr::filter(iso3c == iso,
+                  year %in% c((missingyr-5):(missingyr-1))) %>%
+    dplyr::arrange(year) %>%
+    dplyr::mutate(
+      ictd.ratio = ictd.value / ak.value,
+      oecd.ratio = oecd.value / ak.value,
+      imf.ratio = imf.value / ak.value,
+      wb.ratio = wb.value / ak.value,
+      imf2.ratio = imf2.value / ak.value
+    )
+  
+  ictd.avg.ratio = mean(df2$ictd.ratio)-1
+  oecd.avg.ratio = mean(df2$oecd.ratio)-1
+  imf.avg.ratio = mean(df2$imf.ratio)-1
+  wb.avg.ratio = mean(df2$wb.ratio)-1
+  imf2.avg.ratio = mean(df2$imf2.ratio)-1
+  
+  list <- c(ictd.avg.ratio,oecd.avg.ratio,imf.avg.ratio,wb.avg.ratio,imf2.avg.ratio)
+  names(list) <- c("ICTD", "OECD", "IMF", "WB", "IMF2")
+  
+  # filter out timeseries missing values in the prior 5 years
+  list <- list[!is.na(list)]
+  
+  # filter out timeseries missing values for the missingyr
+  list <- list[names(list) %!in% toupper(df_missing)]
+  
+  return_value_abs <- min(abs(list))
+  return_name <- names(list)[which(abs(list)==return_value_abs)]
+  return_value <- list[abs(list)==return_value_abs]+1
+  
+  return(c(return_name,return_value))
+
+}
+
+
+#### Apply Growth to AK  function ----------------------------------------------------------------------
+# this function applies the growth rates of % tax revenue collected to the AK time series, extending it
+apply.growth.to.ak <- function(df = taxrev, timeseries = "ICTD", iso, years){
+  
+  compare_column = which(names(df)==paste0(tolower(timeseries),".value"))
+  
+  ak.baseline <- df$ak.value[df$iso3c==iso&df$year==min(years)-1]
+  compare.baseline <- as.numeric(df[df$iso3c==iso&df$year==min(years)-1,compare_column])
+  
+  for(y in years){
+    
+    df$ak.value[df$iso3c==iso&df$year==y] <- ak.baseline*as.numeric(df[df$iso3c==iso&df$year==y,compare_column])/compare.baseline
+    
+  }
+  
+  return(df)
+  
+}
+
+
+#### X-to-AK comparison function ----------------------------------------------------------------------
 # this function compares the ICTD, OECD, IMF, WB, and IMF2 values to AK values for the last 5 years of available
 # AK data (defaults to 2013; default values compared are 2009 - 2013 and default changes compared are
 # 2008-09 - 2012-13)
@@ -241,6 +445,7 @@ x.to.ak <- function(df = taxrev, iso, lastyr = 2013){
     
 }
 
+
 ### estimate missing ak values ----------------------------------------------------------------------
 # this section only covers 1960 onwards; 1946-1959 calculated later
 
@@ -252,6 +457,10 @@ x.to.ak <- function(df = taxrev, iso, lastyr = 2013){
 # IMF2: 2006-2017
 # AK: 1960-2013
 
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "AFG", missingyears = c(2014:2017))
+
+# 2018-2019 
+
 #### AGO ----------------------------------------------------------------------
 # [Independence starting 1975]
 # ICTD: 1985-2005; 2007-2017
@@ -261,6 +470,10 @@ x.to.ak <- function(df = taxrev, iso, lastyr = 2013){
 # IMF2: N/A
 # AK: 1960-2013
 
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "AGO", missingyears = c(2014:2017))
+
+# 2018-2019
+
 #### ALB ----------------------------------------------------------------------
 # ICTD: 1989-2018
 # OECD: N/A
@@ -268,6 +481,12 @@ x.to.ak <- function(df = taxrev, iso, lastyr = 2013){
 # WB: 1995-1998; 2002-2004; 2011-2018
 # IMF2: 2005-2018
 # AK: 1995-2013
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "ALB", missingyears = c(2014:2017))
+  
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "ALB", missingyears = 2018)
+
+# 2019
 
 #### ARE ----------------------------------------------------------------------
 # [Independence starting 1971]
@@ -278,6 +497,12 @@ x.to.ak <- function(df = taxrev, iso, lastyr = 2013){
 # IMF2: 2011-2018
 # AK: 1960-2013
 
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "ARE", missingyears = c(2014:2017))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "ARE", missingyears = 2018)
+
+# 2019
+
 #### ARG ----------------------------------------------------------------------
 # ICTD: 1985-1988; 1990-2018
 # OECD: 1990-2018
@@ -285,6 +510,12 @@ x.to.ak <- function(df = taxrev, iso, lastyr = 2013){
 # WB: 1990-2018
 # IMF2: 2002-2004
 # AK: 1960-2013
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "ARG", missingyears = c(2014:2016))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "ARG", missingyears = c(2017:2018))
+
+# 2019
 
 #### ARM ----------------------------------------------------------------------
 # [Independence starting 1991]
@@ -294,6 +525,12 @@ x.to.ak <- function(df = taxrev, iso, lastyr = 2013){
 # WB: 2004-2018
 # IMF2: 2004-2018
 # AK: 1991-2013
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "ARM", missingyears = c(2014:2017))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "ARM", missingyears = 2018)
+
+# 2019
 
 #### ATG ----------------------------------------------------------------------
 # [Independence starting 1981]
@@ -312,6 +549,23 @@ x.to.ak <- function(df = taxrev, iso, lastyr = 2013){
 # IMF2: 1972-1994; 1999-2018
 # AK: 1960-2013
 
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "AUS", missingyears = c(2014:2016))
+
+# model est produces an error in the value model
+tax.5yr.closest(df = taxrev, iso = "AUS", missingyr = 2017)
+# IMF2
+
+# 2017: Apply IMF2 to AK
+taxrev <- apply.growth.to.ak(df = taxrev, timeseries = "IMF2", iso = "AUS", years = 2017)
+
+tax.5yr.closest(df = taxrev, iso = "AUS", missingyr = 2018)
+# IMF2
+
+# 2018: Apply IMF2 to AK
+taxrev <- apply.growth.to.ak(df = taxrev, timeseries = "IMF2", iso = "AUS", years = 2018)
+
+# 2019
+
 #### AUT ----------------------------------------------------------------------
 # ICTD: 1980-2018
 # OECD: 1990-2018
@@ -319,6 +573,12 @@ x.to.ak <- function(df = taxrev, iso, lastyr = 2013){
 # WB: 1972-2018
 # IMF2: 1972-2018
 # AK: 1960-2013
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "AUT", missingyears = c(2014:2017))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "AUT", missingyears = 2018)
+
+# 2019
 
 #### AZE ----------------------------------------------------------------------
 # [Independence starting 1991]
@@ -329,6 +589,12 @@ x.to.ak <- function(df = taxrev, iso, lastyr = 2013){
 # IMF2: 2008-2018
 # AK: 1991-2013
 
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "AZE", missingyears = c(2014:2017))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "AZE", missingyears = 2018)
+
+# 2019
+
 #### BDI ----------------------------------------------------------------------
 # [Independence starting 1962]
 # ICTD: 1982-2014
@@ -338,6 +604,12 @@ x.to.ak <- function(df = taxrev, iso, lastyr = 2013){
 # IMF2: N/A
 # AK: 1960-2013
 
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "BDI", missingyears = 2014)
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "BDI", missingyears = c(2015:2017))
+
+# 2018-2019
+
 #### BEL ----------------------------------------------------------------------
 # ICTD: 1980-2018
 # OECD: 1990-2018
@@ -345,6 +617,12 @@ x.to.ak <- function(df = taxrev, iso, lastyr = 2013){
 # WB: 1995-2018
 # IMF2: 1973-1989; 1995-2018
 # AK: 1960-2013
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "BEL", missingyears = c(2014:2017))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "BEL", missingyears = 2018)
+
+# 2019
 
 #### BEN ----------------------------------------------------------------------
 # [Independence starting 1960]
@@ -355,6 +633,12 @@ x.to.ak <- function(df = taxrev, iso, lastyr = 2013){
 # IMF2: N/A
 # AK: 1960-2013
 
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "BEN", missingyears = c(2014:2017))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "ALB", missingyears = 2018)
+
+# 2019
+
 #### BFA ----------------------------------------------------------------------
 # [Independence starting 1960]
 # ICTD: 1980-2018
@@ -363,6 +647,12 @@ x.to.ak <- function(df = taxrev, iso, lastyr = 2013){
 # WB: 2002-2018
 # IMF2: N/A
 # AK: 1960-2013
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "BFA", missingyears = c(2014:2017))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "BFA", missingyears = 2018)
+
+# 2019
 
 #### BGD ----------------------------------------------------------------------
 # [Independence starting 1971]
@@ -373,13 +663,27 @@ x.to.ak <- function(df = taxrev, iso, lastyr = 2013){
 # IMF2: N/A
 # AK: 1960-2013
 
-#### BGR ----------------------------------------------------------------------
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "BGD", missingyears = c(2014:2016))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "BGD", missingyears = c(2017:2018))
+
+# 2019
+
+#### BGR(*) ----------------------------------------------------------------------
 # ICTD: 1986-1988; 1990-2018
 # OECD: 1995-2018
 # IMF: 1990-2017
 # WB: 1990-2018
 # IMF2: 1990-2018
 # AK: 1962-2013
+
+# 1960-1962
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "BGR", missingyears = c(2014:2017))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "BGR", missingyears = 2018)
+
+# 2019
 
 #### BHR ----------------------------------------------------------------------
 # [Independence starting 1971]
@@ -390,6 +694,10 @@ x.to.ak <- function(df = taxrev, iso, lastyr = 2013){
 # IMF2: N/A
 # AK: 1960-2013
 
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "BHR", missingyears = c(2014:2017))
+
+# 2018-2019
+
 #### BHS ----------------------------------------------------------------------
 # [Independence starting 1973]
 # ICTD: 1980-1986; 1988-2018
@@ -399,7 +707,7 @@ x.to.ak <- function(df = taxrev, iso, lastyr = 2013){
 # IMF2: N/A
 # AK: N/A
 
-#### BIH ----------------------------------------------------------------------
+#### BIH(*) ----------------------------------------------------------------------
 # [Independence starting 1992]
 # ICTD: 1999-2018
 # OECD: N/A
@@ -407,6 +715,14 @@ x.to.ak <- function(df = taxrev, iso, lastyr = 2013){
 # WB: 2005-2018
 # IMF2: 2005-2018
 # AK: 1999-2013
+
+# 1991-1998
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "BIH", missingyears = c(2014:2017))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "BIH", missingyears = 2018)
+
+# 2019
 
 #### BLR ----------------------------------------------------------------------
 # [Independence starting 1991]
@@ -417,6 +733,12 @@ x.to.ak <- function(df = taxrev, iso, lastyr = 2013){
 # IMF2: 2003-2018
 # AK: 1991-2013
 
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "BLR", missingyears = c(2014:2017))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "BLR", missingyears = 2018)
+
+# 2019
+
 #### BLZ ----------------------------------------------------------------------
 # [Independence starting 1981]
 # ICTD: 1982-2018
@@ -426,6 +748,12 @@ x.to.ak <- function(df = taxrev, iso, lastyr = 2013){
 # IMF2: N/A
 # AK: 1981-2013
 
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "BLZ", missingyears = c(2014:2017))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "BLZ", missingyears = 2018)
+
+# 2019
+
 #### BOL ----------------------------------------------------------------------
 # ICTD: 2018
 # OECD: 1990-2018
@@ -434,6 +762,12 @@ x.to.ak <- function(df = taxrev, iso, lastyr = 2013){
 # IMF2: 1986-2007
 # AK: 1960-2013
 
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "BOL", missingyears = c(2014:2016))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "BOL", missingyears = c(2017:2018))
+
+# 2019
+
 #### BRA ----------------------------------------------------------------------
 # ICTD: 1990-2018
 # OECD: 1990-2018
@@ -441,6 +775,12 @@ x.to.ak <- function(df = taxrev, iso, lastyr = 2013){
 # WB: 1980-1994; 1996-2018
 # IMF2: 1980-1989; 2006-2018
 # AK: 1960-2013
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "BRA", missingyears = c(2014:2016))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "BRA", missingyears = c(2017:2018))
+
+# 2019
 
 #### BRB ----------------------------------------------------------------------
 # [Independence starting 1966]
@@ -478,6 +818,12 @@ x.to.ak <- function(df = taxrev, iso, lastyr = 2013){
 # IMF2: N/A
 # AK: 1960-2013
 
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "BWA", missingyears = c(2014:2017))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "ALB", missingyears = 2018)
+
+# 2019
+
 #### CAF ----------------------------------------------------------------------
 # [Independence starting 1960]
 # ICTD: 1980-2012
@@ -487,6 +833,13 @@ x.to.ak <- function(df = taxrev, iso, lastyr = 2013){
 # IMF2: N/A
 # AK: 1960-2013
 
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "CAF", missingyears = c(2014:2017))
+
+# 2018: Apply WB to AK; WB is the only timeseries with 2018 values
+taxrev <- apply.growth.to.ak(df = taxrev, timeseries = "WB", iso = "CAF", years = 2018)
+
+# 2019
+
 #### CAN ----------------------------------------------------------------------
 # ICTD: 1980-2018
 # OECD: 1990-2018
@@ -494,6 +847,13 @@ x.to.ak <- function(df = taxrev, iso, lastyr = 2013){
 # WB: 1990-2018
 # IMF2: 1990-2019
 # AK: 1960-2013
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "CAN", missingyears = c(2014:2017))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "CAN", missingyears = 2018)
+
+# 2019: Apply IMF2 to AK
+taxrev <- apply.growth.to.ak(df = taxrev, timeseries = "IMF2", iso = "CAN", years = 2019)
 
 #### CHE ----------------------------------------------------------------------
 # ICTD: 1980-2018
@@ -503,6 +863,12 @@ x.to.ak <- function(df = taxrev, iso, lastyr = 2013){
 # IMF2: 1972-2018
 # AK: 1960-2013
 
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "CHE", missingyears = c(2014:2017))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "CHE", missingyears = 2018)
+
+# 2019
+
 #### CHL ----------------------------------------------------------------------
 # ICTD: 1980-2018
 # OECD: 1990-2018
@@ -511,6 +877,12 @@ x.to.ak <- function(df = taxrev, iso, lastyr = 2013){
 # IMF2: 1974-1988; 1992-2018
 # AK: 1960-2013
 
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "CHL", missingyears = c(2014:2017))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "CHL", missingyears = 2018)
+
+# 2019
+
 #### CHN ----------------------------------------------------------------------
 # ICTD: 1985-2017
 # OECD: N/A
@@ -518,6 +890,10 @@ x.to.ak <- function(df = taxrev, iso, lastyr = 2013){
 # WB: 2005-2017
 # IMF2: 2005-2017
 # AK: 1960-2013
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "CHN", missingyears = c(2014:2017))
+
+# 2018-2019
 
 #### CIV ----------------------------------------------------------------------
 # [Independence starting 1960]
@@ -528,6 +904,12 @@ x.to.ak <- function(df = taxrev, iso, lastyr = 2013){
 # IMF2: 2018
 # AK: 1960-2013
 
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "CIV", missingyears = c(2014:2017))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "CIV", missingyears = 2018)
+
+# 2019
+
 #### CMR ----------------------------------------------------------------------
 # [Independence starting 1960]
 # ICTD: 1982-1986; 1993-2017
@@ -536,6 +918,18 @@ x.to.ak <- function(df = taxrev, iso, lastyr = 2013){
 # WB: 1990-1995; 1998-1999; 2012-2018
 # IMF2: N/A
 # AK: 1960-2013
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "CMR", missingyears = c(2014:2017))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "CMR", missingyears = 2018)
+
+# tax.5yr.closest(df = taxrev, iso = "CMR", missingyr = 2018)
+# # WB
+# 
+# # 2018: Apply WB to AK
+# taxrev <- apply.growth.to.ak(df = taxrev, timeseries = "WB", iso = "CMR", years = 2018)
+
+# 2019
 
 #### COD ----------------------------------------------------------------------
 # [Independence starting 1960]
@@ -546,6 +940,12 @@ x.to.ak <- function(df = taxrev, iso, lastyr = 2013){
 # IMF2: N/A
 # AK: 1960-2013
 
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "COD", missingyears = c(2014:2017))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "COD", missingyears = 2018)
+
+# 2019
+
 #### COG ----------------------------------------------------------------------
 # [Independence starting 1960]
 # ICTD: 1980; 1982-1986; 1989-2018
@@ -555,6 +955,21 @@ x.to.ak <- function(df = taxrev, iso, lastyr = 2013){
 # IMF2: 2003-2014
 # AK: 1960-2013
 
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "COG", missingyears = 2014)
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "COG", missingyears = c(2015:2017))
+
+tax.5yr.closest(df = taxrev, iso = "COG", missingyr = 2018)
+# WB
+
+# 2018: Apply WB to AK
+taxrev <- apply.growth.to.ak(df = taxrev, timeseries = "WB", iso = "CMR", years = 2018)
+
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "COG", missingyears = 2018)
+
+# 2019
+
 #### COL ----------------------------------------------------------------------
 # ICTD: 1993-1999
 # OECD: 1990-2018
@@ -562,6 +977,12 @@ x.to.ak <- function(df = taxrev, iso, lastyr = 2013){
 # WB: 1998-2000; 2003; 2008-2018
 # IMF2: 1998-2000; 2003; 2008-2018
 # AK: 1960-2013
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "COL", missingyears = c(2014:2016))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "COL", missingyears = c(2017:2018))
+
+# 2019
 
 #### COM ----------------------------------------------------------------------
 # [Independence starting 1975]
@@ -572,6 +993,10 @@ x.to.ak <- function(df = taxrev, iso, lastyr = 2013){
 # IMF2: N/A
 # AK: 1960-2013
 
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "COM", missingyears = c(2014:2018))
+
+# 2019
+
 #### CPV ----------------------------------------------------------------------
 # [Independence starting 1975]
 # ICTD: 1980-2018
@@ -581,6 +1006,12 @@ x.to.ak <- function(df = taxrev, iso, lastyr = 2013){
 # IMF2: N/A
 # AK: 1960-2013
 
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "CPV", missingyears = c(2014:2017))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "CPV", missingyears = 2018)
+
+# 2019
+
 #### CRI ----------------------------------------------------------------------
 # ICTD: 1980-2018
 # OECD: 1990-2018
@@ -589,7 +1020,13 @@ x.to.ak <- function(df = taxrev, iso, lastyr = 2013){
 # IMF2: 2002-2018
 # AK: 1960-2013
 
-#### CUB ----------------------------------------------------------------------
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "CRI", missingyears = c(2014:2016))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "CRI", missingyears = c(2017:2018))
+
+# 2019
+
+#### CUB(*) ----------------------------------------------------------------------
 # ICTD: 1990-2015
 # OECD: 1990-2018
 # IMF: N/A
@@ -606,7 +1043,13 @@ x.to.ak <- function(df = taxrev, iso, lastyr = 2013){
 # IMF2: 1995-2018
 # AK: 1960-2013
 
-#### CZE ----------------------------------------------------------------------
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "CYP", missingyears = c(2014:2017))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "CMR", missingyears = 2018)
+
+# 2019
+
+#### CZE(*) ----------------------------------------------------------------------
 # ICTD: 1993-2018
 # OECD: 1993-2018
 # IMF: 1993-2017
@@ -614,7 +1057,13 @@ x.to.ak <- function(df = taxrev, iso, lastyr = 2013){
 # IMF2: 1995-2018
 # AK: 1991-2013
 
-#### DEU ----------------------------------------------------------------------
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "CZE", missingyears = c(2014:2017))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "CZE", missingyears = 2018)
+
+# 2019
+
+#### DEU(*) ----------------------------------------------------------------------
 # [unclear what the values before 1990 represent]
 # ICTD: 1980-2018
 # OECD: 1990-2018
@@ -622,6 +1071,12 @@ x.to.ak <- function(df = taxrev, iso, lastyr = 2013){
 # WB: 1972-2018
 # IMF2: 1972-2018
 # AK: 1960-2013
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "DEU", missingyears = c(2014:2017))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "CMR", missingyears = 2018)
+
+# 2019
 
 #### DJI ----------------------------------------------------------------------
 # [Independence starting 1977]
@@ -631,6 +1086,12 @@ x.to.ak <- function(df = taxrev, iso, lastyr = 2013){
 # WB: N/A
 # IMF2: N/A
 # AK: 1960-2013
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "DJI", missingyears = c(2014:2017))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "DJI", missingyears = 2018)
+
+# 2019
 
 #### DMA ----------------------------------------------------------------------
 # [Independence starting 1978]
@@ -649,6 +1110,12 @@ x.to.ak <- function(df = taxrev, iso, lastyr = 2013){
 # IMF2: 1972-2018
 # AK: 1960-2013
 
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "DNK", missingyears = c(2014:2017))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "DNK", missingyears = 2018)
+
+# 2019
+
 #### DOM ----------------------------------------------------------------------
 # ICTD: 1980-2018
 # OECD: 1990-2018
@@ -656,6 +1123,12 @@ x.to.ak <- function(df = taxrev, iso, lastyr = 2013){
 # WB: 1972-2018
 # IMF2: N/A
 # AK: 1960-2013
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "DOM", missingyears = c(2014:2017))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "DOM", missingyears = 2018)
+
+# 2019
 
 #### DZA ----------------------------------------------------------------------
 # [Independence starting 1962]
@@ -666,6 +1139,14 @@ x.to.ak <- function(df = taxrev, iso, lastyr = 2013){
 # IMF2: N/A
 # AK: 1960-2013
 
+tax.5yr.closest(df = taxrev, iso = "DZA", missingyr = 2014)
+# IMF
+
+# 2014-2017: Apply IMF to AK
+taxrev <- apply.growth.to.ak(df = taxrev, timeseries = "IMF", iso = "DZA", years = c(2014:2017))
+
+# 2018-2019
+
 #### ECU ----------------------------------------------------------------------
 # ICTD: 1980-1985; 1990-2018
 # OECD: 1990-2018
@@ -674,6 +1155,12 @@ x.to.ak <- function(df = taxrev, iso, lastyr = 2013){
 # IMF2: N/A
 # AK: 1960-2013
 
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "ECU", missingyears = c(2014:2016))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "ECU", missingyears = c(2017:2018))
+
+# 2019
+
 #### EGY ----------------------------------------------------------------------
 # ICTD: 1987-2018
 # OECD: 2002-2017
@@ -681,6 +1168,14 @@ x.to.ak <- function(df = taxrev, iso, lastyr = 2013){
 # WB: 1975-1979; 1981-1997; 2002-2015
 # IMF2: 2002-2015
 # AK: 1960-2013
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "EGY", missingyears = c(2014:2015))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "EGY", missingyears = c(2016:2017))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "EGY", missingyears = 2018)
+
+# 2019
 
 #### ERI ----------------------------------------------------------------------
 # [Independence starting 1993]
@@ -691,6 +1186,10 @@ x.to.ak <- function(df = taxrev, iso, lastyr = 2013){
 # IMF2: N/A
 # AK: 1992-2013
 
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "ERI", missingyears = c(2014:2017))
+
+# 2018-2019
+
 #### ESP ----------------------------------------------------------------------
 # ICTD: 1981-2018
 # OECD: 1990-2018
@@ -698,6 +1197,12 @@ x.to.ak <- function(df = taxrev, iso, lastyr = 2013){
 # WB: 1995-2018
 # IMF2: 1980-2018
 # AK: 1960-2013
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "ESP", missingyears = c(2014:2017))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "ESP", missingyears = 2018)
+
+# 2019
 
 #### EST ----------------------------------------------------------------------
 # [Independence starting 1991]
@@ -708,13 +1213,27 @@ x.to.ak <- function(df = taxrev, iso, lastyr = 2013){
 # IMF2: 1995-2018
 # AK: 1991-2013
 
-#### ETH ----------------------------------------------------------------------
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "EST", missingyears = c(2014:2017))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "EST", missingyears = 2018)
+
+# 2019
+
+#### ETH(*) ----------------------------------------------------------------------
 # ICTD: 1980-2018
 # OECD: N/A
 # IMF: 1990-2017
 # WB: 1990-1999; 2001-2018
 # IMF2: N/A
 # AK: 1975-2013
+
+# 1960-1974
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "ETH", missingyears = c(2014:2017))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "ETH", missingyears = 2018)
+
+# 2019
 
 #### FIN ----------------------------------------------------------------------
 # ICTD: 1980-2018
@@ -723,6 +1242,12 @@ x.to.ak <- function(df = taxrev, iso, lastyr = 2013){
 # WB: 1972-2018
 # IMF2: 1972-2018
 # AK: 1960-2013
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "FIN", missingyears = c(2014:2017))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "FIN", missingyears = 2018)
+
+# 2019
 
 #### FJI ----------------------------------------------------------------------
 # [Independence starting 1970]
@@ -733,6 +1258,12 @@ x.to.ak <- function(df = taxrev, iso, lastyr = 2013){
 # IMF2: N/A
 # AK: 1960-2013
 
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "FJI", missingyears = c(2014:2017))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "FJI", missingyears = 2018)
+
+# 2019
+
 #### FRA ----------------------------------------------------------------------
 # ICTD: 1980-2018
 # OECD: 1990-2018
@@ -740,6 +1271,12 @@ x.to.ak <- function(df = taxrev, iso, lastyr = 2013){
 # WB: 1972-2018
 # IMF2: 1972-2018
 # AK: 1960-2013
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "FRA", missingyears = c(2014:2017))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "FRA", missingyears = 2018)
+
+# 2019
 
 #### FSM ----------------------------------------------------------------------
 # [Independence starting 1991]
@@ -759,6 +1296,12 @@ x.to.ak <- function(df = taxrev, iso, lastyr = 2013){
 # IMF2: N/A
 # AK: 1960-2013
 
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "GAB", missingyears = c(2014:2017))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "GAB", missingyears = 2018)
+
+# 2019
+
 #### GBR ----------------------------------------------------------------------
 # ICTD: 1980-2018
 # OECD: 1990-2018
@@ -767,7 +1310,13 @@ x.to.ak <- function(df = taxrev, iso, lastyr = 2013){
 # IMF2: 1972-2018
 # AK: 1960-2013
 
-#### GEO ----------------------------------------------------------------------
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "GBR", missingyears = c(2014:2017))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "GBR", missingyears = 2018)
+
+# 2019
+
+#### GEO(*) ----------------------------------------------------------------------
 # [Independence starting 1991]
 # ICTD: 1995-2018
 # OECD: N/A
@@ -775,6 +1324,13 @@ x.to.ak <- function(df = taxrev, iso, lastyr = 2013){
 # WB: 1997-2018
 # IMF2: 2003-2018
 # AK: 1997-2013
+
+# 1991-1996
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "GEO", missingyears = c(2014:2017))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "GEO", missingyears = 2018)
+
 
 #### GHA ----------------------------------------------------------------------
 # [Independence starting 1957]
@@ -785,6 +1341,11 @@ x.to.ak <- function(df = taxrev, iso, lastyr = 2013){
 # IMF2: N/A
 # AK: 1960-2013
 
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "GHA", missingyears = c(2014:2017))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "GHA", missingyears = 2018)
+
+
 #### GIN ----------------------------------------------------------------------
 # [Independence starting 1958]
 # ICTD: 1980-2018
@@ -793,6 +1354,12 @@ x.to.ak <- function(df = taxrev, iso, lastyr = 2013){
 # WB: 1989-1992
 # IMF2: N/A
 # AK: 1960-2013
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "GIN", missingyears = c(2014:2017))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "GIN", missingyears = 2018)
+
+# 2019
 
 #### GMB ----------------------------------------------------------------------
 # [Independence starting 1965]
@@ -803,6 +1370,12 @@ x.to.ak <- function(df = taxrev, iso, lastyr = 2013){
 # IMF2: N/A
 # AK: 1960-2013
 
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "GMB", missingyears = c(2014:2017))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "GMB", missingyears = 2018)
+
+# 2019
+
 #### GNB ----------------------------------------------------------------------
 # [Independence starting 1974]
 # ICTD: 1980-2017
@@ -810,7 +1383,7 @@ x.to.ak <- function(df = taxrev, iso, lastyr = 2013){
 # IMF: 1991-2017
 # WB: 2017
 # IMF2: N/A
-# AK: 1960-2013
+# AK: N/A
 
 #### GNQ ----------------------------------------------------------------------
 # [Independence starting 1968]
@@ -821,6 +1394,12 @@ x.to.ak <- function(df = taxrev, iso, lastyr = 2013){
 # IMF2: N/A
 # AK: 1960-2013
 
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "GNQ", missingyears = c(2014:2017))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "GNQ", missingyears = 2018)
+
+# 2019
+
 #### GRC ----------------------------------------------------------------------
 # ICTD: 1980-2018
 # OECD: 1990-2018
@@ -828,6 +1407,10 @@ x.to.ak <- function(df = taxrev, iso, lastyr = 2013){
 # WB: 1972-1990; 1995-2018
 # IMF2: 1995-2018
 # AK: 1960-2013
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "GRC", missingyears = c(2014:2018))
+
+# 2019
 
 #### GRD ----------------------------------------------------------------------
 # [Independence starting 1974]
@@ -846,6 +1429,12 @@ x.to.ak <- function(df = taxrev, iso, lastyr = 2013){
 # IMF2: N/A
 # AK: 1960-2013
 
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "GTM", missingyears = c(2014:2016))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "GTM", missingyears = c(2017:2018))
+
+# 2019
+
 #### GUY ----------------------------------------------------------------------
 # [Independence starting 1966]
 # ICTD: 1987-2018
@@ -855,18 +1444,755 @@ x.to.ak <- function(df = taxrev, iso, lastyr = 2013){
 # IMF2: N/A
 # AK: 1960-2013
 
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "GUY", missingyears = c(2014:2016))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "GUY", missingyears = c(2017:2018))
+
+# 2019
+
+#### HND ----------------------------------------------------------------------
+# ICTD: 1981-1988, 1991-2018
+# OECD: 1990-2018
+# IMF: 1990-2016
+# WB: 1972-1981, 2003-2015
+# IMF2: 2003-2015
+# AK: 1960-2013
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "HND", missingyears = c(2014:2015))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "HND", missingyears = 2016)
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "HND", missingyears = c(2017:2018))
+
+# 2019
+
+#### HRV ----------------------------------------------------------------------
+# ICTD: 2002-2018
+# OECD: N/A
+# IMF: 1992-2017
+# WB: 1995-2018
+# IMF2: 2002-2018
+# AK: 1991-2013
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "HRV", missingyears = c(2014:2017))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "HRV", missingyears = 2018)
+
+# 2019
+
+#### HTI ----------------------------------------------------------------------
+# ICTD: 1990-2018
+# OECD: N/A
+# IMF: 1997-2017
+# WB: N/A
+# IMF2: N/A
+# AK: 1960-2013
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "HND", missingyears = c(2014:2017))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "HND", missingyears = 2018)
+
+# 2019
+
+#### HUN ----------------------------------------------------------------------
+# ICTD: 1981-2018
+# OECD: 1991-2018
+# IMF: 1991-2017
+# WB: 1991-2018
+# IMF2: 1981-2018
+# AK: 1960-2013
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "HUN", missingyears = c(2014:2017))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "HND", missingyears = 2018)
+
+# 2019
+
+#### IDN ----------------------------------------------------------------------
+# ICTD: 1980-1985, 1989-2018
+# OECD: 1997-2017
+# IMF: 1990-2017
+# WB: 1972-1999, 2001-2004, 2008-2018
+# IMF2: 2008-2018
+# AK: 1960-2013
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "IDN", missingyears = c(2014:2017))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "IDN", missingyears = 2018)
+
+# 2019
+
+#### IND ----------------------------------------------------------------------
+# ICTD: 1981-2011, 2013-2016
+# OECD: N/A
+# IMF: 1990-2017
+# WB: 1974-2017
+# IMF2: N/A
+# AK: 1960-2013
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "IND", missingyears = c(2014:2016))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "IND", missingyears = 2017)
+
+# 2019
+
+#### IRL ----------------------------------------------------------------------
+# ICTD: 1980-2018
+# OECD: 1990-2018
+# IMF: 1990-2017
+# WB: 1972-2018
+# IMF2: 1972-2018
+# AK: 1960-2013
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "IRL", missingyears = c(2014:2017))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "IRL", missingyears = 2018)
+
+# 2019
+
+#### IRN ----------------------------------------------------------------------
+# ICTD: 1980-2014
+# OECD: N/A
+# IMF: 1990-2017
+# WB: 1972-2009
+# IMF2: 1980-1989, 2001-2009
+# AK: 1960-2013
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "IRN", missingyears = 2014)
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "IRN", missingyears = c(2015:2017))
+
+# 2018-2019
+
+#### IRQ ----------------------------------------------------------------------
+# ICTD: 2004-2009
+# OECD: N/A
+# IMF: 2004-2017
+# WB: 2014-2016
+# IMF2: N/A
+# AK: 1960-2013
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "IRQ", missingyears = c(2014:2016))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "IRQ", missingyears = 2017)
+
+# 2018-2019
+
+#### ISL ----------------------------------------------------------------------
+# ICTD: 1980-2018
+# OECD: 1990-2018
+# IMF: 1990-2017
+# WB: 1972-2018
+# IMF2: 1972-2018
+# AK: 1960-2013
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "ISL", missingyears = c(2014:2017))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "ISL", missingyears = 2018)
+
+# 2019
+
+#### ISR ----------------------------------------------------------------------
+# ICTD: 1980-1990, 1992-2018
+# OECD: 1995-2018
+# IMF: 1995-2017
+# WB: 1972-2018
+# IMF2: 1974-1998, 2000-2018
+# AK: 1960-2013
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "ISR", missingyears = c(2014:2017))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "ISR", missingyears = 2018)
+
+# 2019
+
+#### ITA ----------------------------------------------------------------------
+# ICTD: 1980-2018
+# OECD: 1990-2018
+# IMF: 1990-2017
+# WB: 1973-2018
+# IMF2: 1973-1975, 1985-1989, 1995-2018
+# AK: 1960-2013
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "ITA", missingyears = c(2014:2017))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "ITA", missingyears = 2018)
+
+# 2019
+
+#### JAM ----------------------------------------------------------------------
+# ICTD: 1980-2018
+# OECD: 1990-2018
+# IMF: 1990-2017
+# WB: 1988-2018
+# IMF2: N/A
+# AK: 1960-2013
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "JAM", missingyears = c(2014:2017))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "JAM", missingyears = 2018)
+
+# 2019
+
+#### JOR ----------------------------------------------------------------------
+# ICTD: 1982-2018
+# OECD: N/A
+# IMF: 1990-2017
+# WB: 1990-2018
+# IMF2: 2008-2013, 2018
+# AK: 1960-2013
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "JOR", missingyears = c(2014:2017))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "JOR", missingyears = 2018)
+
+# 2019
+
+#### JPN ----------------------------------------------------------------------
+# ICTD: 1980-2018
+# OECD: 1990-2017
+# IMF: 1990-2016
+# WB: 1972-2018
+# IMF2: 1994-2018
+# AK: 1960-2013
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "JPN", missingyears = c(2014:2016))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "JPN", missingyears = 2017)
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "JPN", missingyears = 2018)
+
+# 2019
+
+#### KAZ ----------------------------------------------------------------------
+# ICTD: 1995-2004, 2009-2011, 2016-2018
+# OECD: 1998-2017
+# IMF: 1996-2017
+# WB: 1997-2004, 2010-2018
+# IMF2: 2000-2004, 2010-2018
+# AK: 1991-2013
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "KAZ", missingyears = c(2014:2017))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "KAZ", missingyears = 2018)
+
+# 2019
+
+#### KEN ----------------------------------------------------------------------
+# ICTD: 1980-2018
+# OECD: 2001-2017
+# IMF: 1990-2017
+# WB: 2014-2018
+# IMF2: 2014-2018
+# AK: 1960-2013
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "KEN", missingyears = c(2014:2017))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "KEN", missingyears = 2018)
+
+# 2019
+
+#### KGZ ----------------------------------------------------------------------
+# ICTD: 1994-2018
+# OECD: N/A
+# IMF: 1993-2017
+# WB: 2014-2018
+# IMF2: 2014-2018
+# AK: 1991-2013
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "KGZ", missingyears = c(2014:2017))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "KGZ", missingyears = 2018)
+
+# 2019
+
+#### KHM(*) ----------------------------------------------------------------------
+# ICTD: 1994-2018
+# OECD: N/A
+# IMF: 2002-2016
+# WB: 2002-2018
+# IMF2: N/A
+# AK: 1963-1973, 1998-2013
+
+# 1973-1997
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "KHM", missingyears = c(2014:2016))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "KHM", missingyears = c(2017:2018))
+
+# 2019
+
+#### KIR ----------------------------------------------------------------------
+# ICTD: 1980-2001, 2004-2016
+# OECD: N/A
+# IMF: N/A
+# WB: 2011-2017
+# IMF2: N/A
+# AK: N/A
+
+#### KNA ----------------------------------------------------------------------
+# ICTD: 1985-2017
+# OECD: N/A
+# IMF: N/A
+# WB: 1990-1994, 2000-2017
+# IMF2: N/A
+# AK: N/A
+
+#### KOR ----------------------------------------------------------------------
+# ICTD: 1980-2018
+# OECD: 1990-2018
+# IMF: 1990-2017
+# WB: 1972-2018
+# IMF2: 2007-2018
+# AK: 1960-2013
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "KOR", missingyears = c(2014:2017))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "KOR", missingyears = 2018)
+
+# 2019
+
+#### KSV(*) ----------------------------------------------------------------------
+# ICTD: 2009-2018
+# OECD: N/A
+# IMF: N/A
+# WB: N/A
+# IMF2: 2011-2018
+# AK: N/A
+
+#### KWT ----------------------------------------------------------------------
+# ICTD: 1980-2018
+# OECD: N/A
+# IMF: 1990-2017
+# WB: 1972-1974, 1977-1998, 2001-2015
+# IMF2: N/A
+# AK: 1960-2013
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "KWT", missingyears = c(2014:2015))
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "KWT", missingyears = c(2016:2018))
+
+# 2019
+
+#### LAO ----------------------------------------------------------------------
+# ICTD: 1982-2017
+# OECD: N/A
+# IMF: 2000-2017
+# WB: N/A
+# IMF2: N/A
+# AK: 1996-2013
+
+# 1960 - 1995
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "LAO", missingyears = c(2014:2017))
+
+# 2018-2019
+
+#### LBN ----------------------------------------------------------------------
+# ICTD: 1988-2018
+# OECD: N/A
+# IMF: 1990-2017
+# WB: 1997-2018
+# IMF2: N/A
+# AK: 1960-2013
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "LBN", missingyears = c(2014:2017))
+
+# 2018
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "LBN", missingyears = c(2018))
+
+# 2019
+
+#### LBR ----------------------------------------------------------------------
+# ICTD: 2000-2018
+# OECD: N/A
+# IMF: 2000-2017
+# WB: 2005-2008, 2010-2013
+# IMF2: N/A
+# AK: 1960-2013
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "LBR", missingyears = c(2014:2017))
+
+# 2018
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "LBR", missingyears = c(2018))
+
+# 2019
+
+#### LBY ----------------------------------------------------------------------
+# ICTD: 1991-2012
+# OECD: N/A
+# IMF: N/A
+# WB: N/A
+# IMF2: N/A
+# AK: 1960-2013
+
+# 2014-present
+
+#### LCA ----------------------------------------------------------------------
+# ICTD: 1989-2017
+# OECD: 1992-2018
+# IMF: N/A
+# WB: 2000-2017
+# IMF2: N/A
+# AK: N/A
+
+#### LIE ----------------------------------------------------------------------
+# ICTD: N/A
+# OECD: 2000-2017
+# IMF: N/A
+# WB: N/A
+# IMF2: N/A
+# AK: N/A
+
+#### LKA ----------------------------------------------------------------------
+# ICTD: 1980-2018
+# OECD: N/A
+# IMF: 1990-2017
+# WB: 1990-2018
+# IMF2: N/A
+# AK: 1960-2013
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "LKA", missingyears = c(2014:2017))
+
+# 2018
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "LKA", missingyears = c(2018))
+
+# 2019
+
+#### LSO ----------------------------------------------------------------------
+# ICTD: 1982-2018
+# OECD: N/A
+# IMF: 1990-2017
+# WB: 1982-1989, 1991-2018
+# IMF2: 2003-2007
+# AK: 1960-2013
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "LSO", missingyears = c(2014:2017))
+
+# 2018
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "LSO", missingyears = 2018)
 
 
+# 2019
 
+#### LTU ----------------------------------------------------------------------
+# ICTD: 1992-2018
+# OECD: 1995-2018
+# IMF: 1995-2017
+# WB: 1995-2018
+# IMF2: 1995-2018
+# AK: 1991-2013
 
-### estimate missing ak values ----------------------------------------------------------------------
-# ICTD: 
-# OECD: 
-# IMF: 
-# WB: 
-# IMF2: 
-# AK: 
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "LTU", missingyears = c(2014:2017))
 
+# 2018
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "LTU", missingyears = 2018)
+
+# 2019
+
+#### LUX ----------------------------------------------------------------------
+# ICTD: 1980-2018
+# OECD: 1990-2018
+# IMF: 1990-2017
+# WB: 1972-2018
+# IMF2: 1972-1988, 1990-2018
+# AK: 1960-2013
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "LUX", missingyears = c(2014:2017))
+
+# 2018
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "LUX", missingyears = 2018)
+
+# 2019
+
+#### LVA ----------------------------------------------------------------------
+# ICTD: 1995-2018
+# OECD: 1995-2018
+# IMF: 1995-2017
+# WB: 1994-2018
+# IMF2: 1995-2018
+# AK: 1991-2013
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "LVA", missingyears = c(2014:2017))
+
+# 2018
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "LVA", missingyears = 2018)
+
+# 2019
+
+#### MAR ----------------------------------------------------------------------
+# ICTD: 1980-2018
+# OECD: 2000-2017
+# IMF: 1990-2017
+# WB: 1990-1995, 1997-1999, 2002-2018
+# IMF2: 2002-2011
+# AK: 1960-2013
+
+#### MCO ----------------------------------------------------------------------
+# ICTD: N/A
+# OECD: N/A
+# IMF: N/A
+# WB: N/A
+# IMF2: N/A
+# AK: N/A
+
+#### MDA ----------------------------------------------------------------------
+# ICTD: 1993-2018
+# OECD: N/A
+# IMF: 1995-2017
+# WB: 1996-2018
+# IMF2: 2002-2018
+# AK: 1991-2013
+
+#### MDG ----------------------------------------------------------------------
+# ICTD: 1980-2018
+# OECD: 1993-2017
+# IMF: 1990-2017
+# WB: 1990-1995, 2003-2018
+# IMF2: N/A
+# AK: 1960-2013
+
+#### MDV ----------------------------------------------------------------------
+# ICTD: 1980-2011, 2013-2018
+# OECD: N/A
+# IMF: 1990-2017
+# WB: 1980-2009
+# IMF2: 1979-1988, 1990-2009
+# AK: 1975-2013
+
+#### MEX ----------------------------------------------------------------------
+# ICTD: 1980-2018
+# OECD: 1990-2018
+# IMF: 1990-2017
+# WB: 1972-2000, 2008-2018
+# IMF2: 1972-1998, 2008-2017
+# AK: 1960-2013
+
+#### MHL ----------------------------------------------------------------------
+# ICTD: 1986-1998, 2000-2018
+# OECD: N/A
+# IMF: N/A
+# WB: 2008-2018
+# IMF2: N/A
+# AK: N/A
+
+#### MKD ----------------------------------------------------------------------
+# ICTD: 1993-2018
+# OECD: N/A
+# IMF: 2005-2016
+# WB: 2005-2018
+# IMF2: 2006-2007, 2013-2018
+# AK: 1997-2013
+
+#### MLI ----------------------------------------------------------------------
+# ICTD: 1980-2018
+# OECD: 1992-2017
+# IMF: 2000-2017
+# WB: 2000-2018
+# IMF2: N/A
+# AK: 1960-2013
+
+#### MLT ----------------------------------------------------------------------
+# ICTD: 1980-2018
+# OECD: N/A
+# IMF: 1990-2016
+# WB: 1972-1978, 1980-2018
+# IMF2: 1995-2018
+# AK: N/A
+
+#### MMR ----------------------------------------------------------------------
+# ICTD: 1980-2005, 2012-2017
+# OECD: N/A
+# IMF: 1990-2005
+# WB: 1973-2005, 2012-2017
+# IMF2: 2012-2017, 2019
+# AK: 1960-2013
+
+#### MNE ----------------------------------------------------------------------
+# ICTD: 2000-2018
+# OECD: N/A
+# IMF: N/A
+# WB: N/A
+# IMF2: N/A
+# AK: N/A
+
+#### MOZ ----------------------------------------------------------------------
+# ICTD: 1980-2018
+# OECD: N/A
+# IMF: 1990-2017
+# WB: 2010-2018
+# IMF2: N/A
+# AK: 1960-2013
+
+#### MRT ----------------------------------------------------------------------
+# ICTD: 1983-1986, 1989-2018
+# OECD: 2007-2017
+# IMF: 2002-2017
+# WB: N/A
+# IMF2: N/A
+# AK: 1960-2013
+
+#### MUS ----------------------------------------------------------------------
+# ICTD: 1980-2018
+# OECD: 1990-2017
+# IMF: 1990-2017
+# WB: 1976-2018
+# IMF2: 2002-2018
+# AK: 1960-2013
+
+#### MWI ----------------------------------------------------------------------
+# ICTD: 1983-2018
+# OECD: N/A
+# IMF: 2002-2017
+# WB: 2009-2018
+# IMF2: N/A
+# AK: 1960-2013
+
+#### MYS ----------------------------------------------------------------------
+# ICTD: 1980-1984, 1986-2018
+# OECD: 1990-2017
+# IMF: 1990-2016
+# WB: 1996-2018
+# IMF2: 2000-2001
+# AK: 1960-2013
+
+#### NAM ----------------------------------------------------------------------
+
+#### NER ----------------------------------------------------------------------
+
+#### NGA ----------------------------------------------------------------------
+
+#### NIC ----------------------------------------------------------------------
+
+#### NLD ----------------------------------------------------------------------
+
+#### NOR ----------------------------------------------------------------------
+
+#### NPL----------------------------------------------------------------------
+
+#### NRU ----------------------------------------------------------------------
+
+#### NZL ----------------------------------------------------------------------
+
+#### OMN ----------------------------------------------------------------------
+
+#### PAK ----------------------------------------------------------------------
+
+#### PAN ----------------------------------------------------------------------
+
+#### PER ----------------------------------------------------------------------
+
+#### PHL ----------------------------------------------------------------------
+
+#### PLW ----------------------------------------------------------------------
+
+#### PNG ----------------------------------------------------------------------
+
+#### POL ----------------------------------------------------------------------
+
+#### PRT ----------------------------------------------------------------------
+
+#### PSE ----------------------------------------------------------------------
+
+#### QAT ----------------------------------------------------------------------
+
+#### ROU ----------------------------------------------------------------------
+
+#### RUS ----------------------------------------------------------------------
+
+#### RWA ----------------------------------------------------------------------
+
+#### SAU ----------------------------------------------------------------------
+
+#### SDN ----------------------------------------------------------------------
+
+#### SEN ----------------------------------------------------------------------
+
+#### SGP ----------------------------------------------------------------------
+
+#### SLB ----------------------------------------------------------------------
+
+#### SLE ----------------------------------------------------------------------
+
+#### SLE ----------------------------------------------------------------------
+
+#### SLV ----------------------------------------------------------------------
+
+#### SMR ----------------------------------------------------------------------
+
+#### SOM ----------------------------------------------------------------------
+
+#### SRB ----------------------------------------------------------------------
+
+#### SSD ----------------------------------------------------------------------
+
+#### STP ----------------------------------------------------------------------
+
+#### SUR ----------------------------------------------------------------------
+
+#### SVK ----------------------------------------------------------------------
+
+#### SVN ----------------------------------------------------------------------
+
+#### SWE ----------------------------------------------------------------------
+
+#### SWZ ----------------------------------------------------------------------
+
+#### SYC ----------------------------------------------------------------------
+
+#### SYR ----------------------------------------------------------------------
+
+#### TCD ----------------------------------------------------------------------
+
+#### TGO ----------------------------------------------------------------------
+
+#### THA ----------------------------------------------------------------------
+
+#### TJK ----------------------------------------------------------------------
+
+#### TKM ----------------------------------------------------------------------
+
+#### TLS ----------------------------------------------------------------------
+
+#### TON ----------------------------------------------------------------------
+
+#### TTO ----------------------------------------------------------------------
+
+#### TUN ----------------------------------------------------------------------
+
+#### TUR ----------------------------------------------------------------------
+
+#### TZA ----------------------------------------------------------------------
+
+#### UGA ----------------------------------------------------------------------
+
+#### UKR ----------------------------------------------------------------------
+
+#### URY ----------------------------------------------------------------------
+
+#### USA ----------------------------------------------------------------------
+
+#### UZB ----------------------------------------------------------------------
+
+#### VCT ----------------------------------------------------------------------
+
+#### VEN ----------------------------------------------------------------------
+
+#### VNM ----------------------------------------------------------------------
+
+#### VUT ----------------------------------------------------------------------
+
+#### WSM ----------------------------------------------------------------------
+
+#### YEM ----------------------------------------------------------------------
+
+#### ZAF ----------------------------------------------------------------------
+
+#### ZMB ----------------------------------------------------------------------
+
+#### ZWE ----------------------------------------------------------------------
+
+#### Values prior to 1960 ----------------------------------------------------------------------
 
 
 # 1960- missing values calculated here; 1946-1959 and 2014-2019 calculated later
