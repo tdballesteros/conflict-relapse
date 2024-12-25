@@ -199,7 +199,6 @@ efi <- efi %>%
 
 # Critical missing: MOZ, ISP*/PSE, FRA
 
-
 efi <- efi %>%
   group_by(iso3c) %>%
   arrange(year) %>%

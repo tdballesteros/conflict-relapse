@@ -1928,6 +1928,13 @@ taxrev <- tax.5yr.model.est(df = taxrev, iso = "LVA", missingyears = 2018)
 # IMF2: 2002-2011
 # AK: 1960-2013
 
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "MAR", missingyears = c(2014:2017))
+
+# 2018
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "MAR", missingyears = 2018)
+
+# 2019
+
 #### MCO ----------------------------------------------------------------------
 # ICTD: N/A
 # OECD: N/A
@@ -1944,6 +1951,13 @@ taxrev <- tax.5yr.model.est(df = taxrev, iso = "LVA", missingyears = 2018)
 # IMF2: 2002-2018
 # AK: 1991-2013
 
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "MDA", missingyears = c(2014:2017))
+
+# 2018
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "MDA", missingyears = 2018)
+
+# 2019
+
 #### MDG ----------------------------------------------------------------------
 # ICTD: 1980-2018
 # OECD: 1993-2017
@@ -1951,6 +1965,13 @@ taxrev <- tax.5yr.model.est(df = taxrev, iso = "LVA", missingyears = 2018)
 # WB: 1990-1995, 2003-2018
 # IMF2: N/A
 # AK: 1960-2013
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "MDG", missingyears = c(2014:2017))
+
+# 2018
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "MDG", missingyears = 2018)
+
+# 2019
 
 #### MDV ----------------------------------------------------------------------
 # ICTD: 1980-2011, 2013-2018
@@ -1960,6 +1981,13 @@ taxrev <- tax.5yr.model.est(df = taxrev, iso = "LVA", missingyears = 2018)
 # IMF2: 1979-1988, 1990-2009
 # AK: 1975-2013
 
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "MDV", missingyears = c(2014:2017))
+
+# 2018
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "MDV", missingyears = 2018)
+
+# 2019
+
 #### MEX ----------------------------------------------------------------------
 # ICTD: 1980-2018
 # OECD: 1990-2018
@@ -1967,6 +1995,13 @@ taxrev <- tax.5yr.model.est(df = taxrev, iso = "LVA", missingyears = 2018)
 # WB: 1972-2000, 2008-2018
 # IMF2: 1972-1998, 2008-2017
 # AK: 1960-2013
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "MEX", missingyears = c(2014:2017))
+
+# 2018
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "MEX", missingyears = 2018)
+
+# 2019
 
 #### MHL ----------------------------------------------------------------------
 # ICTD: 1986-1998, 2000-2018
@@ -1984,6 +2019,13 @@ taxrev <- tax.5yr.model.est(df = taxrev, iso = "LVA", missingyears = 2018)
 # IMF2: 2006-2007, 2013-2018
 # AK: 1997-2013
 
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "MKD", missingyears = c(2014:2016))
+
+# 2018
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "MKD", missingyears = c(2017:2018))
+
+# 2019
+
 #### MLI ----------------------------------------------------------------------
 # ICTD: 1980-2018
 # OECD: 1992-2017
@@ -1991,6 +2033,13 @@ taxrev <- tax.5yr.model.est(df = taxrev, iso = "LVA", missingyears = 2018)
 # WB: 2000-2018
 # IMF2: N/A
 # AK: 1960-2013
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "MLI", missingyears = c(2014:2017))
+
+# 2018
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "MLI", missingyears = 2018)
+
+# 2019
 
 #### MLT ----------------------------------------------------------------------
 # ICTD: 1980-2018
@@ -2008,6 +2057,10 @@ taxrev <- tax.5yr.model.est(df = taxrev, iso = "LVA", missingyears = 2018)
 # IMF2: 2012-2017, 2019
 # AK: 1960-2013
 
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "MMR", missingyears = c(2014:2017))
+
+# 2018-2019
+
 #### MNE ----------------------------------------------------------------------
 # ICTD: 2000-2018
 # OECD: N/A
@@ -2024,6 +2077,13 @@ taxrev <- tax.5yr.model.est(df = taxrev, iso = "LVA", missingyears = 2018)
 # IMF2: N/A
 # AK: 1960-2013
 
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "MOZ", missingyears = c(2014:2017))
+
+# 2018
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "MOZ", missingyears = 2018)
+
+# 2019
+
 #### MRT ----------------------------------------------------------------------
 # ICTD: 1983-1986, 1989-2018
 # OECD: 2007-2017
@@ -2031,6 +2091,13 @@ taxrev <- tax.5yr.model.est(df = taxrev, iso = "LVA", missingyears = 2018)
 # WB: N/A
 # IMF2: N/A
 # AK: 1960-2013
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "MRT", missingyears = c(2014:2017))
+
+# 2018
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "MRT", missingyears = 2018)
+
+# 2019
 
 #### MUS ----------------------------------------------------------------------
 # ICTD: 1980-2018
@@ -2040,6 +2107,13 @@ taxrev <- tax.5yr.model.est(df = taxrev, iso = "LVA", missingyears = 2018)
 # IMF2: 2002-2018
 # AK: 1960-2013
 
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "MUS", missingyears = c(2014:2017))
+
+# 2018
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "MUS", missingyears = 2018)
+
+# 2019
+
 #### MWI ----------------------------------------------------------------------
 # ICTD: 1983-2018
 # OECD: N/A
@@ -2048,6 +2122,13 @@ taxrev <- tax.5yr.model.est(df = taxrev, iso = "LVA", missingyears = 2018)
 # IMF2: N/A
 # AK: 1960-2013
 
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "MWI", missingyears = c(2014:2017))
+
+# 2018
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "MWI", missingyears = 2018)
+
+# 2019
+
 #### MYS ----------------------------------------------------------------------
 # ICTD: 1980-1984, 1986-2018
 # OECD: 1990-2017
@@ -2055,6 +2136,13 @@ taxrev <- tax.5yr.model.est(df = taxrev, iso = "LVA", missingyears = 2018)
 # WB: 1996-2018
 # IMF2: 2000-2001
 # AK: 1960-2013
+
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "MYS", missingyears = c(2014:2017))
+
+# 2018
+taxrev <- tax.5yr.model.est(df = taxrev, iso = "MYS", missingyears = 2018)
+
+# 2019
 
 #### NAM ----------------------------------------------------------------------
 

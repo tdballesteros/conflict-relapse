@@ -265,7 +265,18 @@ pop.gl <- pop.gl %>%
 #### merge dataset ----------------------------------------------------------------------
 pd <- pd %>%
   dplyr::full_join(cow.pop,by=c("iso3c","country","year")) %>%
-  dplyr::select("year","iso3c","un.pop","cow.pop")
+  dplyr::select("year","iso3c","un.pop","cow.pop") %>%
+  dplyr::mutate(
+    un.pop.estimated = dplyr::case_when(
+      is.na(un.pop) ~ 1,
+      .default = 0
+    ),
+    cow.pop.estimated = dplyr::case_when(
+      is.na(cow.pop) ~ 1,
+      .default = 0
+    ),
+    country = NA
+  )
 
 ### estimate functions ----------------------------------------------------------------------
 # this function is used to estimate cow.pop based on the relative difference in the population between two
@@ -325,8 +336,10 @@ pop_growth_estimator_mpd_func <- function(df = pd, df2 = mpd, iso, yr = 1950, re
                   year %in% restricted) %>%
     dplyr::mutate(prop = pop / baseline,
                   un.pop = prop * relative.un,
-                  cow.pop = prop * relative.cow) %>%
-    dplyr::select(iso3c,country,year,un.pop,cow.pop)
+                  cow.pop = prop * relative.cow,
+                  un.pop.estimated = 1,
+                  cow.pop.estimated = 1) %>%
+    dplyr::select(iso3c,country,year,un.pop,cow.pop,un.pop.estimated,cow.pop.estimated)
     
   # append estimates to df
   df <- df %>%
@@ -364,7 +377,9 @@ pop_growth_estimator_no_data_func <- function(df = pd, iso){
                     country = countrycode::countrycode(iso3c,"iso3c","country.name"),
                     year = 1949,
                     un.pop = df$un.pop[df$iso3c==iso&df$year==1950]/un.growth.50,
-                    cow.pop = df$cow.pop[df$iso3c==iso&df$year==1950]/cow.growth.50)
+                    cow.pop = df$cow.pop[df$iso3c==iso&df$year==1950]/cow.growth.50,
+                    un.pop.estimated = 1,
+                    cow.pop.estimated = 1)
   
   # add 1948
   df <- df %>%
@@ -372,7 +387,9 @@ pop_growth_estimator_no_data_func <- function(df = pd, iso){
                     country = countrycode::countrycode(iso3c,"iso3c","country.name"),
                     year = 1948,
                     un.pop = df$un.pop[df$iso3c==iso&df$year==1949]/un.growth.49,
-                    cow.pop = df$cow.pop[df$iso3c==iso&df$year==1949]/cow.growth.49)
+                    cow.pop = df$cow.pop[df$iso3c==iso&df$year==1949]/cow.growth.49,
+                    un.pop.estimated = 1,
+                    cow.pop.estimated = 1)
   
   # add 1947
   df <- df %>%
@@ -380,7 +397,9 @@ pop_growth_estimator_no_data_func <- function(df = pd, iso){
                     country = countrycode::countrycode(iso3c,"iso3c","country.name"),
                     year = 1947,
                     un.pop = df$un.pop[df$iso3c==iso&df$year==1948]/un.growth.48,
-                    cow.pop = df$cow.pop[df$iso3c==iso&df$year==1948]/cow.growth.48)
+                    cow.pop = df$cow.pop[df$iso3c==iso&df$year==1948]/cow.growth.48,
+                    un.pop.estimated = 1,
+                    cow.pop.estimated = 1)
   
   # add 1946
   df <- df %>%
@@ -388,7 +407,9 @@ pop_growth_estimator_no_data_func <- function(df = pd, iso){
                     country = countrycode::countrycode(iso3c,"iso3c","country.name"),
                     year = 1946,
                     un.pop = df$un.pop[df$iso3c==iso&df$year==1947]/un.growth.47,
-                    cow.pop = df$cow.pop[df$iso3c==iso&df$year==1947]/cow.growth.47)
+                    cow.pop = df$cow.pop[df$iso3c==iso&df$year==1947]/cow.growth.47,
+                    un.pop.estimated = 1,
+                    cow.pop.estimated = 1)
   
 }
 
