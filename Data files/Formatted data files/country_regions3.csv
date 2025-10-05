@@ -46,7 +46,7 @@
 "CUB","Cuba","Americas","Caribbean"
 "CYP","Cyprus","Europe","Eastern Europe"
 "CZE","Czechia","Europe","Eastern Europe"
-"DDR","Germany East","Europe",NA
+"DDR","Germany East","Europe","Eastern Europe"
 "DEU","Germany","Europe","WEOG"
 "DJI","Djibouti","SSA","East Africa"
 "DMA","Dominica","Americas","Caribbean"
@@ -168,7 +168,7 @@
 "SLV","El Salvador","Americas","Central America"
 "SMR","San Marino","Europe","WEOG"
 "SOM","Somalia","SSA","East Africa"
-"SOV","North Vietnam","Europe","Eastern Europe"
+"SOV","Soviet Union","Europe","Eastern Europe"
 "SRB","Serbia","Europe","Eastern Europe"
 "STP","São Tomé & Príncipe","SSA","Central Africa"
 "SUR","Suriname","Americas","South America"
@@ -211,4 +211,3 @@
 "ZMB","Zambia","SSA","Southern Africa"
 "ZWE","Zimbabwe","SSA","Southern Africa"
 "ALB","Albania",NA,"Eastern Europe"
-"DDR","sGermany East",NA,"Eastern Europe"

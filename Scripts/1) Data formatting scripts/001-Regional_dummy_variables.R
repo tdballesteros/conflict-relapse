@@ -1,60 +1,66 @@
-# This script takes two Excel spreadsheets coding each country into a region and subregion. The subregions fit
-# within regions, save for WEOG, which is split across Americas, Asia, and Europe.
+
+# This script takes two Excel spreadsheets coding each country into a region and subregion. The
+# subregions fit within regions, save for WEOG, which is split across Americas, Asia, and Europe.
 
 # country_regions.xlsx codes countries into 5 Continent-Region levels
 ## Levels: Americas, Asia, Europe, MENA (Middle East & North Africa), and SSA (Sub-Saharan Africa)
 
 # country_regions2.xlsx codes countries into 15 subregional levels
-## Levels: WEOG (Western Europe & Others Group), Central America, Caribbean, South America, Eastern Europe,
-## Middle East, North Africa, East Africa, West Africa, Central Africa, Southern Africa, Central Asia,
-## South Asia, East Asia, and Southeast Asia
+## Levels: WEOG (Western Europe & Others Group), Central America, Caribbean, South America, Eastern
+## Europe, Middle East, North Africa, East Africa, West Africa, Central Africa, Southern Africa,
+## Central Asia, South Asia, East Asia, and Southeast Asia
 
-### load libraries ----------------------------------------------------------------------
+
+### load libraries ---------------------------------------------------------------------------------
 library(readxl)
 library(countrycode)
 library(dplyr)
 
-### load data files ----------------------------------------------------------------------
+
+### load data files --------------------------------------------------------------------------------
 country_regions1 <- readxl::read_xlsx("Data files/Raw data files/country_regions.xlsx") 
 country_regions2 <- readxl::read_xlsx("Data files/Raw data files/country_regions2.xlsx")
 
-### data formatting ----------------------------------------------------------------------
+
+### data formatting --------------------------------------------------------------------------------
 country_regions1 <- country_regions1 %>%
   # fills in 0s for blank cells
-  dplyr::mutate(across(everything(), .fns = ~replace_na(.,0))) %>%
+  dplyr::mutate(across(everything(), .fns = ~replace_na(., 0))) %>%
   # using the countrycode package, add country name based on iso3c value
-  dplyr::mutate(country = countrycode::countrycode(iso3c,origin="iso3c",destination="country.name")) %>%
+  dplyr::mutate(country = dplyr::case_when(
+    iso3c == "ANT" ~ "Netherlands Antilles",
+    iso3c == "BRD" ~ "Germany West",
+    iso3c == "DDR" ~ "Germany East",
+    iso3c == "KSV" ~ "Kosovo",
+    iso3c == "RVN" ~ "South Vietnam",
+    iso3c == "SOV" ~ "Soviet Union",
+    iso3c == "YAR" ~ "Yemen North",
+    iso3c == "YPR" ~ "Yemen South",
+    iso3c == "YUG" ~ "Yugoslavia",
+    .default = countrycode::countrycode(iso3c, "iso3c", "country.name")
+    )) %>%
   dplyr::relocate(country, .after = iso3c)
 
 country_regions2 <- country_regions2 %>%
   # fills in 0s for blank cells
   dplyr::mutate(across(everything(), .fns = ~replace_na(.,0))) %>%
   # using the countrycode package, add country name based on iso3c value
-  dplyr::mutate(country = countrycode::countrycode(iso3c,origin="iso3c",destination="country.name")) %>%
-  dplyr::relocate(country, .after = iso3c)
+  dplyr::mutate(country = dplyr::case_when(
+    iso3c == "ANT" ~ "Netherlands Antilles",
+    iso3c == "BRD" ~ "Germany West",
+    iso3c == "DDR" ~ "Germany East",
+    iso3c == "KSV" ~ "Kosovo",
+    iso3c == "RVN" ~ "South Vietnam",
+    iso3c == "SOV" ~ "Soviet Union",
+    iso3c == "YAR" ~ "Yemen North",
+    iso3c == "YPR" ~ "Yemen South",
+    iso3c == "YUG" ~ "Yugoslavia",
+    .default = countrycode::countrycode(iso3c, "iso3c", "country.name")
+    )) %>%
+      dplyr::relocate(country, .after = iso3c)
 
-# manually add country names to missing iso3c codes: ANT, BRD, DDR, KSV, RVN, SOV, YAR, YPR, YUG
-country_regions1$country[country_regions1$iso3c=="ANT"] <- "Netherlands Antilles"
-country_regions1$country[country_regions1$iso3c=="BRD"] <- "Germany West"
-country_regions1$country[country_regions1$iso3c=="DDR"] <- "Germany East"
-country_regions1$country[country_regions1$iso3c=="KSV"] <- "Kosovo"
-country_regions1$country[country_regions1$iso3c=="RVN"] <- "South Vietnam"
-country_regions1$country[country_regions1$iso3c=="SOV"] <- "Soviet Union"
-country_regions1$country[country_regions1$iso3c=="YAR"] <- "Yemen North"
-country_regions1$country[country_regions1$iso3c=="YPR"] <- "Yemen South"
-country_regions1$country[country_regions1$iso3c=="YUG"] <- "Yugoslavia"
-
-country_regions2$country[country_regions2$iso3c=="ANT"] <- "Netherlands Antilles"
-country_regions2$country[country_regions2$iso3c=="BRD"] <- "Germany West"
-country_regions2$country[country_regions2$iso3c=="DDR"] <- "Germany East"
-country_regions2$country[country_regions2$iso3c=="KSV"] <- "Kosovo"
-country_regions2$country[country_regions2$iso3c=="RVN"] <- "South Vietnam"
-country_regions2$country[country_regions2$iso3c=="SOV"] <- "Soveit Union"
-country_regions2$country[country_regions2$iso3c=="YAR"] <- "Yemen North"
-country_regions2$country[country_regions2$iso3c=="YPR"] <- "Yemen South"
-country_regions2$country[country_regions2$iso3c=="YUG"] <- "Yugoslavia"
-
-### create version with factor variables ----------------------------------------------------------------------
+    
+### create version with factor variables -----------------------------------------------------------
 # formats region1
 country_regions3_1 <- country_regions1 %>%
   tidyr::pivot_longer(3:7, names_to = "region1", values_to = "region1_binary") %>%
@@ -73,30 +79,50 @@ country_regions3_2 <- country_regions2 %>%
 
 # converts to factor
 country_regions3_2$region2 <- factor(country_regions3_2$region2,
-                                     levels = c("WEOG", "Central America", "Caribbean", "South America", "Eastern Europe",
-                                                "Middle East", "North Africa", "East Africa", "West Africa", "Central Africa",
-                                                "Southern Africa", "Central Asia", "South Asia", "East Asia", "Southeast Asia"))
+                                     levels = c("WEOG", "Central America", "Caribbean",
+                                                "South America", "Eastern Europe", "Middle East",
+                                                "North Africa", "East Africa", "West Africa",
+                                                "Central Africa", "Southern Africa", "Central Asia",
+                                                "South Asia", "East Asia", "Southeast Asia"))
 
 # merges into one dataset
-country_regions3 <- dplyr::full_join(country_regions3_1,country_regions3_2,by=c("iso3c","country"))
+country_regions3 <- dplyr::full_join(country_regions3_1,
+                                     country_regions3_2,
+                                     by = c("iso3c", "country"))
 
-### write data ----------------------------------------------------------------------
+
+### write data -------------------------------------------------------------------------------------
 # writes formatted dataframes as csv files
-write.csv(country_regions1,"Data files/Formatted data files/country_regions1.csv",row.names = FALSE)
-write.csv(country_regions2,"Data files/Formatted data files/country_regions2.csv",row.names = FALSE)
-write.csv(country_regions3,"Data files/Formatted data files/country_regions3.csv",row.names = FALSE)
+write.csv(
+  country_regions1,
+  "Data files/Formatted data files/country_regions1.csv",
+  row.names = FALSE
+  )
+write.csv(
+  country_regions2,
+  "Data files/Formatted data files/country_regions2.csv",
+  row.names = FALSE
+  )
+write.csv(
+  country_regions3,
+  "Data files/Formatted data files/country_regions3.csv",
+  row.names = FALSE
+  )
 
-### codebook ----------------------------------------------------------------------
-#### country_regions1 ----------------------------------------------------------------------
+
+### codebook ---------------------------------------------------------------------------------------
+#### country_regions1 ------------------------------------------------------------------------------
 # iso3c
-### A country's standardized iso3c code, with non-standard codes for West Germany, East Germany, North Yemen, South Yemen,
-### South Vietnam, the Netherlands Antilles, the Soviet Union, and Yugoslavia.
+### A country's standardized iso3c code, with non-standard codes for West Germany, East Germany,
+### North Yemen, South Yemen, South Vietnam, the Netherlands Antilles, the Soviet Union, and
+### Yugoslavia.
 # country
 ### A country's commonly used English-language name.
 # SSA
 ### A binary variable indicating whether the country is part of the sub-Saharan Africa region.
 # MENA
-### A binary variable indicating whether the country is part of the Middle East & North Africa region.
+### A binary variable indicating whether the country is part of the Middle East & North Africa
+### region.
 # Americas
 ### A binary variable indicating whether the country is part of the Americas region.
 # Asia
@@ -104,14 +130,16 @@ write.csv(country_regions3,"Data files/Formatted data files/country_regions3.csv
 # Europe
 ### A binary variable indicating whether the country is part of the Europe region.
 
-#### country_regions2 ----------------------------------------------------------------------
+#### country_regions2 ------------------------------------------------------------------------------
 # iso3c
-### A country's standardized iso3c code, with non-standard codes for West Germany, East Germany, North Yemen, South Yemen,
-### South Vietnam, the Netherlands Antilles, the Soviet Union, and Yugoslavia.
+### A country's standardized iso3c code, with non-standard codes for West Germany, East Germany,
+### North Yemen, South Yemen, South Vietnam, the Netherlands Antilles, the Soviet Union, and
+### Yugoslavia.
 # country
 ### A country's commonly used English-language name.
 # WEOG
-### A binary variable indicating whether the country is part of the Western Europe & Others Group sub-region.
+### A binary variable indicating whether the country is part of the Western Europe & Others Group
+### sub-region.
 # Central America
 ### A binary variable indicating whether the country is part of the Central America sub-region.
 # Caribbean
@@ -139,18 +167,22 @@ write.csv(country_regions3,"Data files/Formatted data files/country_regions3.csv
 # East Asia
 ### A binary variable indicating whether the country is part of the East Asia sub-region.
 # Southeast Asia
-### A binary variable indicating whether the country is part of the Southeast Asia & Pacific sub-region.
+### A binary variable indicating whether the country is part of the Southeast Asia & Pacific
+### sub-region.
 
-#### country_regions3 ----------------------------------------------------------------------
+#### country_regions3 ------------------------------------------------------------------------------
 # iso3c
-### A country's standardized iso3c code, with non-standard codes for West Germany, East Germany, North Yemen, South Yemen,
-### South Vietnam, the Netherlands Antilles, the Soviet Union, and Yugoslavia.
+### A country's standardized iso3c code, with non-standard codes for West Germany, East Germany,
+### North Yemen, South Yemen, South Vietnam, the Netherlands Antilles, the Soviet Union, and
+### Yugoslavia.
 # country
 ### A country's commonly used English-language name.
 # region1
-### A variable containing which region a country is located in: Americas, Asia, Europe, MENA (Middle East & North Africa),
+### A variable containing which region a country is located in: Americas, Asia, Europe, MENA (Middle
+### East & North Africa),
 ### and SSA (Sub-Saharan Africa).
 # region2
-### A variable containing which sub-region a country is located in: WEOG (Western Europe & Others Group), Central America,
-### Caribbean, South America, Eastern Europe, Middle East, North Africa, East Africa, West Africa, Central Africa,
-### Southern Africa, Central Asia, South Asia, East Asia, and Southeast Asia.
+### A variable containing which sub-region a country is located in: WEOG (Western Europe & Others
+### Group), Central America, Caribbean, South America, Eastern Europe, Middle East, North Africa,
+### East Africa, West Africa, Central Africa, Southern Africa, Central Asia, South Asia, East Asia,
+### and Southeast Asia.
