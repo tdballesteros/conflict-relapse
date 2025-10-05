@@ -1,24 +1,21 @@
+
 # This script creates three binary variables coding if a national (presidential/parliamentary)
 # election was held in a country in a given year, in the previous year, and in the subsequent
 # year. Note that not all elections are scheduled a year in advance, so the predictive power
 # of an election in the subsequent year should be used with caution.
 
-### load libraries ----------------------------------------------------------------------
+### load libraries ---------------------------------------------------------------------------------
 library(readxl)
 library(countrycode)
 library(dplyr)
 
-### load data file ----------------------------------------------------------------------
+### load data file ---------------------------------------------------------------------------------
 elec <- readxl::read_xls("~/Downloads/NELDA 6.0/NELDA.xls")
 
-### data formatting ----------------------------------------------------------------------
-
+### data formatting --------------------------------------------------------------------------------
 elec <- elec %>%
-  
   dplyr::rename(country_name = country) %>%
-  
   dplyr::mutate(
-    
     # using the countrycode package, add iso3c code based on country name
     iso3c = dplyr::case_when(
       country_name == "Abkhazia" ~ "ABK",
@@ -30,8 +27,8 @@ elec <- elec %>%
       country_name == "South Yemen" ~ "YPR",
       .default = countrycode::countrycode(country_name,"country.name","iso3c")
     ),
-    
-    # using the countrycode package, add country name based on iso3c code to standardize country names
+    # using the countrycode package, add country name based on iso3c code to standardize country
+    # names
     country = dplyr::case_when(
       iso3c == "ABK" ~ "Abkhazia",
       iso3c == "DDR" ~ "East Germany",
@@ -41,13 +38,10 @@ elec <- elec %>%
       iso3c == "YPR" ~ "South Yemen",
       .default = countrycode::countrycode(iso3c,"iso3c","country.name")
     )) %>%
-  
   dplyr::select(iso3c,country,year) %>%
   unique() %>%
   dplyr::filter(year <= 2019) %>%
-  
   dplyr::mutate(
-    
     # format select country's iso3c codes
     iso3c = dplyr::case_when(
       # format Soviet Union
@@ -58,7 +52,6 @@ elec <- elec %>%
       iso3c == "YEM" & year %in% c(1946:1990) ~ "YAR",
       .default = iso3c
     ),
-    
     # format select country's names
     country = dplyr::case_when(
       # format Soviet Union
@@ -78,15 +71,15 @@ elec <- elec %>%
 
 ##########################
 
-### election dummy variable ----------------------------------------------------------------------
+### election dummy variable ------------------------------------------------------------------------
 elec <- elec %>%
   # create dummy variable for years where a national parliament/presidential election was held
   dplyr::mutate(natelec = 1) %>%
   dplyr::full_join(expand.grid(iso3c = unique(elec$iso3c), year = c(1945:2019))) %>%
-  dplyr::mutate(natelec = ifelse(is.na(natelec),0,natelec)) %>%
+  dplyr::mutate(natelec = ifelse(is.na(natelec), 0, natelec)) %>%
   unique()
 
-### prior/next year election dummy variable ----------------------------------------------------------------------
+### prior/next year election dummy variable --------------------------------------------------------
 # create dummy variables for national election happening in the next year (natelec.n) and
 # happened in the prior year (natelec.l)
 elec_next <- elec %>%
@@ -101,22 +94,23 @@ elec_last <- elec %>%
 # join next and prior year election variables with main dataset
 elec <- elec %>%
   dplyr::select(-country) %>%
-  dplyr::full_join(elec_next,by=c("iso3c","year")) %>%
-  dplyr::full_join(elec_last,by=c("iso3c","year")) %>%
-  dplyr::mutate(natelec.n = ifelse(is.na(natelec.n),0,natelec.n),
-                natelec.l = ifelse(is.na(natelec.l),0,natelec.l)) %>%
+  dplyr::full_join(elec_next, by = c("iso3c", "year")) %>%
+  dplyr::full_join(elec_last, by = c("iso3c", "year")) %>%
+  dplyr::mutate(
+    natelec.n = ifelse(is.na(natelec.n), 0, natelec.n),
+    natelec.l = ifelse(is.na(natelec.l), 0, natelec.l)
+    ) %>%
   # remove 2020 and 2021 - the future
   dplyr::filter(year < 2020) %>%
   dplyr::select(-country)
 
-### expand dataset ----------------------------------------------------------------------
+### expand dataset ---------------------------------------------------------------------------------
 elec <- elec %>%
-  
   # expand dataframe to have all iso3c-year combos from 1946 - 2019
   dplyr::full_join(expand.grid(iso3c = unique(elec$iso3c), year = c(1945:2019))) %>%
-  
   dplyr::mutate(
-    # using the countrycode package, add country name based on iso3c code to standardize country names
+    # using the countrycode package, add country name based on iso3c code to standardize country
+    # names
     country = dplyr::case_when(
       iso3c == "ABK" ~ "Abkhazia",
       iso3c == "BRD" ~ "West Germany",
@@ -160,15 +154,17 @@ for(iso in elec_iso_list){
   
   for(y in (min_yr+1):2019){
     
-    # if year is an election year or the election year binary code differs between this year and the prior year, code as a new grouping
-    if((df$natelec[df$iso3c==iso&df$year==y]==1) | (df$natelec[df$iso3c==iso&df$year==y]!=df$natelec[df$iso3c==iso&df$year==(y-1)])){
+    # if year is an election year or the election year binary code differs between this year and the
+    # prior year, code as a new grouping
+    if((df$natelec[df$iso3c == iso & df$year == y] == 1) |
+       (df$natelec[df$iso3c == iso & df$year == y] != df$natelec[df$iso3c == iso & df$year == (y - 1)])){
       
-      df$grouping[df$iso3c==iso&df$year==y] <- df$grouping[df$iso3c==iso&df$year==(y-1)] + 1
+      df$grouping[df$iso3c == iso & df$year == y] <- df$grouping[df$iso3c == iso & df$year == (y - 1)] + 1
       
     } else{
       
       # if year is not an election year and prior year was coded the same, code as same grouping
-      df$grouping[df$iso3c==iso&df$year==y] <- df$grouping[df$iso3c==iso&df$year==(y-1)]
+      df$grouping[df$iso3c == iso & df$year == y] <- df$grouping[df$iso3c == iso & df$year == (y - 1)]
       
     }
     
@@ -180,7 +176,7 @@ for(iso in elec_iso_list){
 
 # create list of iso3c-groupings to run the for loop through
 elec.list <- elec.df1 %>%
-  dplyr::select(iso3c,grouping) %>%
+  dplyr::select(iso3c, grouping) %>%
   unique()
 
 # create an empty placeholder dataframe
@@ -195,15 +191,15 @@ for(i in 1:nrow(elec.list)){
   
   df$years_since_last_elec <- row.names(df)
   
-  elec.df2 <- rbind(elec.df2,df)
+  elec.df2 <- rbind(elec.df2, df)
   
 }
 
 elec <- elec %>%
   dplyr::left_join(elec.df2 %>%
-                     dplyr::select(-c(natelec,natelec.n,natelec.l,country,grouping)),
-                   by=c("iso3c","year"))
+                     dplyr::select(-c(natelec, natelec.n, natelec.l, country, grouping)),
+                   by=c("iso3c", "year"))
 
 ### write data ----------------------------------------------------------------------
 # writes formatted dataframe as csv files
-write.csv(elec,"Data files/Formatted data files/elections.csv",row.names = FALSE)
+write.csv(elec, "Data files/Formatted data files/elections.csv", row.names = FALSE)
