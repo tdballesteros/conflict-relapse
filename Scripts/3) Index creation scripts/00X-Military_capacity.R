@@ -2,6 +2,7 @@
 
 ### load libraries ----------------------------------------------------------------------
 library(countrycode)
+library(lavaan)
 library(dplyr)
 library(tidyr)
 
@@ -79,7 +80,8 @@ index_ccpu_data <- mil.metrics %>%
   dplyr::filter(
     iso3c %!in% c(
       "DMA","GRD","LCA","VCT","ATG","KNA","MCO","LIE","AND","SMR","ISL","COM","MDV","VUT",
-      "SLB","KIR","TUV","TON","NRU","MHL","PLW","FSM","WSM","PSE"
+      "SLB","KIR","TUV","TON","NRU","MHL","PLW","FSM","WSM","PSE",
+      "MLT","BHS","BRB","BRN","BTN","CPV","MUS","SYC","STP" ###
     )
   ) %>%
   tidyr::drop_na(dplyr::all_of(ccpu_vars_pca)) %>%
@@ -97,7 +99,7 @@ index_ccpu_cor <- cor(index_ccpu_data %>%
 ccpu_pca <- stats::prcomp(
   ~  mil.expenditure.per.capita.cow.un.ln + mil.expenditure.perc.gdp.cow.pwt.ln + mil.expenditure.per.personnel.cow.cow.ln +
     mil.personnel.per.capita.cow.un.ln + gdp.per.mil.personnel.pwt.cow.ln,
-  data = mil.ccpu, retx = T, center = T, scale. = T)
+  data = index_ccpu_data, retx = T, center = T, scale. = T)
 
 index_ccpu <- index_ccpu_data %>%
   # combines principal component scores with PCA dataset
@@ -110,12 +112,95 @@ index_ccpu <- index_ccpu_data %>%
   # this tests for extremes of military capacity - extremely strong/weak vs. average capacity
   dplyr::mutate(mil.cap.sq = mil.cap^2)
 
-### write data ----------------------------------------------------------------------
+# test directionality of metric
+# invert direction if KWT 1992 is negative - higher value is higher capacity.
+if(index_ccpu$mil.cap[index_ccpu$iso3c=="KWT"&index_ccpu$year==1992]<1){
+  index_ccpu <- index_ccpu %>%
+    dplyr::mutate(mil.cap = -1 * mil.cap)
+}
+
+#### write data ----------------------------------------------------------------------
 # writes formatted dataframe as csv files
 write.csv(index_ccpu,"Data files/Formatted data files/military_capacity_index_ccpu.csv",row.names = FALSE)
 
 
+### Latent CCPU ----------------------------------------------------------------------
 
+# create covariance matrix
+regression.cor <- cor(index_ccpu_data %>%
+                        dplyr::select(-c(iso3c,year)))
+
+regression.sd <- list()
+for(c in 1:ncol(index_ccpu_cor)){
+  regression.sd[c] <- sd(index_ccpu_cor[,c])
+}
+regression.sd <- unlist(regression.sd)
+
+# name list
+milindex_names <- c("ExpPerCap", "ExpPercGDP", "ExpPerPers", "PersPerCap", "GDPPerPers")
+
+# name the variables
+colnames(regression.cor) <- rownames(regression.cor) <- milindex_names
+names(regression.sd) <- milindex_names
+names(index_ccpu_data) <- c("iso3c", "year", milindex_names)
+
+# convert correlations and SDs to covarainces
+regression.cov <- cor2cov(regression.cor, regression.sd)
+
+# specify single factor model
+# regression.model <- 'MilCap =~ a*ExpPerCap + b*ExpPercGDP + c*ExpPerPers + d*PersPerCap + e*GDPPerPers'
+# 
+# regression.model <- 'MilCap =~ a*ExpPercGDP + d*PersPerCap + e*GDPPerPers'
+# 
+# model.expenditure <- 'MilCap.Exp =~ ExpPerCap + ExpPercGDP + ExpPerPers'
+
+regression.model <- 'MilCap =~ a*ExpPerCap + b*ExpPercGDP + d*PersPerCap + e*GDPPerPers'
+
+
+# fit model
+regression.fit <- lavaan::cfa(model = regression.model,
+                              data = index_ccpu_data)
+summary(regression.fit,
+        standardized = TRUE)
+parameterEstimates(regression.fit,
+                   standardized=TRUE)
+
+# residual correlations
+residuals(regression.fit, type="cor")
+# measures of model fit 
+fitMeasures(regression.fit)
+# modification indices
+modificationIndices(regression.fit)
+
+# regression.fit.exp <- lavaan::cfa(model = model.expenditure,
+#                                   data = index_ccpu_data)
+# summary(regression.fit.exp,
+#         standardized = TRUE)
+# parameterEstimates(regression.fit.exp,
+#                    standardized=TRUE)
+
+
+
+
+
+regression.fit <- lavaan::cfa(model = regression.model, sample.cov=regression.cov, sample.nobs=550,  std.lv=FALSE)
+
+# examine parameter estimates
+summary(wisc4.fit,standardized=TRUE)
+parameterEstimates(wisc4.fit,standardized=TRUE)
+
+# check model
+# model-implied covariances
+fitted(wisc4.fit)
+# transform model-implied covariances to correlations
+wisc4Fit.cov <- fitted(wisc4.fit)$cov
+wisc4Fit.cor <- cov2cor(wisc4Fit.cov)
+# residual correlations
+residuals(wisc4.fit,type="cor")
+# measures of model fit 
+fitMeasures(wisc4.fit)
+# modification indices
+modificationIndices(wisc4.fit)
 
 # 
 # ### load libraries ----------------------------------------------------------------------

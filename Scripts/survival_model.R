@@ -1,13 +1,13 @@
 
-### load libraries ----------------------------------------------------------------------
+### load libraries ---------------------------------------------------------------------------------
 library(countrycode)
 library(survival)
 library(ggsurvfit)
-library(survivalAnalysis)
+# library(survivalAnalysis)
 library(dplyr)
 library(tidyr)
 
-### load data ----------------------------------------------------------------------
+### load data --------------------------------------------------------------------------------------
 country_regions1 <- read.csv("Data files/Formatted data files/country_regions1.csv")
 country_regions2 <- read.csv("Data files/Formatted data files/country_regions2.csv")
 country_regions3 <- read.csv("Data files/Formatted data files/country_regions3.csv")
@@ -18,35 +18,285 @@ gdppc <- read.csv("Data files/Formatted data files/gdppc.csv")
 polity <- read.csv("Data files/Formatted data files/polity.csv")
 pko <- read.csv("Data files/Formatted data files/peacekeeping_operations.csv")
 ppi <- read.csv("Data files/Formatted data files/positive_peace.csv")
+pop_density <- read.csv("Data files/Formatted data files/population_density.csv")
+vdem_hl <- read.csv("Data files/Formatted data files/vdem_hl_index.csv")
+elec <- read.csv("Data files/Formatted data files/elections.csv")
+aid <- read.csv("Data files/Formatted data files/aid.csv")
+tax_revenue <- read.csv("Data files/Formatted data files/tax_revenue.csv")
+trade_volume <- read.csv("Data files/Formatted data files/trade_volume.csv")
 
-# military_capacity_ccpu <- read.csv("Data files/Formatted data files/military_capacity_index_ccpu.csv")
+
+military_capacity_ccpu <- read.csv("Data files/Formatted data files/military_capacity_index_ccpu.csv")
+fiscal_capacity <- read.csv("Data files/Formatted data files/fiscal_capacity_index.csv")
 
 conflict_variables <- read.csv("Data files/Formatted data files/conflict_variables.csv")
 conflict_table <- read.csv("Data files/Formatted data files/conflict_table.csv")
 conflict_years <- read.csv("Data files/Formatted data files/conflict_years.csv")
 
+### format data ------------------------------------------------------------------------------------
 
+# COLONIALISM
+# variables: colony of GBR, colony of ESP, colony of FRA, colony of other, not colonized
+colonialism <- colonialism %>%
+  dplyr::mutate(colony_other = colony_nld + colony_ita + colony_bel + colony_usa + colony_other,
+                colony_never = 1 - (colony_gbr + colony_esp + colony_fra + colony_prt +
+                                      colony_other)) %>%
+  dplyr::select(iso3c, colony, colony_gbr, colony_esp, colony_fra, colony_prt, colony_other,
+                colony_never)
 
-survival_df <- conflict_table %>%
+# REGION
+country_region <- country_regions3 %>%
+  dplyr::select(iso3c, region1) %>%
+  dplyr::mutate(value = 1) %>%
+  tidyr::pivot_wider(names_from = region1, values_from = value) %>%
+  replace(is.na(.), 0)
+
+# POPULATION
+population <- population %>%
+  dplyr::select(iso3c, yrstart = year, un.pop, cow.pop) %>%
+  dplyr::mutate(
+    un.pop.log = log(un.pop),
+    cow.pop.log = log(cow.pop)
+  )
+
+# GDP
+gdp <- gdp %>%
+  dplyr::rename(yrstart = year)
+
+# GDP PER CAPITA
+gdppc <- gdppc %>%
+  dplyr::select(iso3c, yrstart = year, gdppc.pwt.un, gdppc.pwt.cow, gdppc.gl.un, gdppc.gl.cow) %>%
+  dplyr::filter(!is.na(gdppc.pwt.un) & !is.na(gdppc.pwt.cow) & !is.na(gdppc.gl.un) & !is.na(gdppc.gl.cow))
+
+# POLITY
+polity <- polity %>%
+  dplyr::select(-country) %>%
+  dplyr::rename(yrstart = year)
+
+# VDEM
+vdem_hl <- vdem_hl %>%
+  dplyr::rename(yrstart = year)
+
+# PKO
+pko <- pko %>%
+  dplyr::select(iso3c, yrstart = year, pko_mission)
+
+# POPULATION DENSITY
+pop_density <- pop_density %>%
+  dplyr::rename(yrstart = year)
+
+# ELECTIONS
+elec <- elec %>%
+  dplyr::select(-country) %>%
+  dplyr::rename(yrstart = year)
+
+# AID
+aid <- aid %>%
+  dplyr::rename(yrstart = year)
+
+# TAX REVENUE
+tax_revenue <- tax_revenue %>%
+  dplyr::select(-country) %>%
+  dplyr::rename(yrstart = year)
+
+# TRADE VOLUME
+trade_volume <- trade_volume %>%
+  dplyr::rename(yrstart = year)
+
+# MILITARY CAPACITY
+military_capacity_ccpu <- military_capacity_ccpu %>%
+  dplyr::rename(yrstart = year)
+
+# FISCAL CAPACITY
+fiscal_capacity <- fiscal_capacity %>%
+  dplyr::rename(yrstart = year)
+
+# CONFLICT VARIABLES
+cv <- conflict_variables %>%
+  dplyr::rename(yrstart = year)
+
+# CONFLICT TABLE
+ct <- conflict_table %>%
   dplyr::filter(conflict == 0) %>%
   dplyr::mutate(ongoing_peace = ifelse(yrend == 2019, 1, 0)) %>%
-  dplyr::group_by(confid,iso3c) %>%
+  dplyr::group_by(confid, iso3c) %>%
   dplyr::mutate(id = dplyr::row_number()) %>%
   dplyr::ungroup() %>%
-  dplyr::mutate(uniqueid = paste0(confid,iso3c,id)) %>%
-  dplyr::rename(year = yrend) %>%
-  dplyr::left_join(country_regions1,by=c("iso3c")) %>%
-  dplyr::left_join(country_regions2,by=c("iso3c")) %>%
-  dplyr::left_join(country_regions3,by=c("iso3c")) %>%
-  dplyr::left_join(colonialism,by=c("iso3c")) %>%
-  dplyr::left_join(population,by=c("iso3c","year")) %>%
-  dplyr::left_join(gdppc,by=c("iso3c","year")) %>%
-  dplyr::left_join(polity,by=c("iso3c","year")) %>%
-  dplyr::left_join(ppi,by=c("iso3c","year")) %>%
-  dplyr::mutate(
-    ln.un.pop = log(un.pop),
-    ln.cow.pop = log(cow.pop)
+  dplyr::mutate(uniqueid = paste0(confid, iso3c, id)) %>%
+  dplyr::group_by(confid, conflict) %>%
+  dplyr::arrange(yrstart) %>%
+  dplyr::mutate(episode = row_number()) %>%
+  dplyr::ungroup()
+
+# VARS:
+# 1 - Length of conflict, in years [current episode of conflict only]
+## 1a - Length of conflict, in years [since initial outbreak across all episodes]
+# 2 - Episode number
+# 3 - Colony of GBR
+# 4 - Colony of ESP
+# 5 - Colony of FRA
+# 6 - Colony of PRT
+# 7 - Colony of other power
+# 7a - Not colonized
+# 8 - country region
+# 8a - country subregion
+# 9 - population at end of conflict, log scale
+# 10 - gdp per capita at end of conflict
+# 11 - change in gdp per capita between start and end of conflict
+# 12 - polity score at end of conflict
+# 13 - change in polity score between start and end of conflict
+# 14 - ppi
+# 15 - deaths [current episode of conflict only]
+# 15a - deaths per 100,000 population
+# 16 - population density
+# 16a - country area
+
+# merge data
+merge_df <- gdp %>%
+  dplyr::left_join(population, by = c("iso3c", "yrstart")) %>%
+  dplyr::left_join(gdppc, by = c("iso3c", "yrstart")) %>%
+  dplyr::left_join(polity, by = c("iso3c", "yrstart")) %>%
+  dplyr::left_join(vdem_hl, by = c("iso3c", "yrstart")) %>%
+  dplyr::left_join(pko, by = c("iso3c", "yrstart")) %>%
+  dplyr::left_join(pop_density, by = c("iso3c", "yrstart")) %>%
+  dplyr::left_join(elec, by = c("iso3c", "yrstart")) %>%
+  dplyr::left_join(aid, by = c("iso3c", "yrstart")) %>%
+  # dplyr::left_join(tax_revenue, by = c("iso3c", "yrstart")) %>%
+  dplyr::left_join(trade_volume, by = c("iso3c", "yrstart")) %>%
+  dplyr::left_join(military_capacity_ccpu, by = c("iso3c", "yrstart")) # %>%
+  # dplyr::left_join(fiscal_capacity, by = c("iso3c", "yrstart"))
+
+# append SOV duplicates for post-Soviet countries using the iso3c code for data 1946-1990
+merge_df_sov <- merge_df %>%
+  dplyr::filter(
+    iso3c == "SOV",
+    yrstart <= 1990
+    )
+
+merge_df <- merge_df %>%
+  dplyr::filter(
+    iso3c %!in% c("ARM", "AZE", "BLR", "EST", "GEO", "KAZ", "KGZ", "LTU", "LVA", "MDA", "RUS",
+                  "TJK", "TKM", "UKR", "UZB") | yrstart >= 1991
+  ) %>%
+  rbind(merge_df_sov %>%
+          dplyr::mutate(iso3c = "ARM")) %>%
+  rbind(merge_df_sov %>%
+          dplyr::mutate(iso3c = "AZE")) %>%
+  rbind(merge_df_sov %>%
+          dplyr::mutate(iso3c = "BLR")) %>%
+  rbind(merge_df_sov %>%
+          dplyr::mutate(iso3c = "EST")) %>%
+  rbind(merge_df_sov %>%
+          dplyr::mutate(iso3c = "GEO")) %>%
+  rbind(merge_df_sov %>%
+          dplyr::mutate(iso3c = "KAZ")) %>%
+  rbind(merge_df_sov %>%
+          dplyr::mutate(iso3c = "KGZ")) %>%
+  rbind(merge_df_sov %>%
+          dplyr::mutate(iso3c = "LTU")) %>%
+  rbind(merge_df_sov %>%
+          dplyr::mutate(iso3c = "LVA")) %>%
+  rbind(merge_df_sov %>%
+          dplyr::mutate(iso3c = "MDA")) %>%
+  rbind(merge_df_sov %>%
+          dplyr::mutate(iso3c = "RUS")) %>%
+  rbind(merge_df_sov %>%
+          dplyr::mutate(iso3c = "TJK")) %>%
+  rbind(merge_df_sov %>%
+          dplyr::mutate(iso3c = "TKM")) %>%
+  rbind(merge_df_sov %>%
+          dplyr::mutate(iso3c = "UKR")) %>%
+  rbind(merge_df_sov %>%
+          dplyr::mutate(iso3c = "UZB"))
+
+# append YEM duplicates for North and South Yemen using the iso3c code for data 1946-1990
+merge_df_yem <- merge_df %>%
+  dplyr::filter(
+    iso3c == "YEM",
+    yrstart > 1990
   )
+
+merge_df <- merge_df %>%
+  dplyr::filter(iso3c != "YEM",
+                iso3c %!in% c("YAR", "YPR") | yrstart <= 1990) %>%
+  rbind(merge_df_yem %>%
+          dplyr::mutate(iso3c = "YAR")) %>%
+  rbind(merge_df_yem %>%
+          dplyr::mutate(iso3c = "YPR"))
+
+survival_df <- ct %>%
+  dplyr::left_join(country_region, by = c("iso3c")) %>%
+  dplyr::left_join(colonialism, by = c("iso3c")) %>%
+  dplyr::left_join(merge_df, by = c("iso3c", "yrstart")) %>%
+  dplyr::left_join(cv, by = c("confid", "yrstart", "iso3c")) %>%
+  dplyr::mutate(
+    aid_perc_gdp.pwt = aid_value / gdp.pwt.est,
+    aid_perc_gdp.gl = aid_value / gdp.gl.est
+)
+
+# create model -------------------------------------------------------------------------------------
+
+# surv_model1 <- ggsurvfit::survfit2(survival::Surv(length, ongoing_peace) ~ Americas + Asia + SSA +
+#                                      Europe + MENA + colony_gbr + colony_esp + colony_fra +
+#                                      colony_other + colony_never + length + episode,
+#                                    data = survival_df)
+# summary(surv_model1)
+# survfit2_p(surv_model1)
+
+cor(survival_df$vdem.hl,survival_df$vdem.hl.sq,use="pairwise.complete.obs")
+plot(survival_df$vdem.hl,survival_df$vdem.hl.sq)
+
+
+surv_model1 <- survival::coxph(survival::Surv(length, ongoing_peace) ~ Americas + Asia + SSA +
+                                 MENA + colony_gbr + colony_esp + colony_fra + colony_prt +
+                                 colony_other + episode + un.pop.log + gdppc.pwt.un + conf_length +
+                                 # polity.pca + polity.pca.sq +
+                                 vdem.hl + vdem.hl.sq +
+                                 binary_neigh_conf + other_conf + outcome + mil.cap + pko_mission +
+                                 pop.per.km.un +  natelec + years_since_last_elec +
+                                 aid_perc_gdp.pwt + total.trade.perc.gdp.pwt + log(land_area),
+                                   data = survival_df)
+summary(surv_model1)
+
+
+x <- survival_df %>%
+  dplyr::filter(is.na(total.trade.perc.gdp.pwt))
+
+### length of peace model --------------------------------------------------------------------------
+
+lop_df <- survival_df %>%
+  dplyr::filter(ongoing_peace == 0)
+
+lop_glm <- glm(length ~ Americas + Asia + SSA + MENA + colony_gbr + colony_esp + colony_fra +
+                 colony_prt + colony_other +
+                 episode + un.pop.log + gdppc.pwt.un + conf_length + vdem.hl + vdem.hl.sq +
+                 binary_neigh_conf + other_conf + outcome + mil.cap + pko_mission + pop.per.km.un + 
+                 natelec + years_since_last_elec + aid_perc_gdp.pwt + total.trade.perc.gdp.pwt,
+               data = lop_df)
+summary(lop_glm)
+
+
+
+# survival_df <- conflict_table %>%
+#   dplyr::filter(conflict == 0) %>%
+#   dplyr::mutate(ongoing_peace = ifelse(yrend == 2019, 1, 0)) %>%
+#   dplyr::group_by(confid,iso3c) %>%
+#   dplyr::mutate(id = dplyr::row_number()) %>%
+#   dplyr::ungroup() %>%
+#   dplyr::mutate(uniqueid = paste0(confid,iso3c,id)) %>%
+#   dplyr::rename(year = yrend) %>%
+#   dplyr::left_join(country_regions1,by=c("iso3c")) %>%
+#   dplyr::left_join(country_regions2,by=c("iso3c")) %>%
+#   dplyr::left_join(country_regions3,by=c("iso3c")) %>%
+#   dplyr::left_join(colonialism,by=c("iso3c")) %>%
+#   dplyr::left_join(population,by=c("iso3c","year")) %>%
+#   dplyr::left_join(gdppc,by=c("iso3c","year")) %>%
+#   dplyr::left_join(polity,by=c("iso3c","year")) %>%
+#   dplyr::left_join(ppi,by=c("iso3c","year")) %>%
+#   dplyr::mutate(
+#     ln.un.pop = log(un.pop),
+#     ln.cow.pop = log(cow.pop)
+#   )
   
 # survival2 <- ggsurvfit::survfit2(survival::Surv(length, ongoing_peace) ~ gdppc.pwt.un, data = survival_df)
 # summary(survival2)

@@ -17,6 +17,7 @@ polity <- read.csv("Data files/Formatted data files/polity.csv")
 pko <- read.csv("Data files/Formatted data files/peacekeeping_operations.csv")
 ppi <- read.csv("Data files/Formatted data files/positive_peace.csv")
 elections <- read.csv("Data files/Formatted data files/elections.csv")
+land_area <- read.csv("Data files/Formatted data files/population_density.csv")
 
 military_capacity_ccpu <- read.csv("Data files/Formatted data files/military_capacity_index_ccpu.csv")
 
@@ -39,7 +40,8 @@ logit_data <- conflict_years %>%
   dplyr::left_join(military_capacity_ccpu,by=c("iso3c","year")) %>%
   dplyr::left_join(pko,by=c("iso3c","country","year")) %>%
   dplyr::left_join(ppi,by=c("iso3c","year")) %>%
-  dplyr::left_join(elections,by=c("iso3c","country","year"))
+  dplyr::left_join(elections,by=c("iso3c","country","year")) %>%
+  dplyr::left_join(land_area,by=c("iso3c","year"))
 
 logit_data$region1 <- factor(logit_data$region1,
                              levels = c("Europe","Americas","Asia","MENA","SSA"))
@@ -67,6 +69,7 @@ test_variables <- c(
   "outcome",
   "polity.pca",
   "mil.cap",
+  "pop.per.km.un",
   "natelec","natelec.n","natelec.l","years_since_last_elec",
                     # "Overall.PPI.Score",
                     "Acceptance.of.the.Rights.of.Others","Equitable.Distribution.of.Resources","Free.Flow.of.Information",

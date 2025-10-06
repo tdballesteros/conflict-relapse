@@ -1,6 +1,8 @@
+
 # This script formats multiple military-related government metrics.
 
-### load libraries ----------------------------------------------------------------------
+
+### load libraries ---------------------------------------------------------------------------------
 library(readxl)
 library(countrycode)
 library(ggplot2)
@@ -8,17 +10,19 @@ library(stats)
 library(dplyr)
 library(tidyr)
 
-### not in function ----------------------------------------------------------------------
+
+### not in function --------------------------------------------------------------------------------
 '%!in%' <- function(x,y)!('%in%'(x,y))
 
-### load data files ----------------------------------------------------------------------
+
+### load data files --------------------------------------------------------------------------------
 cow <- read.csv("Data files/Raw data files/NMC_5_0.csv")
 
 # load all sheets in the "Military Balance.xlsx" file
 military.balance <- lapply(
   readxl::excel_sheets("Data files/Raw data files/Military Balance.xlsx"),
   read_xlsx,
-  na = c("n.k.","n/a","n.k","n.a.","n.a"),
+  na = c("n.k.", "n/a", "n.k", "n.a.", "n.a"),
   path = "Data files/Raw data files/Military Balance.xlsx"
   )
 
@@ -27,16 +31,17 @@ sipri.sheets <- lapply(
   readxl::excel_sheets("Data files/Raw data files/SIPRI-Milex-data-1949-2019.xlsx"),
   read_xlsx,
   skip = 5,
-  na = c("xxx",". ."),
+  na = c("xxx", ". ."),
   path = "Data files/Raw data files/SIPRI-Milex-data-1949-2019.xlsx"
   )
 
 # WMEAT files
 wmeat.1973 <- readxl::read_xlsx(path = "Data files/Raw data files/185674.xlsx",
                                 skip = 5,
-                                na = c("-","…","N.A.","xx","a","b","c","d","e","f","g","h","i","j",
-                                       "k","l","m","n","o","p","q","r","s","t","u","v","w","x","y",
-                                       "TO 8 (EST)","6 TO 10 (EST)"),
+                                na = c("-", "…", "N.A.", "xx", "a", "b", "c", "d", "e", "f", "g",
+                                       "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s",
+                                       "t", "u", "v", "w", "x", "y", "TO 8 (EST)",
+                                       "6 TO 10 (EST)"),
                                 col_names = FALSE) 
 wmeat.1984 <- readxl::read_xlsx(path = "Data files/Raw data files/185659.xlsx",
                                 skip = 5,
@@ -44,10 +49,10 @@ wmeat.1984 <- readxl::read_xlsx(path = "Data files/Raw data files/185659.xlsx",
                                 col_names = FALSE) 
 wmeat.1995 <- readxl::read_xlsx(path = "Data files/Raw data files/185685.xlsx",
                                 skip = 5,
-                                na = c("NA","E","R","d","E,b","b","c","E,d","c,f"),
+                                na = c("NA", "E", "R", "d", "E,b", "b", "c", "E,d", "c,f"),
                                 col_names = FALSE)
 wmeat.2005 <- lapply(readxl::excel_sheets("Data files/Raw data files/121777.xls"),
-                     read_xls, skip = 7, na = c("NA","E","R"), col_names = FALSE,
+                     read_xls, skip = 7, na = c("NA", "E", "R"), col_names = FALSE,
                      path = "Data files/Raw data files/121777.xls")
 wmeat.2012 <- lapply(readxl::excel_sheets("Data files/Raw data files/209509.xlsx"),
                      read_xlsx, skip = 6, na = "n/a",
@@ -68,7 +73,7 @@ gdp <- read.csv("Data files/Formatted data files/gdp.csv")
 # population dataset
 population <- read.csv("Data files/Formatted data files/population.csv")
 
-### inflation table ----------------------------------------------------------------------
+### inflation table --------------------------------------------------------------------------------
 # inflation from https://www.bls.gov/data/inflation_calculator.htm
 # July to July, converting to 2019 dollars
 inflation_table <- data.frame(
@@ -86,12 +91,13 @@ inflation_table <- data.frame(
     )
   )
 
-### format data ----------------------------------------------------------------------
-#### COW ----------------------------------------------------------------------
+
+### format data ------------------------------------------------------------------------------------
+#### COW -------------------------------------------------------------------------------------------
 cow <- cow %>%
   dplyr::filter(year >= 1945) %>%
   # using the countrycode package, add iso3c based on country COW abbreviation
-  dplyr::mutate(iso3c = countrycode::countrycode(stateabb,"cowc","iso3c")) %>%
+  dplyr::mutate(iso3c = countrycode::countrycode(stateabb, "cowc", "iso3c")) %>%
                 
   # codes iso3c values missing from the countrycode package
   dplyr::mutate(iso3c = dplyr::case_when(
@@ -107,18 +113,18 @@ cow <- cow %>%
     .default = iso3c
   )) %>%
   
-  dplyr::select(iso3c,year,milex,milper) %>%
+  dplyr::select(iso3c, year, milex, milper) %>%
   dplyr::mutate(
     # recodes -9 (missing) to NA for milex and milper variables
-    milex = ifelse(milex==-9,NA,milex),
-    milper = ifelse(milper==-9,NA,milper),
+    milex = ifelse(milex == -9, NA, milex),
+    milper = ifelse(milper == -9, NA, milper),
     # multiplies milex and milper to be full numbers
     milex = 1000 * milex,
     milper = 1000 * milper
     ) %>%
   
   # adjust for inflation
-  dplyr::left_join(inflation_table,by="year") %>%
+  dplyr::left_join(inflation_table, by = "year") %>%
   
   # multiples dollar values in that year's dollar value to 2019 dollars
   dplyr::mutate(milex = milex * multiplier) %>%
@@ -128,12 +134,12 @@ cow <- cow %>%
                 milper.cow = milper)
 
 # recode YUG 1992-2017 as SRB
-cow$iso3c[cow$iso3c=="YUG"&cow$year>=1992] <- "SRB"
+cow$iso3c[cow$iso3c == "YUG" & cow$year >= 1992] <- "SRB"
 
 # recode RUS 1946-1990 as SOV
-cow$iso3c[cow$iso3c=="RUS"&cow$year<=1990] <- "SOV"
+cow$iso3c[cow$iso3c == "RUS" & cow$year <= 1990] <- "SOV"
 
-#### Military Balance (IISS) ----------------------------------------------------------------------
+#### Military Balance (IISS) -----------------------------------------------------------------------
 # rename datasets as Y20XX, referring to the year the report was published
 names(military.balance) <- readxl::excel_sheets("Data files/Raw data files/Military Balance.xlsx")
 
@@ -168,18 +174,18 @@ for(m in names(military.balance)){
   }
   
   names(df) <- c("country",
-                 paste0("defense.spending.",year.a), # in current year USD
-                 paste0("defense.spending.",year.b),
-                 paste0("defense.spending.",year.c),
-                 paste0("defense.spending.percapita.",year.a), # in current year USD
-                 paste0("defense.spending.percapita.",year.b),
-                 paste0("defense.spending.percapita.",year.c),
-                 paste0("defense.spending.percgdp.",year.a), # as percentage of GDP
-                 paste0("defense.spending.percgdp.",year.b),
-                 paste0("defense.spending.percgdp.",year.c),
-                 paste0("active.armed.forces.",year),
-                 paste0("reservists.",year),
-                 paste0("active.paramilitary.",year))
+                 paste0("defense.spending.", year.a), # in current year USD
+                 paste0("defense.spending.", year.b),
+                 paste0("defense.spending.", year.c),
+                 paste0("defense.spending.percapita.", year.a), # in current year USD
+                 paste0("defense.spending.percapita.", year.b),
+                 paste0("defense.spending.percapita.", year.c),
+                 paste0("defense.spending.percgdp.", year.a), # as percentage of GDP
+                 paste0("defense.spending.percgdp.", year.b),
+                 paste0("defense.spending.percgdp.", year.c),
+                 paste0("active.armed.forces.", year),
+                 paste0("reservists.", year),
+                 paste0("active.paramilitary.", year))
   
   # remove first row (secondary header row containing years)
   df <- df[-1,]
@@ -195,7 +201,7 @@ for(m in names(military.balance)){
     .default                                   = 0
   )
   
-  df <- df[-c((nrow(df)-number_of_footnote_rows+1):nrow(df)),]
+  df <- df[-c((nrow(df) - number_of_footnote_rows + 1):nrow(df)),]
   
   df <- df %>%
     # recoding country names countrycode package could not identify
@@ -206,12 +212,14 @@ for(m in names(military.balance)){
     )) %>%
     
     # filter out headers (e.g., "North America") and total rows
-    dplyr::filter(country %!in% c("North America","Europe","Russia and Eurasia","Asia","Middle East and North Africa",
-                                  "Latin America and the Caribbean","Sub-Saharan Africa","Summary","Total","Total*","Total**",
-                                  "Global totals","US","NATO EX-US","Total NATO","Non-NATO Europe","Russia 2",
-                                  "South and Central Asia","East Asia and Australasia","Latin America and Caribbean",
-                                  "Total *","Total **","Nato Europe","Non-Nato Europe","Subtotal NATO Ex-US",
-                                  "Latin America & The Carribean","Latin America and the Carribean")) %>%
+    dplyr::filter(country %!in% c(
+      "North America", "Europe", "Russia and Eurasia", "Asia", "Middle East and North Africa",
+      "Latin America and the Caribbean", "Sub-Saharan Africa", "Summary", "Total", "Total*",
+      "Total**", "Global totals", "US", "NATO EX-US", "Total NATO", "Non-NATO Europe", "Russia 2",
+      "South and Central Asia", "East Asia and Australasia", "Latin America and Caribbean",
+      "Total *", "Total **", "Nato Europe", "Non-Nato Europe", "Subtotal NATO Ex-US",
+      "Latin America & The Carribean", "Latin America and the Carribean"
+      )) %>%
     tidyr::pivot_longer(cols = 2:13, names_to = "metric", values_to = "value") %>%
     
     dplyr::mutate(
@@ -224,11 +232,11 @@ for(m in names(military.balance)){
       # modify values to be full values
       value = ifelse(metric == "defense.spending", # multiply by 1,000,000
                      value * 1000000,
-                     ifelse(metric %in% c("active.armed.forces","reservists", # multiply by 1,000
+                     ifelse(metric %in% c("active.armed.forces", "reservists", # multiply by 1,000
                                           "active.paramilitary"), value * 1000,
                             value)),
       # using the countrycode package, add iso3c based on country name
-      iso3c = countrycode::countrycode(country,"country.name","iso3c"))
+      iso3c = countrycode::countrycode(country, "country.name", "iso3c"))
   
   military.balance.data <- rbind(military.balance.data,df)
   
@@ -237,9 +245,9 @@ for(m in names(military.balance)){
 military.balance.data.premerge <- military.balance.data
 
 # filter out entries that appear to contain errors
-military.balance.data$value[military.balance.data$iso3c=="FJI"&
-                              military.balance.data$year==2011&
-                              military.balance.data$data.pub.year==2014&
+military.balance.data$value[military.balance.data$iso3c == "FJI" &
+                              military.balance.data$year == 2011 &
+                              military.balance.data$data.pub.year == 2014 &
                               military.balance.data$metric %in% c("defense.spending",
                                                                   "defense.spending.percapita",
                                                                   "defense.spending.percgdp")] <- NA
@@ -247,29 +255,29 @@ military.balance.data$value[military.balance.data$iso3c=="FJI"&
 military.balance.data <- military.balance.data %>%
   dplyr::mutate(year = as.numeric(year)) %>%
   # adjust for inflation
-  #dplyr::left_join(inflation_table,dplyr::join_by("data.pub.year"=="year")) %>%
-  dplyr::left_join(inflation_table,by="year") %>%
+  #dplyr::left_join(inflation_table, dplyr::join_by("data.pub.year" == "year")) %>%
+  dplyr::left_join(inflation_table, by = "year") %>%
   dplyr::mutate(
-    value = ifelse(metric %in% c("defense.spending","defense.spending.percapita"),
+    value = ifelse(metric %in% c("defense.spending", "defense.spending.percapita"),
                    value * multiplier, value),
     # using the countrycode package, add country name based on iso3c code
-    country = countrycode::countrycode(iso3c,"iso3c","country.name")
+    country = countrycode::countrycode(iso3c, "iso3c", "country.name")
     ) %>%
   dplyr::select(-multiplier) %>%
   # combine variable name with publication year, to differentiate them as separate columns
-  dplyr::mutate(metric = paste0(metric,".iiss")) %>%
+  dplyr::mutate(metric = paste0(metric, ".iiss")) %>%
   dplyr::relocate(iso3c, .before = country) %>%
   dplyr::relocate(year, .after = country) %>%
   tidyr::drop_na(value) %>%
-  dplyr::group_by(iso3c,country,year,metric) %>%
-  # keep the most recent published version of the data (for GDP, GDP per capita, and % GDP, which are
-  # published for three consecutive years)
-  dplyr::filter(data.pub.year == max(data.pub.year,na.rm=TRUE)) %>%
+  dplyr::group_by(iso3c, country, year, metric) %>%
+  # keep the most recent published version of the data (for GDP, GDP per capita, and % GDP, which
+  # are published for three consecutive years)
+  dplyr::filter(data.pub.year == max(data.pub.year, na.rm = TRUE)) %>%
   dplyr::select(-data.pub.year) %>%
   dplyr::ungroup() %>%
   tidyr::pivot_wider(names_from = "metric", values_from = "value")
 
-#### SIPRI ----------------------------------------------------------------------
+#### SIPRI -----------------------------------------------------------------------------------------
 # rename datasets to have sheet names
 names(sipri.sheets) <- readxl::excel_sheets("Data files/Raw data files/SIPRI-Milex-data-1949-2019.xlsx")
 
@@ -280,11 +288,12 @@ sipri <- sipri[-c(192:204),]
 
 sipri <- sipri %>%
   # filter out region labels
-  dplyr::filter(Country %!in% c("Africa","North Africa","Sub-Saharan","Americas",
-                                "Central America and the Caribbean","North America","South America",
-                                "Asia & Oceania","Central Asia","East Asia","South Asia",
-                                "South-East Asia","Oceania","Europe","Central Europe","Eastern Europe",
-                                "Western Europe","Middle East")) %>%
+  dplyr::filter(Country %!in% c(
+    "Africa", "North Africa", "Sub-Saharan", "Americas", "Central America and the Caribbean",
+    "North America", "South America", "Asia & Oceania", "Central Asia", "East Asia", "South Asia",
+    "South-East Asia", "Oceania", "Europe", "Central Europe", "Eastern Europe", "Western Europe",
+    "Middle East"
+    )) %>%
   # remove Notes column
   dplyr::select(-Notes) %>%
   # convert variables to numeric
@@ -295,11 +304,10 @@ sipri <- sipri %>%
   # convert values to full amount
   dplyr::mutate(mil.expenditure.current.year = mil.expenditure.current.year * 1000000) %>%
   # convert current year $ to constant 2019 $
-  dplyr::left_join(inflation_table,by="year") %>%
+  dplyr::left_join(inflation_table, by = "year") %>%
   dplyr::mutate(
     milexp.sipri = mil.expenditure.current.year * multiplier,
     # using the countrycode package, add iso3c code based on country name
-    iso3c = countrycode::countrycode(Country,"country.name","iso3c"),
     iso3c = dplyr::case_when(
       Country == "Czechoslovakia" ~ "CZE",
       Country == "German DR" ~ "DDR",
@@ -308,17 +316,16 @@ sipri <- sipri %>%
       Country == "USSR" ~ "SOV",
       Country == "Yemen, North" ~ "YAR",
       Country == "Yugoslavia" ~ "YUG",
-      .default = iso3c
+      .default = countrycode::countrycode(Country, "country.name", "iso3c")
     )) %>%
   dplyr::filter(
     Country != "Czechoslovakia" | year <= 1992,
     Country != "Czechia" | year >= 1993
   ) %>%
-  dplyr::select(-c(mil.expenditure.current.year,multiplier,Country))
+  dplyr::select(-c(mil.expenditure.current.year, multiplier, Country))
 
-
-#### WMEAT ----------------------------------------------------------------------
-##### WMEAT 1973 ----------------------------------------------------------------------
+#### WMEAT -----------------------------------------------------------------------------------------
+##### WMEAT 1973 -----------------------------------------------------------------------------------
 wmeat.1973.data <- wmeat.1973
 
 names(wmeat.1973.data) <- c(
@@ -351,12 +358,9 @@ wmeat.1973.data <- wmeat.1973.data %>%
   # filter out 10-year average annual growth rows
   dplyr::filter(country.and.year != "GROWTH RATE (PCT ANN)") %>%
   # convert "see X" entries to NAs
-  dplyr::mutate(country.and.year = ifelse(country.and.year %in% c("CEYLON (SEE SRI LANKA)",
-                                                                  "KHMER REPUBLIC (SEE CAMBODIA)",
-                                                                  "MADAGASCAR (SEE MALAGASY REPUBLIC)",
-                                                                  "TAIWAN (SEE CHINA, REPUBLIC OF)",
-                                                                  "USSR (SEE SOVIET UNION)"),
-                                          NA, country.and.year)) %>%
+  dplyr::mutate(country.and.year = ifelse(country.and.year %in% c(
+    "CEYLON (SEE SRI LANKA)", "KHMER REPUBLIC (SEE CAMBODIA)", "MADAGASCAR (SEE MALAGASY REPUBLIC)",
+    "TAIWAN (SEE CHINA, REPUBLIC OF)", "USSR (SEE SOVIET UNION)"), NA, country.and.year)) %>%
   
   # remove blank columns
   dplyr::select(-dplyr::contains("blank"))
@@ -373,7 +377,7 @@ wmeat.1973.country.list <- wmeat.1973.data %>%
 wmeat.1973.data <- wmeat.1973.data %>%
   dplyr::mutate(country = NA)
 
-for(i in 1:(length(wmeat.1973.country.list)-1)){
+for(i in 1:(length(wmeat.1973.country.list) - 1)){
   
   # pull the row with ith country header
   i.row <- which(wmeat.1973.data$country.and.year == wmeat.1973.country.list[i])
@@ -381,7 +385,7 @@ for(i in 1:(length(wmeat.1973.country.list)-1)){
   # pull the row with the (i+1)th country header
   iplus1.row <- which(wmeat.1973.data$country.and.year == wmeat.1973.country.list[i+1])
   
-  wmeat.1973.data$country[c((i.row+1):(iplus1.row-1))] <- wmeat.1973.country.list[i]
+  wmeat.1973.data$country[c((i.row + 1):(iplus1.row - 1))] <- wmeat.1973.country.list[i]
   
 }
 
@@ -393,7 +397,8 @@ wmeat.1973.data <- wmeat.1973.data %>%
   # filter out country header rows
   tidyr::drop_na(country) %>%
   dplyr::rename(year = country.and.year) %>%
-  dplyr::select(country, year, military.expenditure.current.dollars, armed.personnel, gdp.current.dollars, population) %>%
+  dplyr::select(country, year, military.expenditure.current.dollars, armed.personnel,
+                gdp.current.dollars, population) %>%
   
   # convert to full values
   dplyr::mutate(military.expenditure.current.dollars = as.numeric(military.expenditure.current.dollars) * 1000000,
@@ -423,16 +428,16 @@ wmeat.1973.data <- wmeat.1973.data %>%
     # using the countrycode package, add country name based on iso3c code
     # add missing country names
     country = dplyr::case_when(
-      iso3c=="BRD" ~ "West Germany",
-      iso3c=="DDR" ~ "East Germany",
-      iso3c=="RVN" ~ "South Vietnam",
-      iso3c=="YAR" ~ "North Yemen",
-      iso3c=="YPR" ~ "South Yemen",
-      iso3c=="YUG" ~ "Yugoslavia",
-      .default     = countrycode::countrycode(iso3c,"iso3c","country.name")
+      iso3c == "BRD" ~ "West Germany",
+      iso3c == "DDR" ~ "East Germany",
+      iso3c == "RVN" ~ "South Vietnam",
+      iso3c == "YAR" ~ "North Yemen",
+      iso3c == "YPR" ~ "South Yemen",
+      iso3c == "YUG" ~ "Yugoslavia",
+      .default = countrycode::countrycode(iso3c, "iso3c", "country.name")
     ))
 
-##### WMEAT 1984 ----------------------------------------------------------------------
+##### WMEAT 1984 -----------------------------------------------------------------------------------
 wmeat.1984.data <- wmeat.1984
 
 names(wmeat.1984.data) <- c(
@@ -464,8 +469,8 @@ names(wmeat.1984.data) <- c(
 )
 
 # adjust China notations
-wmeat.1984.data$country.and.year[wmeat.1984.data$country.and.year=="CHINA"] <- NA
-wmeat.1984.data$country.and.year[wmeat.1984.data$country.and.year=="MAINLAND"] <- "CHINA"
+wmeat.1984.data$country.and.year[wmeat.1984.data$country.and.year == "CHINA"] <- NA
+wmeat.1984.data$country.and.year[wmeat.1984.data$country.and.year == "MAINLAND"] <- "CHINA"
 
 wmeat.1984.data <- wmeat.1984.data %>%
   # convert "see X" entries to NAs
@@ -480,34 +485,35 @@ wmeat.1984.data <- wmeat.1984.data[rowSums(is.na(wmeat.1984.data)) != ncol(wmeat
 
 # list all countries in the dataset
 wmeat.1984.country.list <- wmeat.1984.data %>%
-  dplyr::filter(country.and.year %!in% c(1973:1983,NA)) %>%
+  dplyr::filter(country.and.year %!in% c(1973:1983, NA)) %>%
   dplyr::pull(country.and.year)
 
 # add placeholder column for country name
 wmeat.1984.data <- wmeat.1984.data %>%
   dplyr::mutate(country = NA)
 
-for(i in 1:(length(wmeat.1984.country.list)-1)){
+for(i in 1:(length(wmeat.1984.country.list) - 1)){
   
   # pull the row with ith country header
   i.row <- which(wmeat.1984.data$country.and.year == wmeat.1984.country.list[i])
   
   # pull the row with the (i+1)th country header
-  iplus1.row <- which(wmeat.1984.data$country.and.year == wmeat.1984.country.list[i+1])
+  iplus1.row <- which(wmeat.1984.data$country.and.year == wmeat.1984.country.list[i + 1])
   
-  wmeat.1984.data$country[c((i.row+1):(iplus1.row-1))] <- wmeat.1984.country.list[i]
+  wmeat.1984.data$country[c((i.row + 1):(iplus1.row - 1))] <- wmeat.1984.country.list[i]
   
 }
 
 # code country for the last entry on the list
 i.row.zwe <- which(wmeat.1984.data$country.and.year == "ZIMBABWE")
-wmeat.1984.data$country[c((i.row.zwe+1):nrow(wmeat.1984.data))] <- "ZIMBABWE"
+wmeat.1984.data$country[c((i.row.zwe + 1):nrow(wmeat.1984.data))] <- "ZIMBABWE"
 
 wmeat.1984.data <- wmeat.1984.data %>%
   # filter out country header rows
   tidyr::drop_na(country) %>%
   dplyr::rename(year = country.and.year) %>%
-  dplyr::select(country, year, military.expenditure.current.dollars, armed.personnel, gdp.current.dollars, population) %>%
+  dplyr::select(country, year, military.expenditure.current.dollars, armed.personnel,
+                gdp.current.dollars, population) %>%
   
   # convert to full values
   dplyr::mutate(military.expenditure.current.dollars = as.numeric(military.expenditure.current.dollars) * 1000000,
@@ -520,8 +526,6 @@ wmeat.1984.data <- wmeat.1984.data %>%
     # add WMEAT version year
     version = 1984,
     # using the countrycode package, add iso3c code based on country name
-    iso3c = countrycode::countrycode(country,"country.name","iso3c"),
-    # add missing iso3c codes
     iso3c = dplyr::case_when(
       country == "CZECHOSLOVAKIA" ~ "CZE",
       country == "GERMANY, EAST" ~ "DDR",
@@ -530,25 +534,23 @@ wmeat.1984.data <- wmeat.1984.data %>%
       country == "YEMEN (ADEN)" ~ "YPR",
       country == "YEMEN (SANAA)" ~ "YAR",
       country == "YUGOSLAVIA" ~ "YUG",
-      .default = iso3c
+      .default = countrycode::countrycode(country,"country.name","iso3c")
     )) %>%
   
   dplyr::select(-country) %>%
   dplyr::mutate(
-    # using the countrycode package, add country name based on iso3c code
-    country = countrycode::countrycode(iso3c,"iso3c","country.name"),
     # add missing country names
     country = dplyr::case_when(
-      iso3c=="BRD" ~ "West Germany",
-      iso3c=="DDR" ~ "East Germany",
-      iso3c=="RVN" ~ "South Vietnam",
-      iso3c=="YAR" ~ "North Yemen",
-      iso3c=="YPR" ~ "South Yemen",
-      iso3c=="YUG" ~ "Yugoslavia",
-      .default     = country
+      iso3c == "BRD" ~ "West Germany",
+      iso3c == "DDR" ~ "East Germany",
+      iso3c == "RVN" ~ "South Vietnam",
+      iso3c == "YAR" ~ "North Yemen",
+      iso3c == "YPR" ~ "South Yemen",
+      iso3c == "YUG" ~ "Yugoslavia",
+      .default = countrycode::countrycode(iso3c, "iso3c", "country.name")
     ))
 
-##### WMEAT 1995 ----------------------------------------------------------------------
+##### WMEAT 1995 -----------------------------------------------------------------------------------
 wmeat.1995.data <- wmeat.1995
 
 names(wmeat.1995.data) <- c(
@@ -599,11 +601,9 @@ wmeat.1995.data <- wmeat.1995.data %>%
   ),
     
   # convert "see X" entries to NAs
-  country.and.year = ifelse(country.and.year %in% c("Cote d'Ivoire (see Ivory Coast)",
-                                                    "Kampuchea (see Cambodia)",
-                                                    "Myanmar (see Burma)",
-                                                    "Upper Volta (see Burkina Faso)"),
-                            NA, country.and.year)) %>%
+  country.and.year = ifelse(country.and.year %in% c(
+    "Cote d'Ivoire (see Ivory Coast)", "Kampuchea (see Cambodia)", "Myanmar (see Burma)",
+    "Upper Volta (see Burkina Faso)"), NA, country.and.year)) %>%
   
   # remove blank columns
   dplyr::select(-dplyr::contains("blank"))
@@ -613,7 +613,7 @@ wmeat.1995.data <- wmeat.1995.data[rowSums(is.na(wmeat.1995.data)) != ncol(wmeat
 
 # list all countries in the dataset
 wmeat.1995.country.list <- wmeat.1995.data %>%
-  dplyr::filter(country.and.year %!in% c(1984:1994,NA)) %>%
+  dplyr::filter(country.and.year %!in% c(1984:1994, NA)) %>%
   dplyr::pull(country.and.year)
 
 # add placeholder column for country name
@@ -626,33 +626,33 @@ for(i in 1:(length(wmeat.1995.country.list)-1)){
   i.row <- which(wmeat.1995.data$country.and.year == wmeat.1995.country.list[i])
   
   # pull the row with the (i+1)th country header
-  iplus1.row <- which(wmeat.1995.data$country.and.year == wmeat.1995.country.list[i+1])
+  iplus1.row <- which(wmeat.1995.data$country.and.year == wmeat.1995.country.list[i + 1])
   
-  wmeat.1995.data$country[c((i.row+1):(iplus1.row-1))] <- wmeat.1995.country.list[i]
+  wmeat.1995.data$country[c((i.row + 1):(iplus1.row - 1))] <- wmeat.1995.country.list[i]
   
 }
 
 # code country for the last entry on the list
 i.row.zwe <- which(wmeat.1995.data$country.and.year == "Zimbabwe")
-wmeat.1995.data$country[c((i.row.zwe+1):nrow(wmeat.1995.data))] <- "Zimbabwe"
+wmeat.1995.data$country[c((i.row.zwe + 1):nrow(wmeat.1995.data))] <- "Zimbabwe"
 
 # filter out country header rows
 wmeat.1995.data <- wmeat.1995.data %>%
   tidyr::drop_na(country) %>%
   dplyr::rename(year = country.and.year) %>%
-  dplyr::select(country, year, military.expenditure.current.dollars, armed.personnel, gdp.current.dollars, population) %>%
+  dplyr::select(country, year, military.expenditure.current.dollars, armed.personnel,
+                gdp.current.dollars, population) %>%
   # convert to full values
-  dplyr::mutate(military.expenditure.current.dollars = as.numeric(military.expenditure.current.dollars) * 1000000,
-                armed.personnel = as.numeric(armed.personnel) * 1000,
-                gdp.current.dollars = as.numeric(gdp.current.dollars) * 1000000,
-                population = as.numeric(population) * 1000000) %>%
+  dplyr::mutate(
+    military.expenditure.current.dollars = as.numeric(military.expenditure.current.dollars) * 1000000,
+    armed.personnel = as.numeric(armed.personnel) * 1000,
+    gdp.current.dollars = as.numeric(gdp.current.dollars) * 1000000,
+    population = as.numeric(population) * 1000000) %>%
   tidyr::pivot_longer(3:6, names_to = "variable", values_to = "value") %>%
   dplyr::mutate(
     # add WMEAT version year
     version = 1995,
     # using the countrycode package, add iso3c code based on country name
-    iso3c = countrycode::countrycode(country,"country.name","iso3c"),
-    # add missing iso3c codes
     iso3c = dplyr::case_when(
       country == "Czechoslovakia" ~ "CZE",
       country == "Germany, East" ~ "DDR",
@@ -662,24 +662,22 @@ wmeat.1995.data <- wmeat.1995.data %>%
       country == "Yemen (Aden)" ~ "YPR",
       country == "Yemen (Sanaa)" ~ "YAR",
       country == "Yugoslavia" ~ "YUG",
-      .default = iso3c
+      .default = countrycode::countrycode(country,"country.name","iso3c")
     )) %>%
 
   dplyr::select(-country) %>%
   dplyr::mutate(
     # using the countrycode package, add country name based on iso3c code
-    country = countrycode::countrycode(iso3c,"iso3c","country.name"),
-    # add missing country names
     country = dplyr::case_when(
       iso3c == "BRD" ~ "West Germany",
       iso3c == "DDR" ~ "East Germany",
       iso3c == "YAR" ~ "North Yemen",
       iso3c == "YPR" ~ "South Yemen",
       iso3c == "YUG" ~ "Yugoslavia",
-      .default = country
+      .default = countrycode::countrycode(iso3c,"iso3c","country.name")
     ))
 
-##### WMEAT 2005 ----------------------------------------------------------------------
+##### WMEAT 2005 -----------------------------------------------------------------------------------
 # all the data needed is on Sheet 2- "By Country"
 wmeat.2005.data <- wmeat.2005[[2]]
 
@@ -725,66 +723,66 @@ wmeat.2005.data$country.and.year[wmeat.2005.data$military.expenditure.current.do
 
 # list all countries in the dataset
 wmeat.2005.country.list <- wmeat.2005.data %>%
-  dplyr::filter(country.and.year %!in% c(1995:2005,NA)) %>%
+  dplyr::filter(country.and.year %!in% c(1995:2005, NA)) %>%
   dplyr::pull(country.and.year)
 
 # add placeholder column for country name
 wmeat.2005.data <- wmeat.2005.data %>%
   dplyr::mutate(country = NA)
 
-for(i in 1:(length(wmeat.2005.country.list)-1)){
+for(i in 1:(length(wmeat.2005.country.list) - 1)){
   
   # pull the row with ith country header
   i.row <- which(wmeat.2005.data$country.and.year == wmeat.2005.country.list[i])
   
   # pull the row with the (i+1)th country header
-  iplus1.row <- which(wmeat.2005.data$country.and.year == wmeat.2005.country.list[i+1])
+  iplus1.row <- which(wmeat.2005.data$country.and.year == wmeat.2005.country.list[i + 1])
   
-  wmeat.2005.data$country[c((i.row+1):(iplus1.row-1))] <- wmeat.2005.country.list[i]
+  wmeat.2005.data$country[c((i.row + 1):(iplus1.row - 1))] <- wmeat.2005.country.list[i]
  
 }
 
 # code country for the last entry on the list
 i.row.zwe <- which(wmeat.2005.data$country.and.year == "Zimbabwe")
-wmeat.2005.data$country[c((i.row.zwe+1):nrow(wmeat.2005.data))] <- "Zimbabwe"
+wmeat.2005.data$country[c((i.row.zwe + 1):nrow(wmeat.2005.data))] <- "Zimbabwe"
 
 # filter out country header rows
 wmeat.2005.data <- wmeat.2005.data %>%
   tidyr::drop_na(country) %>%
   dplyr::rename(year = country.and.year) %>%
-  dplyr::select(country, year, military.expenditure.current.dollars, armed.personnel, gdp.current.dollars, population) %>%
+  dplyr::select(country, year, military.expenditure.current.dollars, armed.personnel,
+                gdp.current.dollars, population) %>%
   # convert to full values
-  dplyr::mutate(military.expenditure.current.dollars = as.numeric(military.expenditure.current.dollars) * 1000000,
-                armed.personnel = as.numeric(armed.personnel) * 1000,
-                gdp.current.dollars = as.numeric(gdp.current.dollars) * 1000000,
-                population = as.numeric(population) * 1000000) %>%
+  dplyr::mutate(
+    military.expenditure.current.dollars = as.numeric(military.expenditure.current.dollars) * 1000000,
+    armed.personnel = as.numeric(armed.personnel) * 1000,
+    gdp.current.dollars = as.numeric(gdp.current.dollars) * 1000000,
+    population = as.numeric(population) * 1000000) %>%
   tidyr::pivot_longer(3:6, names_to = "variable", values_to = "value") %>%
   
   dplyr::mutate(
     # add WMEAT version year
     version = 2005,
     # using the countrycode package, add iso3c code based on country name
-    iso3c = countrycode::countrycode(country,"country.name","iso3c"),
-    # add missing iso3c codes
     iso3c = dplyr::case_when(
       country == "New  Zealand" ~ "NZL",
       country == "Serbia and Montenegro" ~ "SRB",
       country == "Yemen (Sanaa)" ~ "YEM", # Note data only covers time post-Yemeni unification
-      .default = iso3c
+      .default = countrycode::countrycode(country,"country.name","iso3c")
     )) %>%
 
   dplyr::select(-country) %>%
   # using the countrycode package, add country name based on iso3c code
-  dplyr::mutate(country = countrycode::countrycode(iso3c,"iso3c","country.name"))
+  dplyr::mutate(country = countrycode::countrycode(iso3c, "iso3c", "country.name"))
 
 ##### WMEAT 2012 ----------------------------------------------------------------------
 names(wmeat.2012) <- readxl::excel_sheets("Data files/Raw data files/209509.xlsx")
 
 # list of country tabs
 wmeat.2012.tab.list <- readxl::excel_sheets("Data files/Raw data files/209509.xlsx")
-wmeat.2012.tab.list <- wmeat.2012.tab.list[wmeat.2012.tab.list %!in% c("Table of Contents","Overview","Geographic Groups","Geog. Groups 2",
-                                                                       "Political Groups","Economic Groups","Group Rankings & Trends",
-                                                                       "Country Rankings & Trends")]
+wmeat.2012.tab.list <- wmeat.2012.tab.list[wmeat.2012.tab.list %!in% c(
+  "Table of Contents", "Overview", "Geographic Groups", "Geog. Groups 2", "Political Groups",
+  "Economic Groups", "Group Rankings & Trends", "Country Rankings & Trends")]
 
 wmeat.2012.data <- data.frame()
 
@@ -797,10 +795,12 @@ for(c in wmeat.2012.tab.list){
   df <- df[rowSums(is.na(df)) != ncol(df),]
   
   # select variables of interest
-  ## Armed forces personnel (AF) (in thousands) and Military expenditure (ME) - Current dollars (millions) are variables of interest
-  ## Population (midyear, in millions) and Gross domestic product (GDP) - Current dollars (millions) are comparisons to test
+  ## Armed forces personnel (AF) (in thousands) and Military expenditure (ME) - Current dollars
+  ### (millions) are variables of interest
+  ## Population (midyear, in millions) and Gross domestic product (GDP) - Current dollars (millions)
+  ### are comparisons to test
   ## the validity of population and GDP data
-  df <- df[c(2,3,7,12),] %>%
+  df <- df[c(2, 3, 7, 12),] %>%
     dplyr::select(-Mean)
   
   # rename variables
@@ -818,22 +818,22 @@ for(c in wmeat.2012.tab.list){
     tidyr::pivot_longer(2:12, names_to = "year", values_to = "value") %>%
     dplyr::rename(variable = "Parameter / Year") %>%
     dplyr::mutate(
-      # convert to full value - multiply by 1,000 if variable is armed.personnel, otherwise multiply by 1,000,000
+      # convert to full value - multiply by 1,000 if variable is armed.personnel, otherwise multiply
+      # by 1,000,000
       value = ifelse(variable == "armed.personnel",
                      value * 1000,
                      value * 1000000),
       country = c,
       # using the countrycode package, add iso3c code based on country name
-      iso3c = countrycode::countrycode(country,"country.name","iso3c")
-      ) %>%
+      iso3c = dplyr::case_when(
+        country == "Cent. Afr. Rep." ~ "CAF",
+        country == "Kosovo" ~ "KSV",
+        country == "Timor l`Este" ~ "TLS",
+        .default = countrycode::countrycode(country, "country.name", "iso3c")
+      )) %>%
 
     # reorder variables
-    dplyr::select(iso3c,country,year,variable,value)
-  
-  # manually code countries where countrycode did not identify the name used in the WMEAT file
-  df$iso3c[df$country=="Cent. Afr. Rep."] <- "CAF"
-  df$iso3c[df$country=="Kosovo"] <- "KSV"
-  df$iso3c[df$country=="Timor l`Este"] <- "TLS"
+    dplyr::select(iso3c, country, year, variable, value)
   
   wmeat.2012.data <- rbind(wmeat.2012.data, df)
   
@@ -843,14 +843,14 @@ for(c in wmeat.2012.tab.list){
 wmeat.2012.data <- wmeat.2012.data %>%
   dplyr::mutate(version = 2012)
 
-##### WMEAT 2016 ----------------------------------------------------------------------
+##### WMEAT 2016 -----------------------------------------------------------------------------------
 names(wmeat.2016) <- readxl::excel_sheets("Data files/Raw data files/266013.xlsx")
 
 # list of country tabs
 wmeat.2016.tab.list <- readxl::excel_sheets("Data files/Raw data files/266013.xlsx")
-wmeat.2016.tab.list <- wmeat.2016.tab.list[wmeat.2016.tab.list %!in% c("Table of Contents","Overview","Geographic Groups","Geog. Groups 2",
-                                                                       "Political Groups","Economic Groups","Group Rankings & Trends",
-                                                                       "Country Rankings & Trends","Charts")]
+wmeat.2016.tab.list <- wmeat.2016.tab.list[wmeat.2016.tab.list %!in% c(
+  "Table of Contents", "Overview", "Geographic Groups", "Geog. Groups 2", "Political Groups",
+  "Economic Groups", "Group Rankings & Trends", "Country Rankings & Trends", "Charts")]
 
 wmeat.2016.data <- data.frame()
 
@@ -863,10 +863,11 @@ for(c in wmeat.2016.tab.list){
   df <- df[rowSums(is.na(df)) != ncol(df),]
   
   # select variables of interest
-  ## Armed forces personnel (AF) (in thousands) and Military expenditure (ME) - Current dollars (millions) are variables of interest
-  ## Population (midyear, in millions) and Gross domestic product (GDP) - Current dollars (millions) are comparisons to test
-  ## the validity of population and GDP data
-  df <- df[c(2,5,29,34),] %>%
+  ## Armed forces personnel (AF) (in thousands) and Military expenditure (ME) - Current dollars
+  ### (millions) are variables of interest
+  ## Population (midyear, in millions) and Gross domestic product (GDP) - Current dollars (millions)
+  ### are comparisons to test the validity of population and GDP data
+  df <- df[c(2, 5, 29, 34),] %>%
     dplyr::select(-Mean)
   
   # rename variables
@@ -890,18 +891,17 @@ for(c in wmeat.2016.tab.list){
                      value * 1000000),
       country = c,
       # using the countrycode package, add iso3c code based on country name
-      iso3c = countrycode::countrycode(country,"country.name","iso3c")
-      ) %>%
+      iso3c = dplyr::case_when(
+        country == "Cent. Afr. Rep." ~ "CAF",
+        country == "Kosovo" ~ "KSV",
+        country == "S. Sudan" ~ "SSD",
+        country == "Timor l`Este" ~ "TLS",
+        .default = countrycode::countrycode(country,"country.name","iso3c")
+      )) %>%
     
     # reorder variables
-    dplyr::select(iso3c,country,year,variable,value)
-  
-  # manually code countries where countrycode did not identify the name used in the WMEAT file
-  df$iso3c[df$country=="Cent. Afr. Rep."] <- "CAF"
-  df$iso3c[df$country=="Kosovo"] <- "KSV"
-  df$iso3c[df$country=="S. Sudan"] <- "SSD"
-  df$iso3c[df$country=="Timor l`Este"] <- "TLS"
-  
+    dplyr::select(iso3c, country, year, variable, value)
+
   wmeat.2016.data <- rbind(wmeat.2016.data, df)
   
 }
@@ -910,14 +910,14 @@ for(c in wmeat.2016.tab.list){
 wmeat.2016.data <- wmeat.2016.data %>%
   dplyr::mutate(version = 2016)
 
-##### WMEAT 2019 ----------------------------------------------------------------------
+##### WMEAT 2019 -----------------------------------------------------------------------------------
 names(wmeat.2019) <- readxl::excel_sheets("Data files/Raw data files/WMEAT-2019-Table-I-Military-Expenditures-and-Armed-Forces-Personnel-2007-2017.xlsx")
 
 # list of country tabs
 wmeat.2019.tab.list <- readxl::excel_sheets("Data files/Raw data files/WMEAT-2019-Table-I-Military-Expenditures-and-Armed-Forces-Personnel-2007-2017.xlsx")
-wmeat.2019.tab.list <- wmeat.2019.tab.list[wmeat.2019.tab.list %!in% c("Table of Contents","Overview","Geographic Groups","Geog. Groups 2",
-                                                                       "Political Groups","Economic Groups","Group Rankings & Trends",
-                                                                       "Country Rankings & Trends","Charts")]
+wmeat.2019.tab.list <- wmeat.2019.tab.list[wmeat.2019.tab.list %!in% c(
+  "Table of Contents", "Overview", "Geographic Groups", "Geog. Groups 2", "Political Groups",
+  "Economic Groups", "Group Rankings & Trends", "Country Rankings & Trends", "Charts")]
 
 wmeat.2019.data <- data.frame()
 
@@ -930,10 +930,11 @@ for(c in wmeat.2019.tab.list){
   df <- df[rowSums(is.na(df)) != ncol(df),]
   
   # select variables of interest
-  ## Armed forces personnel (AF) (in thousands) and Military expenditure (ME) - Current dollars (millions) are variables of interest
-  ## Population (midyear, in millions) and Gross domestic product (GDP) - Current dollars (millions) are comparisons to test
-  ## the validity of population and GDP data
-  df <- df[c(2,5,29,34),] %>%
+  ## Armed forces personnel (AF) (in thousands) and Military expenditure (ME) - Current dollars
+  ### (millions) are variables of interest
+  ## Population (midyear, in millions) and Gross domestic product (GDP) - Current dollars (millions)
+  ### are comparisons to test the validity of population and GDP data
+  df <- df[c(2, 5, 29, 34),] %>%
     dplyr::select(-Mean)
   
   # rename variables
@@ -951,23 +952,23 @@ for(c in wmeat.2019.tab.list){
     tidyr::pivot_longer(2:12, names_to = "year", values_to = "value") %>%
     dplyr::rename(variable = "Parameter / Year") %>%
     dplyr::mutate(
-      # convert to full value - multiply by 1,000 if variable is armed.personnel, otherwise multiply by 1,000,000
+      # convert to full value - multiply by 1,000 if variable is armed.personnel, otherwise multiply
+      # by 1,000,000
       value = ifelse(variable == "armed.personnel",
                      value * 1000,
                      value * 1000000),
       country = c,
       # using the countrycode package, add iso3c code based on country name
-      iso3c = countrycode::countrycode(country,"country.name","iso3c")
-      ) %>%
+      iso3c = dplyr::case_when(
+        country == "Cent. Afr. Rep." ~ "CAF",
+        country == "Kosovo" ~ "KSV",
+        country == "S. Sudan" ~ "SSD",
+        country == "Timor l`Este" ~ "TLS",
+        .default = countrycode::countrycode(country,"country.name","iso3c")
+        )) %>%
     
     # reorder variables
-    dplyr::select(iso3c,country,year,variable,value)
-   
-  # manually code countries where countrycode did not identify the name used in the WMEAT file
-  df$iso3c[df$country=="Cent. Afr. Rep."] <- "CAF"
-  df$iso3c[df$country=="Kosovo"] <- "KSV"
-  df$iso3c[df$country=="S. Sudan"] <- "SSD"
-  df$iso3c[df$country=="Timor l`Este"] <- "TLS"
+    dplyr::select(iso3c, country, year, variable, value)
      
   wmeat.2019.data <- rbind(wmeat.2019.data, df)
   
@@ -977,16 +978,16 @@ for(c in wmeat.2019.tab.list){
 wmeat.2019.data <- wmeat.2019.data %>%
   dplyr::mutate(version = 2019)
 
-##### merge WMEAT datasets ----------------------------------------------------------------------
-wmeat.data <- rbind(wmeat.2019.data,wmeat.2016.data,wmeat.2012.data,wmeat.2005.data,
-                    wmeat.1995.data,wmeat.1984.data,wmeat.1973.data) %>%
+##### merge WMEAT datasets -------------------------------------------------------------------------
+wmeat.data <- rbind(wmeat.2019.data, wmeat.2016.data, wmeat.2012.data, wmeat.2005.data,
+                    wmeat.1995.data, wmeat.1984.data, wmeat.1973.data) %>%
   dplyr::mutate(year = as.numeric(year)) %>%
-  dplyr::left_join(inflation_table,by="year") %>%
+  dplyr::left_join(inflation_table, by = "year") %>%
   
   # adjust for inflation
   dplyr::mutate(
     value = ifelse(
-      variable %in% c("gdp.current.dollars","military.expenditure.current.dollars"),
+      variable %in% c("gdp.current.dollars", "military.expenditure.current.dollars"),
       value * multiplier,
       value)
     ) %>%
@@ -1001,20 +1002,23 @@ wmeat.data <- rbind(wmeat.2019.data,wmeat.2016.data,wmeat.2012.data,wmeat.2005.d
   tidyr::drop_na(value) %>%
   
   # keep the most recent published version of the data
-  dplyr::group_by(iso3c,year,variable) %>%
-  dplyr::filter(version == max(version,na.rm=TRUE)) %>%
+  dplyr::group_by(iso3c, year, variable) %>%
+  dplyr::filter(version == max(version, na.rm = TRUE)) %>%
   dplyr::ungroup() %>%
   
-  dplyr::select(-c(multiplier,version,country)) %>%
+  dplyr::select(-c(multiplier, version, country)) %>%
   tidyr::pivot_wider(names_from = "variable", values_from = "value") %>%
   
-  dplyr::mutate(iso3c = ifelse(iso3c=="RUS"&year %in% c(1946:1990),"SOV",iso3c)) %>%
-  dplyr::mutate(iso3c = ifelse(iso3c=="YAR"&year>1990,"YEM",iso3c))
+  dplyr::mutate(iso3c = dplyr::case_when(
+    iso3c == "RUS" & year %in% c(1946:1990) ~ "SOV",
+    iso3c == "YAR" & year > 1990 ~ "YEM",
+    .default = iso3c
+  ))
 
-### merge datasets ----------------------------------------------------------------------
-mildata <- dplyr::full_join(cow,military.balance.data,by=c("iso3c","year")) %>%
-  dplyr::full_join(sipri,by=c("iso3c","year")) %>%
-  dplyr::full_join(wmeat.data,by=c("iso3c","year")) %>%
+### merge datasets ---------------------------------------------------------------------------------
+mildata <- dplyr::full_join(cow, military.balance.data, by = c("iso3c", "year")) %>%
+  dplyr::full_join(sipri, by = c("iso3c", "year")) %>%
+  dplyr::full_join(wmeat.data, by = c("iso3c", "year")) %>%
   
   dplyr::mutate(
     # set COW data as default expenditure and personnel values for COW estimates
@@ -1022,8 +1026,8 @@ mildata <- dplyr::full_join(cow,military.balance.data,by=c("iso3c","year")) %>%
     mil.personnel.cow = milper.cow,
     
     # for missing COW estimate data, add in IISS data
-    #mil.expenditure.cow = dplyr::coalesce(mil.expenditure.cow,defense.spending.iiss),
-    #mil.personnel.cow = dplyr::coalesce(mil.personnel.cow,active.armed.forces.iiss),
+    # mil.expenditure.cow = dplyr::coalesce(mil.expenditure.cow, defense.spending.iiss),
+    # mil.personnel.cow = dplyr::coalesce(mil.personnel.cow, active.armed.forces.iiss),
     
     # set WMEAT data as default expenditure and personnel values for WMEAT estimates
     mil.expenditure.wmeat = military.expenditure.wmeat,
@@ -1033,19 +1037,17 @@ mildata <- dplyr::full_join(cow,military.balance.data,by=c("iso3c","year")) %>%
     mil.expenditure.sipri = milexp.sipri,
     
     # using the countrycode package, add country name based on iso3c code
-    country = countrycode::countrycode(iso3c,"iso3c","country.name"),
-    # add country names for missing iso3c codes
     country = dplyr::case_when(
-      iso3c=="BRD" ~ "West Germany",
-      iso3c=="DDR" ~ "East Germany",
-      iso3c=="KSV" ~ "Kosovo",
-      iso3c=="RVN" ~ "South Vietnam",
-      iso3c=="SOV" ~ "Soviet Union",
-      iso3c=="YAR" ~ "North Yemen",
-      iso3c=="YPR" ~ "South Yemen",
-      iso3c=="YUG" ~ "Yugoslavia",
-      iso3c=="ZAN" ~ "Zanzibar",
-      .default = country
+      iso3c == "BRD" ~ "West Germany",
+      iso3c == "DDR" ~ "East Germany",
+      iso3c == "KSV" ~ "Kosovo",
+      iso3c == "RVN" ~ "South Vietnam",
+      iso3c == "SOV" ~ "Soviet Union",
+      iso3c == "YAR" ~ "North Yemen",
+      iso3c == "YPR" ~ "South Yemen",
+      iso3c == "YUG" ~ "Yugoslavia",
+      iso3c == "ZAN" ~ "Zanzibar",
+      .default = countrycode::countrycode(iso3c, "iso3c", "country.name")
     )) %>%
   
   dplyr::relocate(country, .after = iso3c) %>%
@@ -1055,8 +1057,9 @@ mildata <- dplyr::full_join(cow,military.balance.data,by=c("iso3c","year")) %>%
   dplyr::relocate(mil.personnel.wmeat, .after = mil.expenditure.wmeat) %>%
   dplyr::relocate(mil.expenditure.sipri, .after = mil.personnel.wmeat)
 
-### military metrics estimator functions ----------------------------------------------------------------------
-mil_expenditure_growth_estimator_func <- function(df = mildata, col_missing, col_ref, iso, yr, restricted = c(2013:2019)){
+### military metrics estimator functions -----------------------------------------------------------
+mil_expenditure_growth_estimator_func <- function(df = mildata, col_missing, col_ref, iso, yr,
+                                                  restricted = c(2013:2019)){
 
   # pull the baseline expenditure for the reference year for the missing data column
   baseline <- df %>%
@@ -1086,11 +1089,13 @@ mil_expenditure_growth_estimator_func <- function(df = mildata, col_missing, col
   
 }
 
-# this function approximates a COW military expenditure gap of one year using IISS or WMEAT data, calculating the distance the gap year
-# value in the reference data is from the preceding and proceding years and applying it to the COW data. This method only works when
-# both data series are trending similarly.
-mil_expenditure_distance_gap_estimator_func <- function(df = mildata, col_missing, col_ref = "IISS", iso, yrs, estimator = "IISS",
-                                                            yr.minus.1 = NA, yr.plus.1 = NA){
+# this function approximates a COW military expenditure gap of one year using IISS or WMEAT data,
+# calculating the distance the gap year value in the reference data is from the preceding and
+# proceding years and applying it to the COW data. This method only works when both data series are
+# trending similarly.
+mil_expenditure_distance_gap_estimator_func <- function(df = mildata, col_missing, col_ref = "IISS",
+                                                        iso, yrs, estimator = "IISS",
+                                                        yr.minus.1 = NA, yr.plus.1 = NA){
   
   # sets year - 1 and year + 1 to those default years if a different reference year is not selected
   if(is.na(yr.minus.1)){
@@ -1160,13 +1165,13 @@ mil_expenditure_distance_gap_estimator_func <- function(df = mildata, col_missin
     
     # calculate estimate for year a
     est <- (
-      (est.expenditure.year - est.expenditure.yearplus1)*
-        (missing.expenditure.yearminus1 - missing.expenditure.yearplus1)/
+      (est.expenditure.year - est.expenditure.yearplus1) *
+        (missing.expenditure.yearminus1 - missing.expenditure.yearplus1) /
         (est.expenditure.yearminus1 - est.expenditure.yearplus1)
       ) +
       missing.expenditure.yearplus1
     
-    estimate.vector <- c(estimate.vector,est)
+    estimate.vector <- c(estimate.vector, est)
     
   }
   
@@ -1177,11 +1182,12 @@ mil_expenditure_distance_gap_estimator_func <- function(df = mildata, col_missin
   
 }
 
-# this function approximates a COW military expenditure gap of one year using IISS or WMEAT data, calculating the percent change
-# from the preceding and proceding years and applying the proportions to the COW values, returning the average of the estimates.
-mil_expenditure_gap_estimator_func <- function(df = mildata, col_missing, col_ref = "IISS", iso, yrs,
-                                               estimator = "IISS", yr.minus.1 = NA, yr.plus.1 = NA,
-                                               wgt.minus = 1, wgt.plus = 1){
+# this function approximates a COW military expenditure gap of one year using IISS or WMEAT data,
+# calculating the percent change from the preceding and proceding years and applying the proportions
+# to the COW values, returning the average of the estimates.
+mil_expenditure_gap_estimator_func <- function(df = mildata, col_missing, col_ref = "IISS", iso,
+                                               yrs, estimator = "IISS", yr.minus.1 = NA,
+                                               yr.plus.1 = NA, wgt.minus = 1, wgt.plus = 1){
   
   # sets year - 1 and year + 1 to those default years if a different reference year is not selected
   if(is.na(yr.minus.1)){
@@ -1258,9 +1264,10 @@ mil_expenditure_gap_estimator_func <- function(df = mildata, col_missing, col_re
     missing.est.yearplus1 <- missing.expenditure.yearplus1 * est.ratio.yearplus1
     
     # average estimates
-    missing.est.average <- (wgt.minus * missing.est.yearminus1 + wgt.plus * missing.est.yearplus1)/(wgt.minus+wgt.plus)
+    missing.est.average <- (wgt.minus * missing.est.yearminus1 + wgt.plus * missing.est.yearplus1) /
+                             (wgt.minus+wgt.plus)
     
-    estimate.vector <- c(estimate.vector,missing.est.average)
+    estimate.vector <- c(estimate.vector, missing.est.average)
     
   }
   
@@ -1272,22 +1279,23 @@ mil_expenditure_gap_estimator_func <- function(df = mildata, col_missing, col_re
 }
 
 
-  df = mildata
-  iso = "AFG"
-  est_variable = "mil.expenditure.wmeat"
-  model_variables = c(
-    "mil.expenditure.cow.alt","mil.expenditure.growth.rate.cow.alt",
-    "mil.expenditure.cow.alt.minus1","mil.expenditure.wmeat.minus1"
-  )
-  model_data_years = c(1979:1963)
-  predict_years = c(1962:1950)
-  growth_dir = "backwards"
+### WIP ###
+  # df = mildata
+  # iso = "AFG"
+  # est_variable = "mil.expenditure.wmeat"
+  # model_variables = c(
+  #   "mil.expenditure.cow.alt","mil.expenditure.growth.rate.cow.alt",
+  #   "mil.expenditure.cow.alt.minus1","mil.expenditure.wmeat.minus1"
+  # )
+  # model_data_years = c(1979:1963)
+  # predict_years = c(1962:1950)
+  # growth_dir = "backwards"
 
 
 
 # lm estimator
-mil_estimator_lm_func <- function(df = mildata, iso, est_variable, model_variables, model_data_years, predict_years,
-                                  growth_dir = "forwards"){
+mil_estimator_lm_func <- function(df = mildata, iso, est_variable, model_variables,
+                                  model_data_years, predict_years, growth_dir = "forwards"){
   
   model_years_running <- model_data_years
   
@@ -1308,13 +1316,19 @@ mil_estimator_lm_func <- function(df = mildata, iso, est_variable, model_variabl
       dplyr::left_join(df3, by = c("iso3c", "country", "year")) %>%
       dplyr::mutate(
         # military expenditure
-        mil.expenditure.growth.rate.cow = 100 * (mil.expenditure.cow - mil.expenditure.cow.plus1) / mil.expenditure.cow.plus1,
-        mil.expenditure.growth.rate.cow.alt = 100 * (mil.expenditure.cow.alt - mil.expenditure.cow.alt.plus1) / mil.expenditure.cow.alt.plus1,
-        mil.expenditure.growth.rate.wmeat = 100 * (mil.expenditure.wmeat - mil.expenditure.wmeat.plus1) / mil.expenditure.wmeat.plus1,
-        mil.expenditure.growth.rate.sipri = 100 * (mil.expenditure.sipri - mil.expenditure.sipri.plus1) / mil.expenditure.sipri.plus1,
+        mil.expenditure.growth.rate.cow = 100 * (mil.expenditure.cow - mil.expenditure.cow.plus1) /
+                                            mil.expenditure.cow.plus1,
+        mil.expenditure.growth.rate.cow.alt = 100 * (mil.expenditure.cow.alt - mil.expenditure.cow.alt.plus1) /
+                                                mil.expenditure.cow.alt.plus1,
+        mil.expenditure.growth.rate.wmeat = 100 * (mil.expenditure.wmeat - mil.expenditure.wmeat.plus1) /
+                                              mil.expenditure.wmeat.plus1,
+        mil.expenditure.growth.rate.sipri = 100 * (mil.expenditure.sipri - mil.expenditure.sipri.plus1) /
+                                              mil.expenditure.sipri.plus1,
         # military personnel
-        mil.personnel.growth.rate.cow = 100 * (mil.personnel.cow - mil.personnel.cow.plus1) / mil.personnel.cow.plus1,
-        mil.personnel.growth.rate.wmeat = 100 * (mil.personnel.wmeat - mil.personnel.wmeat.plus1) / mil.personnel.wmeat.plus1
+        mil.personnel.growth.rate.cow = 100 * (mil.personnel.cow - mil.personnel.cow.plus1) /
+                                          mil.personnel.cow.plus1,
+        mil.personnel.growth.rate.wmeat = 100 * (mil.personnel.wmeat - mil.personnel.wmeat.plus1) /
+                                            mil.personnel.wmeat.plus1
       )
   
   } else if(growth_dir == "backwards"){
@@ -1328,20 +1342,26 @@ mil_estimator_lm_func <- function(df = mildata, iso, est_variable, model_variabl
       dplyr::left_join(df3, by = c("iso3c", "country", "year")) %>%
       dplyr::mutate(
         # military expenditure
-        mil.expenditure.growth.rate.cow = 100 * (mil.expenditure.cow.minus1 - mil.expenditure.cow) / mil.expenditure.cow,
-        mil.expenditure.growth.rate.cow.alt = 100 * (mil.expenditure.cow.alt.minus1 - mil.expenditure.cow.alt) / mil.expenditure.cow.alt,
-        mil.expenditure.growth.rate.wmeat = 100 * (mil.expenditure.wmeat.minus1 - mil.expenditure.wmeat) / mil.expenditure.wmeat,
-        mil.expenditure.growth.rate.sipri = 100 * (mil.expenditure.sipri.minus1 - mil.expenditure.sipri) / mil.expenditure.sipri,
+        mil.expenditure.growth.rate.cow = 100 * (mil.expenditure.cow.minus1 - mil.expenditure.cow) /
+                                            mil.expenditure.cow,
+        mil.expenditure.growth.rate.cow.alt = 100 * (mil.expenditure.cow.alt.minus1 - mil.expenditure.cow.alt) /
+                                                mil.expenditure.cow.alt,
+        mil.expenditure.growth.rate.wmeat = 100 * (mil.expenditure.wmeat.minus1 - mil.expenditure.wmeat) /
+                                              mil.expenditure.wmeat,
+        mil.expenditure.growth.rate.sipri = 100 * (mil.expenditure.sipri.minus1 - mil.expenditure.sipri) /
+                                              mil.expenditure.sipri,
         # military personnel
-        mil.personnel.growth.rate.cow = 100 * (mil.personnel.cow.minus1 - mil.personnel.cow) / mil.personnel.cow,
-        mil.personnel.growth.rate.wmeat = 100 * (mil.personnel.wmeat.minus1 - mil.personnel.wmeat) / mil.personnel.wmeat
+        mil.personnel.growth.rate.cow = 100 * (mil.personnel.cow.minus1 - mil.personnel.cow) /
+                                          mil.personnel.cow,
+        mil.personnel.growth.rate.wmeat = 100 * (mil.personnel.wmeat.minus1 - mil.personnel.wmeat) /
+                                            mil.personnel.wmeat
       )
     
   }
 
     df_model_years <- df2 %>%
       dplyr::filter(year %in% model_years_running) %>%
-      dplyr::select(all_of(est_variable),all_of(model_variables))
+      dplyr::select(dplyr::all_of(est_variable), dplyr::all_of(model_variables))
     # row number (for weighting)
     # dplyr::mutate(wgt = dplyr::case_when(
     #   weights == TRUE ~ row_number(),
@@ -1355,7 +1375,7 @@ mil_estimator_lm_func <- function(df = mildata, iso, est_variable, model_variabl
     #   dplyr::select(-c(wgt))
     
     df_model_years <- df_model_years %>%
-      dplyr::rename(est_var = which(names(df_model_years)==est_variable))
+      dplyr::rename(est_var = which(names(df_model_years) == est_variable))
     
     df_predict_year <- df2 %>%
       dplyr::filter(year == yr)
@@ -1367,10 +1387,10 @@ mil_estimator_lm_func <- function(df = mildata, iso, est_variable, model_variabl
     pred_val <- predict.lm(df_lm, df_predict_year, type = "response")
     
     # add to df, df2 and model_years_running
-    model_years_running <- c(model_years_running,yr)
+    model_years_running <- c(model_years_running, yr)
     
-    df2[[est_variable]][df2$year==yr] <- pred_val
-    df[[est_variable]][df$iso3c==iso&df$year==yr] <- pred_val
+    df2[[est_variable]][df2$year == yr] <- pred_val
+    df[[est_variable]][df$iso3c == iso & df$year == yr] <- pred_val
     
   }
   
@@ -1380,13 +1400,15 @@ mil_estimator_lm_func <- function(df = mildata, iso, est_variable, model_variabl
 
 
 # arima
-mil_estimator_arima_func <- function(df = mildata, iso, metric = "mil.expenditure.cow", direction = "forwards", start.est.yr = 2018, end.est.yr = 2019){
+mil_estimator_arima_func <- function(df = mildata, iso, metric = "mil.expenditure.cow",
+                                     direction = "forwards", start.est.yr = 2018,
+                                     end.est.yr = 2019){
   
   original_data <- df %>%
     dplyr::arrange(year) %>%
     dplyr::filter(
       iso3c == iso,
-      year %!in% c(start.est.yr:end.est.yr,1945,2020)) %>%
+      year %!in% c(start.est.yr:end.est.yr, 1945, 2020)) %>%
     dplyr::pull(metric)
   
   num_of_estimates <- abs(end.est.yr - start.est.yr) + 1
@@ -1402,13 +1424,13 @@ mil_estimator_arima_func <- function(df = mildata, iso, metric = "mil.expenditur
   
   for(i in start.est.yr:end.est.yr){
     
-    arima.i <- stats::arima(data0, order = c(1,1,1))
+    arima.i <- stats::arima(data0, order = c(1, 1, 1))
     pred <- as.numeric(predict(arima.i, 1)$pred)
     
-    data0 <- c(data0,pred)
+    data0 <- c(data0, pred)
     df <- df %>%
       dplyr::mutate(
-        !!metric := ifelse(iso3c == iso&year == i,pred,.data[[metric]])
+        !!metric := ifelse(iso3c == iso & year == i,pred, .data[[metric]])
       )
   }
   
@@ -1416,10 +1438,11 @@ mil_estimator_arima_func <- function(df = mildata, iso, metric = "mil.expenditur
   
 }
 
-# this function approximates the military expenditure or personnel of a country with no comparable data based on its growth
-# rates the prior/subsequent years.
+# this function approximates the military expenditure or personnel of a country with no comparable
+# data based on its growth rates the prior/subsequent years.
 # the function applies weighted growth rates of 1/2 year+1, 1/3 year+2, and 1/6 year+3
-mil_estimator_no_data_func <- function(df = mildata, iso, metric, startyr = 1949, endyr = 1946, dir = NA){
+mil_estimator_no_data_func <- function(df = mildata, iso, metric, startyr = 1949, endyr = 1946,
+                                       dir = NA){
   
   for(y in startyr:endyr){
     
@@ -1499,11 +1522,11 @@ mil_estimator_no_data_func <- function(df = mildata, iso, metric, startyr = 1949
       ) %>%
       dplyr::pull(.data[[metric]])
     
-    growth_rate <- (1/2)*(yr1 / yr2) + (1/3)*(yr2 / yr3) + (1/6)*(yr3 / yr4)
+    growth_rate <- (1/2) * (yr1 / yr2) + (1/3) * (yr2 / yr3) + (1/6) * (yr3 / yr4)
 
     # add estimate
     df <- df %>%
-      dplyr::mutate(!!metric := ifelse(iso3c==iso&year==y,
+      dplyr::mutate(!!metric := ifelse(iso3c == iso & year == y,
                                        yr1 * growth_rate,
                                        .data[[metric]]))
     
@@ -1513,14 +1536,15 @@ mil_estimator_no_data_func <- function(df = mildata, iso, metric, startyr = 1949
   
 }
 
-### military metrics plotting functions ----------------------------------------------------------------------
+### military metrics plotting functions ------------------------------------------------------------
 mil.expenditure.country.plot <- function(data = mildata, iso){
   
   df <- data %>%
     dplyr::filter(iso3c == iso) %>%
     dplyr::arrange(year) %>%
     dplyr::select(
-      year,mil.expenditure.cow,mil.expenditure.cow.alt,mil.expenditure.wmeat,mil.expenditure.sipri
+      year, mil.expenditure.cow, mil.expenditure.cow.alt, mil.expenditure.wmeat,
+      mil.expenditure.sipri
       ) %>%
     tidyr::pivot_longer(2:5, names_to = "metric", values_to = "value")
   
@@ -1529,27 +1553,27 @@ mil.expenditure.country.plot <- function(data = mildata, iso){
   
 }
 
-#### pull 0s ----------------------------------------------------------------------
+#### pull 0s ---------------------------------------------------------------------------------------
 
 # Data that are 0s for non-small countries likely are 0 due to rounding.
 mildata.zeros <- mildata %>%
-  dplyr::select("iso3c","country","year","mil.expenditure.cow","mil.personnel.cow",
-                "mil.expenditure.wmeat","mil.personnel.wmeat","mil.expenditure.sipri",
-                "defense.spending.iiss","active.armed.forces.iiss") %>%
+  dplyr::select("iso3c", "country", "year", "mil.expenditure.cow", "mil.personnel.cow",
+                "mil.expenditure.wmeat", "mil.personnel.wmeat", "mil.expenditure.sipri",
+                "defense.spending.iiss", "active.armed.forces.iiss") %>%
   tidyr::pivot_longer(4:10, names_to = "variable", values_to = "value") %>%
   dplyr::filter(
     value == 0,
     # remove small countries who don't have full time series
     iso3c %!in% c(
-      "DMA","GRD","LCA","VCT","ATG","KNA","MCO","LIE","AND","SMR","ISL","COM","MDV","VUT",
-      "SLB","KIR","TUV","TON","NRU","MHL","PLW","FSM","WSM","PSE"
+      "DMA", "GRD", "LCA", "VCT", "ATG", "KNA", "MCO", "LIE", "AND", "SMR", "ISL", "COM", "MDV",
+      "VUT", "SLB", "KIR", "TUV", "TON", "NRU", "MHL", "PLW"," FSM", "WSM", "PSE"
       )
     ) %>%
-  dplyr::left_join(cyears,by=c("iso3c","country","year")) %>%
+  dplyr::left_join(cyears, by = c("iso3c", "country", "year")) %>%
   dplyr::filter(cn == 1) %>%
-  dplyr::select(-c(cn,yrs_since_indep))
+  dplyr::select(-c(cn, yrs_since_indep))
 
-#### estimate missing values ----------------------------------------------------------------------
+#### estimate missing values -----------------------------------------------------------------------
 # replace COW estimates 2010-2012 with IISS data that is more recently released, for countries whose
 # COW and IISS data broadly align outside 2012
 
@@ -1557,9 +1581,8 @@ milbal.expenditure <- military.balance.data.premerge %>%
   dplyr::filter(metric == "defense.spending") %>%
   dplyr::arrange(year)
 
-# countries who will see substantial impacts based on replacing the data (>=10%
-# difference between at least one year's [2008-2012] COW and IISS epxenditure
-# data):
+# countries who will see substantial impacts based on replacing the data (>=10% difference between
+# at least one year's [2008-2012] COW and IISS epxenditure data):
 # AFG, ALB, ARM, ATG, BGR*, BWA, COL, CPV, CUB, DJI, ESP, FJI, GBR*, GEO, GRC, HRV,
 # HUN, IDN, IND, IRL, IRN, ISR*, ITA, JAM, KGZ, KHM*, LBN, LBR, LKA*, LSO, LTU, LVA,
 # MUS, NAM, NOR*, NPL, NZL, PHL, PRT, ROU, SEN, SVK, TJK, TLS, TUR, TZA, UGA*, VEN,
@@ -1585,14 +1608,14 @@ expenditure.cow.iiss.replace <- c(
   "TWN", "TZA", "UGA", "UKR", "URY", "USA", "UZB", "VEN", "VNM", "ZAF", "ZMB", "ZWE"
   )
 
-# Not applied to: AND, BTN, COM, DMA, FSM, GRD, HTI, ISL, KIR, KNA, KSV, LCA, LIE, MCO, MDV, MHL, NRU, PLW, PRK,
-# SLB, SMR, STP, SWZ, TON, TUV, VUT, WSM
+# Not applied to: AND, BTN, COM, DMA, FSM, GRD, HTI, ISL, KIR, KNA, KSV, LCA, LIE, MCO, MDV, MHL,
+# NRU, PLW, PRK, SLB, SMR, STP, SWZ, TON, TUV, VUT, WSM
 
 # add new columns as an alternate to the primary way that keeps all COW estiamtes
 mildata <- mildata %>%
   dplyr::mutate(
     mil.expenditure.cow.alt = dplyr::case_when(
-      iso3c %in% expenditure.cow.iiss.replace ~ dplyr::coalesce(defense.spending.iiss,milex.cow),
+      iso3c %in% expenditure.cow.iiss.replace ~ dplyr::coalesce(defense.spending.iiss, milex.cow),
       !iso3c %in% expenditure.cow.iiss.replace ~ milex.cow,
       .default = milex.cow
     )
@@ -1605,8 +1628,8 @@ mildata <- mildata %>%
 
 modern.mil.expenditure.data <- mildata %>%
   dplyr::filter(year >= 2007) %>%
-  dplyr::select(iso3c,year,mil.expenditure.cow,mil.expenditure.wmeat,
-                milex.cow,defense.spending.iiss,military.expenditure.wmeat) %>%
+  dplyr::select(iso3c, year, mil.expenditure.cow, mil.expenditure.wmeat, milex.cow,
+                defense.spending.iiss, military.expenditure.wmeat) %>%
   dplyr::arrange(year) %>%
   dplyr::mutate(cow.iiss.diff = mil.expenditure.cow / defense.spending.iiss)
 
@@ -1627,11 +1650,13 @@ expenditure.cow.extend <- c(
 
 for(c in expenditure.cow.extend){
   
-  mildata <- mil_expenditure_growth_estimator_func(df = mildata, col_missing = "mil.expenditure.cow",
+  mildata <- mil_expenditure_growth_estimator_func(df = mildata,
+                                                   col_missing = "mil.expenditure.cow",
                                                    col_ref = "defense.spending.iiss", iso = c,
                                                    yr = 2012, restricted = c(2013:2019))
       
-  # mildata <- mil_expenditure_growth_estimator_cow_func(df = mildata, iso = c, yr = 2012, restricted = c(2013:2019))
+  # mildata <- mil_expenditure_growth_estimator_cow_func(df = mildata, iso = c, yr = 2012,
+  # restricted = c(2013:2019))
 
 }
 
@@ -1654,28 +1679,31 @@ personnel.cow.extend <- c(
 for(c in personnel.cow.extend){
   
   mildata <- mildata %>%
-    dplyr::mutate(mil.personnel.cow = ifelse(is.na(mil.personnel.cow)&year %in% c(2013:2019)&iso3c==c,active.armed.forces.iiss,mil.personnel.cow))
+    dplyr::mutate(mil.personnel.cow = ifelse(is.na(mil.personnel.cow) & year %in% c(2013:2019) & iso3c == c,
+                                             active.armed.forces.iiss,
+                                             mil.personnel.cow))
   
 }
 
 # Add estimates flag for remaining missing values
-# Note the above calculations are not included as estimate flags as they
-# are extending the original data beyond its time frame and the estimates
-# are sourced from the same dataset.
-# Several calculations based on the IISS data will remove the flag, but
-# only if they follow the same principal as above.
+# Note the above calculations are not included as estimate flags as they are extending the original
+# data beyond its time frame and the estimates are sourced from the same dataset.
+# Several calculations based on the IISS data will remove the flag, but only if they follow the same
+# principal as above.
 mildata <- mildata %>%
   dplyr::mutate(
-    mil.expenditure.cow.est.flag = ifelse(is.na(mil.expenditure.cow),1,0),
-    mil.expenditure.cow.alt.est.flag = ifelse(is.na(mil.expenditure.cow.alt),1,0),
-    mil.personnel.cow.est.flag = ifelse(is.na(mil.personnel.cow),1,0),
-    mil.expenditure.wmeat.est.flag = ifelse(is.na(mil.expenditure.wmeat),1,0),
-    mil.personnel.wmeat.est.flag = ifelse(is.na(mil.personnel.wmeat),1,0),
-    mil.expenditure.sipri.est.flag = ifelse(is.na(mil.expenditure.sipri),1,0)
+    mil.expenditure.cow.est.flag = ifelse(is.na(mil.expenditure.cow), 1, 0),
+    mil.expenditure.cow.alt.est.flag = ifelse(is.na(mil.expenditure.cow.alt), 1, 0),
+    mil.personnel.cow.est.flag = ifelse(is.na(mil.personnel.cow), 1, 0),
+    mil.expenditure.wmeat.est.flag = ifelse(is.na(mil.expenditure.wmeat), 1, 0),
+    mil.personnel.wmeat.est.flag = ifelse(is.na(mil.personnel.wmeat), 1, 0),
+    mil.expenditure.sipri.est.flag = ifelse(is.na(mil.expenditure.sipri), 1, 0)
     )
 
-# No cow both: AND, BTN, COM, DMA, FSM, GRD, KIR, KNA, KSV, LBY, LCA, LIE, MCO, MDV, MHL, NRU, PLW, PSE, SLB, SMR, STP, SWZ, TON, TUV, VCT, VUT, WSM
-# No cow expenditure: ARE, BWA, CAF, COL, CUB, DJI, ERI, ESP, GIN, GMB, GNB, GNQ, GRC, HTI, IND, IRN, ISL,
+# No cow both: AND, BTN, COM, DMA, FSM, GRD, KIR, KNA, KSV, LBY, LCA, LIE, MCO, MDV, MHL, NRU, PLW,
+## PSE, SLB, SMR, STP, SWZ, TON, TUV, VCT, VUT, WSM
+# No cow expenditure: ARE, BWA, CAF, COL, CUB, DJI, ERI, ESP, GIN, GMB, GNB, GNQ, GRC, HTI, IND,
+## IRN, ISL,
 # ITA, KGZ, LAO, LBN, LVA, NER, NPL, PRK, QAT, SDN, SOM, SRB, SUR, SYC, SYR, TKM, UZB, VEN, YEM
 # No cow personnel: CIV
 
@@ -1684,8 +1712,9 @@ milexp.viewer <- function(iso){
   
   df <- mildata %>%
     dplyr::filter(iso3c == iso) %>%
-    dplyr::select(year,mil.expenditure.cow,mil.expenditure.cow.alt,mil.expenditure.wmeat,mil.expenditure.sipri,
-                  milex.cow,defense.spending.iiss,military.expenditure.wmeat,milexp.sipri) %>%
+    dplyr::select(year, mil.expenditure.cow, mil.expenditure.cow.alt,
+                  mil.expenditure.wmeat,mil.expenditure.sipri, milex.cow,
+                  defense.spending.iiss, military.expenditure.wmeat, milexp.sipri) %>%
     dplyr::arrange(year)
   
   return(df)
@@ -1697,8 +1726,9 @@ milper.viewer <- function(iso){
   
   df <- mildata %>%
     dplyr::filter(iso3c == iso) %>%
-    dplyr::select(year,mil.personnel.cow,mil.personnel.wmeat,milper.cow,active.armed.forces.iiss,reservists.iiss,
-                  active.paramilitary.iiss,armed.personnel.wmeat) %>%
+    dplyr::select(year, mil.personnel.cow, mil.personnel.wmeat, milper.cow,
+                  active.armed.forces.iiss, reservists.iiss, active.paramilitary.iiss,
+                  armed.personnel.wmeat) %>%
     dplyr::arrange(year) %>%
     dplyr::mutate(est.diff = mil.personnel.cow - mil.personnel.wmeat)
   
@@ -1706,7 +1736,7 @@ milper.viewer <- function(iso){
   
 }
 
-##### AFG ----------------------------------------------------------------------
+##### AFG: Afghanistan -----------------------------------------------------------------------------
 
 ###### cow expenditure
 # 1986-1989: assume consistent growth between 1985 and 1990 x
@@ -1966,7 +1996,7 @@ mildata <- mil_estimator_lm_func(
 x <- milexp.viewer("AFG")
 y <- milper.viewer("AFG")
 
-##### AGO ----------------------------------------------------------------------
+##### AGO: Angola ----------------------------------------------------------------------------------
 
 ###### cow expenditure
 # 1978
@@ -2071,7 +2101,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="AGO"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("AGO")
 # y <- milper.viewer("AGO")
 
-##### ALB ----------------------------------------------------------------------
+##### ALB: Albania ---------------------------------------------------------------------------------
 
 ###### cow expenditure
 # good
@@ -2148,7 +2178,7 @@ mildata <- mil_expenditure_growth_estimator_func(
 # x <- milexp.viewer("ALB")
 # y <- milper.viewer("ALB")
 
-##### AND(x) ----------------------------------------------------------------------
+##### AND: Andorra (x) -----------------------------------------------------------------------------
 
 ###### cow expenditure
 # 1946-1992
@@ -2170,7 +2200,7 @@ mildata <- mil_expenditure_growth_estimator_func(
 x <- milexp.viewer("AND")
 y <- milper.viewer("AND")
 
-##### ARE ----------------------------------------------------------------------
+##### ARE: United Arab Emirates --------------------------------------------------------------------
 
 ###### cow expenditure
 # 2012-2013: use % change of IISS estimates
@@ -2260,7 +2290,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="ARE"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("ARE")
 # y <- milper.viewer("ARE")
 
-##### ARG ----------------------------------------------------------------------
+##### ARG: Argentina -------------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -2327,7 +2357,7 @@ arg.sipri <- mildata %>%
 ccf(arg.test.cow.wmeat[,2],arg.test.cow.wmeat[,3], lag.max = 2, type = "correlation",
     plot = FALSE, na.action = na.fail)
 
-##### ARM ----------------------------------------------------------------------
+##### ARM: Armenia ---------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 1994: apply WMEAT growth rates to COW
@@ -2390,7 +2420,7 @@ mildata <- mildata %>%
 # x <- milexp.viewer("ARM")
 # y <- milper.viewer("ARM")
 
-##### AUS ----------------------------------------------------------------------
+##### AUS: Australia -------------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -2436,7 +2466,7 @@ mildata <- mil_expenditure_growth_estimator_func(
 # x <- milexp.viewer("AUS")
 # y <- milper.viewer("AUS")
 
-##### AUT ----------------------------------------------------------------------
+##### AUT: Austria ---------------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -2486,7 +2516,7 @@ mildata <- mil_expenditure_growth_estimator_func(
 # x <- milexp.viewer("AUT")
 # y <- milper.viewer("AUT")
 
-##### AZE ----------------------------------------------------------------------
+##### AZE: Azerbaijan ------------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -2537,7 +2567,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="AZE"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("AZE")
 # y <- milper.viewer("AZE")
 
-##### BDI ----------------------------------------------------------------------
+##### BDI: Burundi ---------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 1992: use average of SIPRI proportions for 1991 and 1993
@@ -2592,7 +2622,7 @@ mildata <- mil_expenditure_growth_estimator_func(
 # x <- milexp.viewer("BDI")
 # y <- milper.viewer("BDI")
 
-##### BEL ----------------------------------------------------------------------
+##### BEL: Belgium ---------------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -2638,7 +2668,7 @@ mildata <- mil_expenditure_growth_estimator_func(
 # x <- milexp.viewer("BEL")
 # y <- milper.viewer("BEL")
 
-##### BEN ----------------------------------------------------------------------
+##### BEN: Benin -----------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 1960: replace 0 estimate with proportion from SIPRI
@@ -2746,7 +2776,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="BEN"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("BEN")
 # y <- milper.viewer("BEN")
 
-##### BFA ----------------------------------------------------------------------
+##### BFA: Burkina Faso ----------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -2784,7 +2814,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="BFA"&mildata$year==2019] <- mildata$
 x <- milexp.viewer("BFA")
 y <- milper.viewer("BFA")
 
-##### BGD ----------------------------------------------------------------------
+##### BGD: Bangladesh ------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 1972: apply WMEAT growth rates to COW
@@ -2864,7 +2894,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="BGD"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("BGD")
 # y <- milper.viewer("BGD")
 
-##### BGR ----------------------------------------------------------------------
+##### BGR: Bulgaria --------------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -2914,7 +2944,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="BGR"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("BGR")
 # y <- milper.viewer("BGR")
 
-##### BHR ----------------------------------------------------------------------
+##### BHR: Bahrain ---------------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -2945,7 +2975,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="BHR"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("BHR")
 # y <- milper.viewer("BHR")
 
-##### BHS ----------------------------------------------------------------------
+##### BHS: The Bahamas -----------------------------------------------------------------------------
 
 ##### cow expenditure
 # 1993: use average of 1992 and 1994
@@ -2973,7 +3003,7 @@ mildata$mil.expenditure.cow.alt[mildata$iso3c=="BHS"&mildata$year==1993] <- mean
 # x <- milexp.viewer("BHS")
 # y <- milper.viewer("BHS")
 
-##### BIH ----------------------------------------------------------------------
+##### BIH: Bosnia and Herzegovina ------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -3016,7 +3046,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="BIH"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("BIH")
 # y <- milper.viewer("BIH")
 
-##### BLR ----------------------------------------------------------------------
+##### BLR: Belarus ---------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 1991
@@ -3097,7 +3127,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="BLR"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("BLR")
 # y <- milper.viewer("BLR")
 
-##### BLZ ----------------------------------------------------------------------
+##### BLZ: Belize ----------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 1992: use average of WMEAT proportions for 1991 and 1993
@@ -3168,7 +3198,7 @@ mildata <- mil_expenditure_growth_estimator_func(
 # x <- milexp.viewer("BLZ")
 # y <- milper.viewer("BLZ")
 
-##### BOL ----------------------------------------------------------------------
+##### BOL: Bolivia ---------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 1949: assume consistent growth between 1948 and 1950
@@ -3268,7 +3298,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="BOL"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("BOL")
 # y <- milper.viewer("BOL")
 
-##### BRA ----------------------------------------------------------------------
+##### BRA: Brazil ----------------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -3322,7 +3352,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="BRA"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("BRA")
 # y <- milper.viewer("BRA")
 
-##### BRB ----------------------------------------------------------------------
+##### BRB: Barbados --------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 1991-1992: assume consistent growth between 1990 and 1993
@@ -3384,7 +3414,7 @@ mildata <- mildata %>%
 # x <- milexp.viewer("BRB")
 # y <- milper.viewer("BRB")
 
-##### BRD ----------------------------------------------------------------------
+##### BRD: West Germany ----------------------------------------------------------------------------
 
 ##### cow est
 # 1953-1954: apply SIPRI growth rates to COW
@@ -3464,7 +3494,7 @@ mildata <- mil_estimator_no_data_func(
 # x <- milexp.viewer("BRD")
 # y <- milper.viewer("BRD")
 
-##### BRN ----------------------------------------------------------------------
+##### BRN: Brunei ----------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 1990-1991
@@ -3511,7 +3541,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="BRN"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("BRN")
 # y <- milper.viewer("BRN")
 
-##### BTN(x) ----------------------------------------------------------------------
+##### BTN: Bhutan (x) ------------------------------------------------------------------------------
 # Note: coded as becoming a country in 1971
 
 ##### cow expenditure
@@ -3547,7 +3577,7 @@ mildata <- mildata %>%
 x <- milexp.viewer("BTN")
 # y <- milper.viewer("BTN")
 
-##### BWA ----------------------------------------------------------------------
+##### BWA: Botswana --------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 1992: estimate COW 1992 as equidistant point based on WMEAT 1991-1993 values
@@ -3601,7 +3631,7 @@ mildata <- mildata %>%
 # x <- milexp.viewer("BWA")
 # y <- milper.viewer("BWA")
 
-##### CAF ----------------------------------------------------------------------
+##### CAF: Central African Republic ----------------------------------------------------------------
 
 ##### cow expenditure
 # 1991: apply SIPRI growth rates to COW
@@ -3703,7 +3733,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="CAF"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("CAF")
 # y <- milper.viewer("CAF")
 
-##### CAN ----------------------------------------------------------------------
+##### CAN: Canada ----------------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -3749,7 +3779,7 @@ mildata <- mil_expenditure_growth_estimator_func(
 # x <- milexp.viewer("CAN")
 # y <- milper.viewer("CAN")
 
-##### CHE ----------------------------------------------------------------------
+##### CHE: Switzerland -----------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -3792,7 +3822,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="CHE"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("CHE")
 # y <- milper.viewer("CHE")
 
-##### CHL ----------------------------------------------------------------------
+##### CHL: Chile -----------------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -3835,7 +3865,7 @@ mildata <- mildata %>%
 x <- milexp.viewer("CHL")
 # y <- milper.viewer("CHL")
 
-##### CHN ----------------------------------------------------------------------
+##### CHN: China -----------------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -3881,7 +3911,7 @@ mildata <- mil_expenditure_growth_estimator_func(
 x <- milexp.viewer("CHN")
 # y <- milper.viewer("CHN")
 
-##### CIV ----------------------------------------------------------------------
+##### CIV: Côte d'Ivoire ---------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -3963,7 +3993,7 @@ mildata <- mil_expenditure_growth_estimator_func(
 # x <- milexp.viewer("CIV")
 # y <- milper.viewer("CIV")
 
-##### CMR ----------------------------------------------------------------------
+##### CMR: Cameroon --------------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -4009,7 +4039,7 @@ mildata <- mil_expenditure_growth_estimator_func(
 # x <- milexp.viewer("CMR")
 # y <- milper.viewer("CMR")
 
-##### COD ----------------------------------------------------------------------
+##### COD: Democratic Republic of the Congo --------------------------------------------------------
 
 ##### cow expenditure
 # 1992
@@ -4086,7 +4116,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="COD"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("COD")
 # y <- milper.viewer("COD")
 
-##### COG ----------------------------------------------------------------------
+##### COG: Republic of the Congo -------------------------------------------------------------------
 
 ##### cow expenditure
 # 1991: use average of WMEAT proportions for 1990 and 1992
@@ -4211,7 +4241,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="COG"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("COG")
 # y <- milper.viewer("COG")
 
-##### COL ----------------------------------------------------------------------
+##### COL: Colombia --------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 2013-2019 (non-alt): use IISS growth rates
@@ -4269,7 +4299,7 @@ mildata <- mil_expenditure_growth_estimator_func(
 # x <- milexp.viewer("COL")
 # y <- milper.viewer("COL")
 
-##### COM(x) ----------------------------------------------------------------------
+##### COM: Comoros (x) -----------------------------------------------------------------------------
 
 ##### cow expenditure
 # 1976-1979
@@ -4293,7 +4323,7 @@ mildata <- mil_expenditure_growth_estimator_func(
 x <- milexp.viewer("COM")
 y <- milper.viewer("COM")
 
-##### CPV ----------------------------------------------------------------------
+##### CPV: Cabo Verde ------------------------------------------------------------------------------
 
 # WMEAT 1992 provides estimates for CPV from 1982-1990
 mildata$mil.expenditure.wmeat[mildata$iso3c=="CPV"&mildata$year==1982] <- 0
@@ -4408,7 +4438,7 @@ mildata <- mildata %>%
 # x <- milexp.viewer("CPV")
 # y <- milper.viewer("CPV")
 
-##### CRI ----------------------------------------------------------------------
+##### CRI: Costa Rica ------------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -4465,7 +4495,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="CRI"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("CRI")
 # y <- milper.viewer("CRI")
 
-##### CUB ----------------------------------------------------------------------
+##### CUB: Cuba ------------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 1994: multiply by 1000 - this lines with WMEAT estimate
@@ -4647,7 +4677,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="CUB"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("CUB")
 # y <- milper.viewer("CUB")
 
-##### CYP ----------------------------------------------------------------------
+##### CYP: Cyprus ----------------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -4702,7 +4732,7 @@ mildata <- mildata %>%
 # x <- milexp.viewer("CYP")
 # y <- milper.viewer("CYP")
 
-##### CZE ----------------------------------------------------------------------
+##### CZE: Czechoslovakia / Czechia ----------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -4758,7 +4788,7 @@ mildata <- mil_expenditure_growth_estimator_func(
 # x <- milexp.viewer("CZE")
 # y <- milper.viewer("CZE")
 
-##### DDR ----------------------------------------------------------------------
+##### DDR: East Germany ----------------------------------------------------------------------------
 
 ##### cow expenditure
 # 1949-1956
@@ -4814,7 +4844,7 @@ mildata <- mil_estimator_no_data_func(
 # x <- milexp.viewer("DDR")
 # y <- milper.viewer("DDR")
 
-##### DEU ----------------------------------------------------------------------
+##### DEU: Germany ---------------------------------------------------------------------------------
 # note: COW 1945 Germany (pre-partition/occupation) military personnel: 5,300,000
 
 ##### cow expenditure
@@ -4845,7 +4875,7 @@ col_ref = "mil.personnel.cow",
 # x <- milexp.viewer("DEU")
 # y <- milper.viewer("DEU")
 
-##### DJI ----------------------------------------------------------------------
+##### DJI: Djibouti --------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 1978: apply SIPRI growth rates to COW
@@ -4950,7 +4980,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="DJI"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("DJI")
 # y <- milper.viewer("DJI")
 
-##### DMA(x) ----------------------------------------------------------------------
+##### DMA: Dominica (x) ----------------------------------------------------------------------------
 
 ##### cow expenditure
 # 1980-1985
@@ -4971,7 +5001,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="DJI"&mildata$year==2019] <- mildata$
 x <- milexp.viewer("DMA")
 y <- milper.viewer("DMA")
 
-##### DNK ----------------------------------------------------------------------
+##### DNK: Denmark ---------------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -5014,7 +5044,7 @@ mildata <- mildata %>%
 # x <- milexp.viewer("DNK")
 # y <- milper.viewer("DNK")
 
-##### DOM ----------------------------------------------------------------------
+##### DOM: Dominican Republic ----------------------------------------------------------------------
 
 ##### cow expenditure
 # 1948-1949: assume consistent growth between 1947 and 1950
@@ -5083,7 +5113,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="DOM"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("DOM")
 # y <- milper.viewer("DOM")
 
-##### DZA ----------------------------------------------------------------------
+##### DZA: Algeria ---------------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -5126,7 +5156,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="DZA"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("DZA")
 # y <- milper.viewer("DZA")
 
-##### ECU ----------------------------------------------------------------------
+##### ECU: Ecuador ---------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 1948: assume consistent growth between 1947 and 1949
@@ -5187,7 +5217,7 @@ mildata <- mildata %>%
 # x <- milexp.viewer("ECU")
 # y <- milper.viewer("ECU")
 
-##### EGY ----------------------------------------------------------------------
+##### EGY: Egypt -----------------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -5234,7 +5264,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="EGY"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("EGY")
 # y <- milper.viewer("EGY")
 
-##### ERI ----------------------------------------------------------------------
+##### ERI: Eritrea ---------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 2006-2008
@@ -5341,7 +5371,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="ERI"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("ERI")
 # y <- milper.viewer("ERI")
 
-##### ESP ----------------------------------------------------------------------
+##### ESP: Spain -----------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 2013-2019 (non-alt): apply IISS growth rates to COW
@@ -5399,7 +5429,7 @@ mildata <- mil_expenditure_growth_estimator_func(
 # x <- milexp.viewer("ESP")
 # y <- milper.viewer("ESP")
 
-##### EST ----------------------------------------------------------------------
+##### EST: Estonia ---------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 1991
@@ -5469,7 +5499,7 @@ mildata <- mildata %>%
 # x <- milexp.viewer("EST")
 # y <- milper.viewer("EST")
 
-##### ETH ----------------------------------------------------------------------
+##### ETH: Ethiopia --------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 1957-1958: apply SIPRI growth rates to COW
@@ -5556,7 +5586,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="ETH"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("ETH")
 # y <- milper.viewer("ETH")
 
-##### FIN ----------------------------------------------------------------------
+##### FIN: Finland ---------------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -5599,7 +5629,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="FIN"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("FIN")
 # y <- milper.viewer("FIN")
 
-##### FJI ----------------------------------------------------------------------
+##### FJI: Fiji ------------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 2011 (non-alt)
@@ -5647,7 +5677,7 @@ mildata <- mildata %>%
 # x <- milexp.viewer("FJI")
 # y <- milper.viewer("FJI")
 
-##### FRA ----------------------------------------------------------------------
+##### FRA: France ----------------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -5693,7 +5723,7 @@ mildata <- mil_expenditure_growth_estimator_func(
 # x <- milexp.viewer("FRA")
 # y <- milper.viewer("FRA")
 
-##### FSM(x) ----------------------------------------------------------------------
+##### FSM: Federal States of Micronesia (x) --------------------------------------------------------
 
 ##### cow expenditure
 # 2013-2019
@@ -5713,7 +5743,7 @@ mildata <- mil_expenditure_growth_estimator_func(
 x <- milexp.viewer("FSM")
 y <- milper.viewer("FSM")
 
-##### GAB ----------------------------------------------------------------------
+##### GAB: Gabon -----------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 1992-1993: estimate COW 1992-1993 as equidistant point based on WMEAT 1990-1994 values (WMEAT 1991 is NA)
@@ -5806,7 +5836,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="GAB"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("GAB")
 # y <- milper.viewer("GAB")
 
-##### GBR ----------------------------------------------------------------------
+##### GBR: United Kingdom --------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -5852,7 +5882,7 @@ mildata <- mil_expenditure_growth_estimator_func(
 # x <- milexp.viewer("GBR")
 # y <- milper.viewer("GBR")
 
-##### GEO ----------------------------------------------------------------------
+##### GEO: Georgia ---------------------------------------------------------------------------------
 # TODO: check COW 1992 expenditure value - looks like there is an extra 0
 
 # 1991 personnel estimates source: https://on.ge/story/10303-ქართული-ჯარის-დიდი-დღე
@@ -5938,7 +5968,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="GEO"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("GEO")
 # y <- milper.viewer("GEO")
 
-##### GHA ----------------------------------------------------------------------
+##### GHA: Ghana -----------------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -5989,7 +6019,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="GHA"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("GHA")
 # y <- milper.viewer("GHA")
 
-##### GIN ----------------------------------------------------------------------
+##### GIN: Guinea ----------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 2012-2013; 2015-2019: apply IISS growth estimates based on 2011
@@ -6222,7 +6252,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="GIN"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("GIN")
 # y <- milper.viewer("GIN")
 
-##### GMB ----------------------------------------------------------------------
+##### GMB: The Gambia ------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 2012-2015: apply IISS growth estimates based on 2011
@@ -6372,7 +6402,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="GMB"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("GMB")
 # y <- milper.viewer("GMB")
 
-##### GNB ----------------------------------------------------------------------
+##### GNB: Guinea-Bissau ---------------------------------------------------------------------------
 
 ##### cow expenditure
 # 1975: assume consistent growth between 1974 and 1976
@@ -6548,7 +6578,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="GNB"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("GNB")
 # y <- milper.viewer("GNB")
 
-##### GNQ ----------------------------------------------------------------------
+##### GNQ: Equatorial Guinea -----------------------------------------------------------------------
 
 ##### cow expenditure
 # 1968: reestimate
@@ -6763,7 +6793,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="GNQ"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("GNQ")
 # y <- milper.viewer("GNQ")
 
-##### GRC ----------------------------------------------------------------------
+##### GRC: Greece ----------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 2013-2019 (non-alt): apply IISS growth estimates based on 2012 COW estimate
@@ -6821,7 +6851,7 @@ mildata <- mil_expenditure_growth_estimator_func(
 # x <- milexp.viewer("GRC")
 # y <- milper.viewer("GRC")
 
-##### GRD(x) ----------------------------------------------------------------------
+##### GRD: Grenada (x) -----------------------------------------------------------------------------
 
 ##### cow expenditure
 # 1978-1981
@@ -6842,7 +6872,7 @@ mildata <- mil_expenditure_growth_estimator_func(
 x <- milexp.viewer("GRD")
 y <- milper.viewer("GRD")
 
-##### GTM ----------------------------------------------------------------------
+##### GTM: Guatemala -------------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -6885,7 +6915,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="GTM"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("GTM")
 # y <- milper.viewer("GTM")
 
-##### GUY ----------------------------------------------------------------------
+##### GUY: Guyana ----------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 1992
@@ -6957,7 +6987,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="GUY"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("GUY")
 # y <- milper.viewer("GUY")
 
-##### HND ----------------------------------------------------------------------
+##### HND: Honduras --------------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -7038,7 +7068,7 @@ mildata <- mil_expenditure_growth_estimator_func(
 # x <- milexp.viewer("HND")
 # y <- milper.viewer("HND")
 
-##### HRV ----------------------------------------------------------------------
+##### HRV: Croatia ---------------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -7079,7 +7109,7 @@ mildata <- mil_expenditure_growth_estimator_func(
 # x <- milexp.viewer("HRV")
 # y <- milper.viewer("HRV")
 
-##### HTI ----------------------------------------------------------------------
+##### HTI: Haiti -----------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 2010-2012; 2016-2019: apply IISS estimates to COW
@@ -7239,7 +7269,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="HTI"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("HTI")
 # y <- milper.viewer("HTI")
 
-##### HUN ----------------------------------------------------------------------
+##### HUN: Hungary ---------------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -7289,7 +7319,7 @@ mildata <- mil_expenditure_growth_estimator_func(
 # x <- milexp.viewer("HUN")
 # y <- milper.viewer("HUN")
 
-##### IDN ----------------------------------------------------------------------
+##### IDN: Indonesia -------------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -7332,7 +7362,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="IDN"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("IDN")
 # y <- milper.viewer("IDN")
 
-##### IND ----------------------------------------------------------------------
+##### IND: India -----------------------------------------------------------------------------------
 
 ##### cow expenditure (non-alt)
 # 2013-2019 (non-alt): apply IISS growth estimates based on 2012 COW estimate
@@ -7390,7 +7420,7 @@ mildata <- mil_expenditure_growth_estimator_func(
 # x <- milexp.viewer("IND")
 # y <- milper.viewer("IND")
 
-##### IRL ----------------------------------------------------------------------
+##### IRL: Ireland ---------------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -7433,7 +7463,7 @@ mildata <- mildata %>%
 # x <- milexp.viewer("IRL")
 # y <- milper.viewer("IRL")
 
-##### IRN ----------------------------------------------------------------------
+##### IRN: Iran ------------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 1981: calculate WMEAT 1981 as a percent of 1980 and 1982 values, apply proportions
@@ -7495,7 +7525,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="IRN"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("IRN")
 # y <- milper.viewer("IRN")
 
-##### IRQ ----------------------------------------------------------------------
+##### IRQ: Iraq ------------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 2002-2004: apply WMEAT growth rates to COW
@@ -7622,7 +7652,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="IRQ"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("IRQ")
 # y <- milper.viewer("IRQ")
 
-##### ISL(x) ----------------------------------------------------------------------
+##### ISL: Iceland (x) -----------------------------------------------------------------------------
 
 ##### cow expenditure
 # 2002-2004
@@ -7652,7 +7682,7 @@ mildata <- mildata %>%
 x <- milexp.viewer("ISL")
 # y <- milper.viewer("ISL")
 
-##### ISR ----------------------------------------------------------------------
+##### ISR: Israel ----------------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -7695,7 +7725,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="ISR"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("ISR")
 # y <- milper.viewer("ISR")
 
-##### ITA ----------------------------------------------------------------------
+##### ITA: Italy -----------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 2013-2019 (non-alt): apply IISS growth estimates based on 2012 COW estimate
@@ -7753,7 +7783,7 @@ mildata <- mil_expenditure_growth_estimator_func(
 # x <- milexp.viewer("ITA")
 # y <- milper.viewer("ITA")
 
-##### JAM ----------------------------------------------------------------------
+##### JAM: Jamaica ---------------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -7808,7 +7838,7 @@ mildata <- mildata %>%
 # x <- milexp.viewer("JAM")
 # y <- milper.viewer("JAM")
 
-##### JOR ----------------------------------------------------------------------
+##### JOR: Jordan ----------------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -7865,7 +7895,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="JOR"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("JOR")
 # y <- milper.viewer("JOR")
 
-##### JPN ----------------------------------------------------------------------
+##### JPN: Japan -----------------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -7903,7 +7933,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="JPN"&mildata$year==2019] <- mildata$
 x <- milexp.viewer("JPN")
 y <- milper.viewer("JPN")
 
-##### KAZ ----------------------------------------------------------------------
+##### KAZ: Kazakhstan ------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 1991
@@ -7981,7 +8011,7 @@ mildata <- mil_expenditure_growth_estimator_func(
 # x <- milexp.viewer("KAZ")
 # y <- milper.viewer("KAZ")
 
-##### KEN ----------------------------------------------------------------------
+##### KEN: Kenya -----------------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -8019,7 +8049,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="KEN"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("KEN")
 # y <- milper.viewer("KEN")
 
-##### KGZ ----------------------------------------------------------------------
+##### KGZ: Kyrgyzstan ------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 1991
@@ -8113,7 +8143,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="KGZ"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("KGZ")
 # y <- milper.viewer("KGZ")
 
-##### KHM ----------------------------------------------------------------------
+##### KHM: Cambodia --------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 1990: apply SIPRI growth rates to COW
@@ -8203,7 +8233,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="KHM"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("KHM")
 # y <- milper.viewer("KHM")
 
-##### KIR(x) ----------------------------------------------------------------------
+##### KIR: Kiribati (x) ----------------------------------------------------------------------------
 
 ##### cow expenditure
 # 2013-2019
@@ -8223,7 +8253,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="KHM"&mildata$year==2019] <- mildata$
 x <- milexp.viewer("KIR")
 y <- milper.viewer("KIR")
 
-##### KNA(x) ----------------------------------------------------------------------
+##### KNA: St. Kitts and Nevis (x) -----------------------------------------------------------------
 
 ##### cow expenditure
 # 1988-2001
@@ -8244,7 +8274,7 @@ y <- milper.viewer("KIR")
 x <- milexp.viewer("KNA")
 y <- milper.viewer("KNA")
 
-##### KOR ----------------------------------------------------------------------
+##### KOR: South Korea -----------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -8294,7 +8324,7 @@ mildata <- mil_expenditure_growth_estimator_func(
 # x <- milexp.viewer("KOR")
 # y <- milper.viewer("KOR")
 
-##### KSV(ce,we,se,cp,wp) ----------------------------------------------------------------------
+##### KSV: Kosovo (ce,we,se,cp,wp) -----------------------------------------------------------------
 
 ##### cow expenditure
 # appears to not be counting the de facto government of Kosovo's expenditure
@@ -8316,7 +8346,7 @@ mildata <- mil_expenditure_growth_estimator_func(
 x <- milexp.viewer("KSV")
 y <- milper.viewer("KSV")
 
-##### KWT ----------------------------------------------------------------------
+##### KWT: Kuwait ----------------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -8365,7 +8395,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="KWT"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("KWT")
 # y <- milper.viewer("KWT")
 
-##### LAO ----------------------------------------------------------------------
+##### LAO: Laos ------------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 1953
@@ -8611,7 +8641,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="LAO"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("LAO")
 # y <- milper.viewer("LAO")
 
-##### LBN ----------------------------------------------------------------------
+##### LBN: Lebanon ---------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 1987
@@ -8705,7 +8735,7 @@ mildata <- mildata %>%
 # x <- milexp.viewer("LBN")
 # y <- milper.viewer("LBN")
 
-##### LBR ----------------------------------------------------------------------
+##### LBR: Liberia ---------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 1946-1956
@@ -8888,7 +8918,7 @@ mildata <- mildata %>%
 # x <- milexp.viewer("LBR")
 # y <- milper.viewer("LBR")
 
-##### LBY ----------------------------------------------------------------------
+##### LBY: Libya -----------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 1951-1958
@@ -9084,7 +9114,7 @@ mildata <- mil_estimator_no_data_func(
 # x <- milexp.viewer("LBY")
 # y <- milper.viewer("LBY")
 
-##### LCA(x) ----------------------------------------------------------------------
+##### LCA: St. Lucia (x) ---------------------------------------------------------------------------
 
 ##### cow expenditure
 # 2013-2019
@@ -9104,7 +9134,7 @@ mildata <- mil_estimator_no_data_func(
 x <- milexp.viewer("LCA")
 y <- milper.viewer("LCA")
 
-##### LIE(x) ----------------------------------------------------------------------
+##### LIE: Liechtenstein (x) -----------------------------------------------------------------------
 
 ##### cow expenditure
 # 1946-1989
@@ -9126,7 +9156,7 @@ y <- milper.viewer("LCA")
 x <- milexp.viewer("LIE")
 y <- milper.viewer("LIE")
 
-##### LKA ----------------------------------------------------------------------
+##### LKA: Sri Lanka -------------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -9172,7 +9202,7 @@ mildata <- mil_expenditure_growth_estimator_func(
 # x <- milexp.viewer("LKA")
 # y <- milper.viewer("LKA")
 
-##### LSO ----------------------------------------------------------------------
+##### LSO: Lesotho ---------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 1976-1977: reestimate based on SIPRI
@@ -9272,7 +9302,7 @@ mildata <- mildata %>%
 # x <- milexp.viewer("LSO")
 # y <- milper.viewer("LSO")
 
-##### LTU ----------------------------------------------------------------------
+##### LTU: Lithuania -------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 1991
@@ -9350,7 +9380,7 @@ mildata <- mil_expenditure_growth_estimator_func(
 # x <- milexp.viewer("LTU")
 # y <- milper.viewer("LTU")
 
-##### LUX ----------------------------------------------------------------------
+##### LUX: Luxembourg ------------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -9393,7 +9423,7 @@ mildata <- mildata %>%
 # x <- milexp.viewer("LUX")
 # y <- milper.viewer("LUX")
 
-##### LVA ----------------------------------------------------------------------
+##### LVA: Latvia ----------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 1991
@@ -9478,7 +9508,7 @@ mildata <- mil_expenditure_growth_estimator_func(
 # x <- milexp.viewer("LVA")
 # y <- milper.viewer("LVA")
 
-##### MAR ----------------------------------------------------------------------
+##### MAR: Morocco ---------------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -9522,7 +9552,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="MAR"&mildata$year==2019] <- mildata$
 x <- milexp.viewer("MAR")
 # y <- milper.viewer("MAR")
 
-##### MCO(x) ----------------------------------------------------------------------
+##### MCO: Monaco (x) ------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 1946-1993
@@ -9544,7 +9574,7 @@ x <- milexp.viewer("MAR")
 x <- milexp.viewer("MCO")
 y <- milper.viewer("MCO")
 
-##### MDA ----------------------------------------------------------------------
+##### MDA: Moldova ---------------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -9595,7 +9625,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="MDA"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("MDA")
 # y <- milper.viewer("MDA")
 
-##### MDG ----------------------------------------------------------------------
+##### MDG: Madagascar ------------------------------------------------------------------------------
 
 # TODO: Check 2002-04 COW expenditure values
 
@@ -9659,7 +9689,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="MDG"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("MDG")
 # y <- milper.viewer("MDG")
 
-##### MDV(x) ----------------------------------------------------------------------
+##### MDV: Maldives (x) ----------------------------------------------------------------------------
 
 ##### cow expenditure
 # 1965-1983
@@ -9684,7 +9714,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="MDG"&mildata$year==2019] <- mildata$
 x <- milexp.viewer("MDV")
 y <- milper.viewer("MDV")
 
-##### MEX ----------------------------------------------------------------------
+##### MEX: Mexico ----------------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -9730,7 +9760,7 @@ mildata <- mil_expenditure_growth_estimator_func(
 # x <- milexp.viewer("MEX")
 # y <- milper.viewer("MEX")
 
-##### MHL(x) ----------------------------------------------------------------------
+##### MHL: Marshall Islands (x) --------------------------------------------------------------------
 
 ##### cow expenditure
 # 2013-2019
@@ -9750,7 +9780,7 @@ mildata <- mil_expenditure_growth_estimator_func(
 x <- milexp.viewer("MHL")
 y <- milper.viewer("MHL")
 
-##### MKD ----------------------------------------------------------------------
+##### MKD: North Macedonia -------------------------------------------------------------------------
 
 ##### cow expenditure
 # 1992
@@ -9815,7 +9845,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="MKD"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("MKD")
 # y <- milper.viewer("MKD")
 
-##### MLI ----------------------------------------------------------------------
+##### MLI: Mali ------------------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -9873,7 +9903,7 @@ mildata <- mil_expenditure_growth_estimator_func(
 # x <- milexp.viewer("MLI")
 # y <- milper.viewer("MLI")
 
-##### MLT ----------------------------------------------------------------------
+##### MLT: Malta -----------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 1970: apply WMEAT growth rates to COW
@@ -9960,7 +9990,7 @@ mildata <- mildata %>%
 # x <- milexp.viewer("MLT")
 # y <- milper.viewer("MLT")
 
-##### MMR ----------------------------------------------------------------------
+##### MMR: Myanmar ---------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 2008-2009
@@ -10031,7 +10061,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="MMR"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("MMR")
 # y <- milper.viewer("MMR")
 
-##### MNE ----------------------------------------------------------------------
+##### MNE: Montenegro ------------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -10063,7 +10093,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="MNE"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("MNE")
 # y <- milper.viewer("MNE")
 
-##### MNG ----------------------------------------------------------------------
+##### MNG: Mongolia --------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 1946-1947
@@ -10180,7 +10210,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="MNG"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("MNG")
 # y <- milper.viewer("MNG")
 
-##### MOZ ----------------------------------------------------------------------
+##### MOZ: Mozambique ------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 2012-2019 (non-alt): apply IISS growth rates to COW
@@ -10239,7 +10269,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="MOZ"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("MOZ")
 # y <- milper.viewer("MOZ")
 
-##### MRT ----------------------------------------------------------------------
+##### MRT: Mauritania ------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 1988: estimate COW 1988 as equidistant point based on SIPRI 1987-1989 values
@@ -10314,7 +10344,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="MRT"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("MRT")
 # y <- milper.viewer("MRT")
 
-##### MUS ----------------------------------------------------------------------
+##### MUS: Mauritius -------------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -10364,7 +10394,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="MUS"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("MUS")
 # y <- milper.viewer("MUS")
 
-##### MWI ----------------------------------------------------------------------
+##### MWI: Malawi ----------------------------------------------------------------------------------
 # confirmed MWI's 2010 IISS value is not a typo
 # IISS (2012) - n.k.; IISS (2013) - 325m
 
@@ -10411,7 +10441,7 @@ mildata <- mildata %>%
 x <- milexp.viewer("MWI")
 # y <- milper.viewer("MWI")
 
-##### MYS ----------------------------------------------------------------------
+##### MYS: Malaysia --------------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -10452,7 +10482,7 @@ mildata <- mil_expenditure_growth_estimator_func(
 # x <- milexp.viewer("MYS")
 # y <- milper.viewer("MYS")
 
-##### NAM ----------------------------------------------------------------------
+##### NAM: Namibia ---------------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -10491,7 +10521,7 @@ mildata <- mil_expenditure_growth_estimator_func(
 # x <- milexp.viewer("NAM")
 # y <- milper.viewer("NAM")
 
-##### NER ----------------------------------------------------------------------
+##### NER: Niger -----------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 2013; 2015-2019 (non-alt): apply IISS growth estimates based on 2012
@@ -10584,7 +10614,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="NER"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("NER")
 # y <- milper.viewer("NER")
 
-##### NGA ----------------------------------------------------------------------
+##### NGA: Nigeria ---------------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -10629,7 +10659,7 @@ mildata <- mil_expenditure_growth_estimator_func(
 # x <- milexp.viewer("NGA")
 # y <- milper.viewer("NGA")
 
-##### NIC ----------------------------------------------------------------------
+##### NIC: Nicaragua -------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 1946-1956
@@ -10731,7 +10761,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="NIC"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("NIC")
 # y <- milper.viewer("NIC")
 
-##### NLD ----------------------------------------------------------------------
+##### NLD: Netherlands -----------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -10777,7 +10807,7 @@ mildata <- mil_expenditure_growth_estimator_func(
 # x <- milexp.viewer("NLD")
 # y <- milper.viewer("NLD")
 
-##### NOR ----------------------------------------------------------------------
+##### NOR: Norway ----------------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -10823,7 +10853,7 @@ mildata <- mil_expenditure_growth_estimator_func(
 # x <- milexp.viewer("NOR")
 # y <- milper.viewer("NOR")
 
-##### NPL ----------------------------------------------------------------------
+##### NPL: Nepal -----------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 1953: assume consistent growth between 1952 and 1954
@@ -10930,7 +10960,7 @@ mildata <- mil_expenditure_growth_estimator_func(
 # x <- milexp.viewer("NPL")
 # y <- milper.viewer("NPL")
 
-##### NRU(x) ----------------------------------------------------------------------
+##### NRU: Nauru (x) -------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 2013-2019
@@ -10950,7 +10980,7 @@ mildata <- mil_expenditure_growth_estimator_func(
 x <- milexp.viewer("NRU")
 y <- milper.viewer("NRU")
 
-##### NZL ----------------------------------------------------------------------
+##### NZL: New Zealand -----------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -11005,7 +11035,7 @@ mildata <- mildata %>%
 # x <- milexp.viewer("NZL")
 # y <- milper.viewer("NZL")
 
-##### OMN ----------------------------------------------------------------------
+##### OMN: Oman ------------------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -11039,7 +11069,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="OMN"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("OMN")
 # y <- milper.viewer("OMN")
 
-##### PAK ----------------------------------------------------------------------
+##### PAK: Pakistan --------------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -11082,7 +11112,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="PAK"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("PAK")
 # y <- milper.viewer("PAK")
 
-##### PAN ----------------------------------------------------------------------
+##### PAN: Panama ----------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 1946-1959
@@ -11162,7 +11192,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="PAN"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("PAN")
 # y <- milper.viewer("PAN")
 
-##### PER ----------------------------------------------------------------------
+##### PER: Peru ------------------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -11211,7 +11241,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="PER"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("PER")
 # y <- milper.viewer("PER")
 
-##### PHL ----------------------------------------------------------------------
+##### PHL: Philippines -----------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -11258,7 +11288,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="PHL"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("PHL")
 # y <- milper.viewer("PHL")
 
-##### PLW(x) ----------------------------------------------------------------------
+##### PLW: Palau (x) -------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 2013-2019
@@ -11278,7 +11308,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="PHL"&mildata$year==2019] <- mildata$
 x <- milexp.viewer("PLW")
 y <- milper.viewer("PLW")
 
-##### PNG ----------------------------------------------------------------------
+##### PNG: Papua New Guinea ------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -11326,7 +11356,7 @@ mildata <- mildata %>%
 # x <- milexp.viewer("PNG")
 # y <- milper.viewer("PNG")
 
-##### POL ----------------------------------------------------------------------
+##### POL: Poland ----------------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -11372,7 +11402,7 @@ mildata <- mil_expenditure_growth_estimator_func(
 # x <- milexp.viewer("POL")
 # y <- milper.viewer("POL")
 
-##### PRK ----------------------------------------------------------------------
+##### PRK: North Korea -----------------------------------------------------------------------------
 
 ##### cow expenditure
 # 1959: assume consistent decline between 1958 and 1960
@@ -11515,7 +11545,7 @@ mildata <- mil_expenditure_growth_estimator_func(
 # x <- milexp.viewer("PRK")
 # y <- milper.viewer("PRK")
 
-##### PRT ----------------------------------------------------------------------
+##### PRT: Portugal --------------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -11573,7 +11603,7 @@ mildata <- mil_expenditure_growth_estimator_func(
 # x <- milexp.viewer("PRT")
 # y <- milper.viewer("PRT")
 
-##### PRY ----------------------------------------------------------------------
+##### PRY: Paraguay --------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 1948-1949: assume consistent decline between 1947 and 1950
@@ -11654,7 +11684,7 @@ mildata <- mildata %>%
 # x <- milexp.viewer("PRY")
 # y <- milper.viewer("PRY")
 
-##### PSE(x) ----------------------------------------------------------------------
+##### PSE: Palestine (x) ---------------------------------------------------------------------------
 
 # N/A for all
 
@@ -11671,7 +11701,7 @@ mildata <- mildata %>%
 x <- milexp.viewer("PSE")
 y <- milper.viewer("PSE")
 
-##### QAT ----------------------------------------------------------------------
+##### QAT: Qatar -----------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 1982
@@ -11842,7 +11872,7 @@ mildata <- mildata %>%
 # x <- milexp.viewer("QAT")
 # y <- milper.viewer("QAT")
 
-##### ROU ----------------------------------------------------------------------
+##### ROU: Romania ---------------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -11888,7 +11918,7 @@ mildata <- mil_expenditure_growth_estimator_func(
 # x <- milexp.viewer("ROU")
 # y <- milper.viewer("ROU")
 
-##### RUS ----------------------------------------------------------------------
+##### RUS: Russia ----------------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -11923,7 +11953,7 @@ mildata <- mil_expenditure_growth_estimator_func(
 # x <- milexp.viewer("RUS")
 # y <- milper.viewer("RUS")
 
-##### RVN ----------------------------------------------------------------------
+##### RVN: South Vietnam ---------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -11954,7 +11984,7 @@ mildata <- mildata %>%
 x <- milexp.viewer("RVN")
 # y <- milper.viewer("RVN")
 
-##### RWA ----------------------------------------------------------------------
+##### RWA: Rwanda ----------------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -12016,7 +12046,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="RWA"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("RWA")
 # y <- milper.viewer("RWA")
 
-##### SAU ----------------------------------------------------------------------
+##### SAU: Saudi Arabia ----------------------------------------------------------------------------
 
 ##### cow expenditure
 # 1949-1950: assume consistent decline between 1948 and 1951
@@ -12131,7 +12161,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="SAU"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("SAU")
 # y <- milper.viewer("SAU")
 
-##### SDN ----------------------------------------------------------------------
+##### SDN: Sudan -----------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 2006-2008
@@ -12250,7 +12280,7 @@ mildata <- mil_expenditure_growth_estimator_func(
 # x <- milexp.viewer("SDN")
 # y <- milper.viewer("SDN")
 
-##### SEN ----------------------------------------------------------------------
+##### SEN: Senegal ---------------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -12293,7 +12323,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="SEN"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("SEN")
 # y <- milper.viewer("SEN")
 
-##### SGP ----------------------------------------------------------------------
+##### SGP: Singapore -------------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -12336,7 +12366,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="SGP"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("SGP")
 # y <- milper.viewer("SGP")
 
-##### SLB(x) ----------------------------------------------------------------------
+##### SLB: Solomon Islands (x) ---------------------------------------------------------------------
 
 ##### cow expenditure
 # 2013-2019
@@ -12356,7 +12386,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="SGP"&mildata$year==2019] <- mildata$
 x <- milexp.viewer("SLB")
 y <- milper.viewer("SLB")
 
-##### SLE ----------------------------------------------------------------------
+##### SLE: Sierra Leone ----------------------------------------------------------------------------
 
 ##### cow expenditure
 # 1992: calculate SIPRI 1992 as a percent of 1991 and 1993 values, apply proportions
@@ -12411,7 +12441,7 @@ mildata <- mildata %>%
 # x <- milexp.viewer("SLE")
 # y <- milper.viewer("SLE")
 
-##### SLV ----------------------------------------------------------------------
+##### SLV: El Salvador -----------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -12463,7 +12493,7 @@ mildata <- mil_expenditure_growth_estimator_func(
 # x <- milexp.viewer("SLV")
 # y <- milper.viewer("SLV")
 
-##### SMR(x) ----------------------------------------------------------------------
+##### SMR: San Marino (x) --------------------------------------------------------------------------
 
 ##### cow expenditure
 # 1946-1991
@@ -12485,7 +12515,7 @@ mildata <- mil_expenditure_growth_estimator_func(
 x <- milexp.viewer("SMR")
 y <- milper.viewer("SMR")
 
-##### SOM ----------------------------------------------------------------------
+##### SOM: Somalia ---------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 2005-2008: apply WMEAT growth estimates based on 2009
@@ -12704,7 +12734,7 @@ mildata <- mil_expenditure_growth_estimator_func(
 # x <- milexp.viewer("SOM")
 # y <- milper.viewer("SOM")
 
-##### SRB ----------------------------------------------------------------------
+##### SRB: Serbia ----------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 1993: assume consistent growth rate between 1992 and 1994
@@ -12771,7 +12801,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="SRB"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("SRB")
 # y <- milper.viewer("SRB")
 
-##### SSD ----------------------------------------------------------------------
+##### SSD: South Sudan -----------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -12810,7 +12840,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="SSD"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("SSD")
 # y <- milper.viewer("SSD")
 
-##### STP(x) ----------------------------------------------------------------------
+##### STP: São Tomé and Príncipe (x) ---------------------------------------------------------------
 
 ##### cow expenditure
 # 1981-1993
@@ -12835,7 +12865,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="SSD"&mildata$year==2019] <- mildata$
 x <- milexp.viewer("STP")
 y <- milper.viewer("STP")
 
-##### SUR ----------------------------------------------------------------------
+##### SUR: Suriname --------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 1987: assume consistent growth rate between 1986 and 1988
@@ -12947,7 +12977,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="SUR"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("SUR")
 # y <- milper.viewer("SUR")
 
-##### SVK ----------------------------------------------------------------------
+##### SVK: Slovakia --------------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -12974,7 +13004,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="SVK"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("SVK")
 # y <- milper.viewer("SVK")
 
-##### SVN ----------------------------------------------------------------------
+##### SVN: Slovenia --------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 1993: estimate COW 1993 as equidistant point based on WMEAT 1992-1994 values
@@ -13008,7 +13038,7 @@ mildata <- mil_expenditure_growth_estimator_func(
 x <- milexp.viewer("SVN")
 # y <- milper.viewer("SVN")
 
-##### SWE ----------------------------------------------------------------------
+##### SWE: Sweden ----------------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -13072,7 +13102,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="SWE"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("SWE")
 # y <- milper.viewer("SWE")
 
-##### SWZ ----------------------------------------------------------------------
+##### SWZ: eSwatini --------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 2000: it appears the COW 2000 military expenditure estimate has an extra 0
@@ -13174,7 +13204,7 @@ mildata <- mil_estimator_no_data_func(
 # x <- milexp.viewer("SWZ")
 # y <- milper.viewer("SWZ")
 
-##### SYC(x) ----------------------------------------------------------------------
+##### SYC: Seychelles (x) --------------------------------------------------------------------------
 
 ##### cow expenditure
 # 1978-1979
@@ -13198,7 +13228,7 @@ mildata <- mil_estimator_no_data_func(
 x <- milexp.viewer("SYC")
 y <- milper.viewer("SYC")
 
-##### SYR ----------------------------------------------------------------------
+##### SYR: Syria -----------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 1959-1960
@@ -13315,7 +13345,7 @@ mildata <- mil_expenditure_growth_estimator_func(
 # x <- milexp.viewer("SYR")
 # y <- milper.viewer("SYR")
 
-##### TCD ----------------------------------------------------------------------
+##### TCD: Chad ------------------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -13382,7 +13412,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="TCD"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("TCD")
 # y <- milper.viewer("TCD")
 
-##### TGO ----------------------------------------------------------------------
+##### TGO: Togo ------------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 1992: calculate SIPRI 1992 as a percent of 1991 and 1993 values, apply proportions
@@ -13456,7 +13486,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="TGO"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("TGO")
 # y <- milper.viewer("TGO")
 
-##### THA ----------------------------------------------------------------------
+##### THA: Thailand --------------------------------------------------------------------------------
 
 # TODO: check COW 2001
 
@@ -13501,7 +13531,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="THA"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("THA")
 # y <- milper.viewer("THA")
 
-##### TJK ----------------------------------------------------------------------
+##### TJK: Tajikistan ------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 1991
@@ -13585,7 +13615,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="TJK"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("TJK")
 # y <- milper.viewer("TJK")
 
-##### TKM ----------------------------------------------------------------------
+##### TKM: Turkmenistan ----------------------------------------------------------------------------
 
 ##### cow expenditure
 # 1991
@@ -13718,7 +13748,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="TKM"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("TKM")
 # y <- milper.viewer("TKM")
 
-##### TLS ----------------------------------------------------------------------
+##### TLS: Timor Leste -----------------------------------------------------------------------------
 
 ##### cow expenditure
 # 2002-2009: apply WMEAT growth rates to SIPRI
@@ -13762,7 +13792,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="TLS"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("TLS")
 # y <- milper.viewer("TLS")
 
-##### TON(x) ----------------------------------------------------------------------
+##### TON: Tonga (x) -------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 1999-2001
@@ -13783,7 +13813,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="TLS"&mildata$year==2019] <- mildata$
 x <- milexp.viewer("TON")
 y <- milper.viewer("TON")
 
-##### TTO ----------------------------------------------------------------------
+##### TTO: Trinidad and Tobago ---------------------------------------------------------------------
 
 ##### cow expenditure
 # 1987-1988: assume consistent growth rate between 1986 and 1989
@@ -13925,7 +13955,7 @@ mildata <- mildata %>%
 # x <- milexp.viewer("TTO")
 # y <- milper.viewer("TTO")
 
-##### TUN ----------------------------------------------------------------------
+##### TUN: Tunisia ---------------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -13966,7 +13996,7 @@ mildata <- mil_expenditure_growth_estimator_func(
 # x <- milexp.viewer("TUN")
 # y <- milper.viewer("TUN")
 
-##### TUR ----------------------------------------------------------------------
+##### TUR: Türkiye ---------------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -14012,7 +14042,7 @@ mildata <- mil_expenditure_growth_estimator_func(
 x <- milexp.viewer("TUR")
 # y <- milper.viewer("TUR")
 
-##### TUV(x) ----------------------------------------------------------------------
+##### TUV: Tuvalu (x) ------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 2013-2019
@@ -14032,7 +14062,7 @@ x <- milexp.viewer("TUR")
 x <- milexp.viewer("TUV")
 y <- milper.viewer("TUV")
 
-##### TWN ----------------------------------------------------------------------
+##### TWN: Taiwan ----------------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -14085,7 +14115,7 @@ mildata <- mil_expenditure_growth_estimator_func(
 # x <- milexp.viewer("TWN")
 # y <- milper.viewer("TWN")
 
-##### TZA ----------------------------------------------------------------------
+##### TZA: Tanzania --------------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -14136,7 +14166,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="TZA"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("TZA")
 # y <- milper.viewer("TZA")
 
-##### UGA ----------------------------------------------------------------------
+##### UGA: Uganda ----------------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -14174,7 +14204,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="UGA"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("UGA")
 # y <- milper.viewer("UGA")
 
-##### UKR ----------------------------------------------------------------------
+##### UKR: Ukraine ---------------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -14228,7 +14258,7 @@ mildata <- mil_expenditure_growth_estimator_func(
 # x <- milexp.viewer("UKR")
 # y <- milper.viewer("UKR")
 
-##### URY ----------------------------------------------------------------------
+##### URY: Uruguay ---------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 1947: assume consistent growth between 1946 and 1948
@@ -14298,7 +14328,7 @@ mildata <- mildata %>%
 # x <- milexp.viewer("URY")
 # y <- milper.viewer("URY")
 
-##### USA ----------------------------------------------------------------------
+##### USA: United States ---------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -14344,7 +14374,7 @@ mildata <- mil_expenditure_growth_estimator_func(
 # x <- milexp.viewer("USA")
 # y <- milper.viewer("USA")
 
-##### UZB ----------------------------------------------------------------------
+##### UZB: Uzbekistan ------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 1991-1993
@@ -14494,7 +14524,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="UZB"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("UZB")
 # y <- milper.viewer("UZB")
 
-##### VCT(x) ----------------------------------------------------------------------
+##### VCT: St Vincent and the Grenadines (x) -------------------------------------------------------
 
 ##### cow expenditure
 # 1991-1993
@@ -14515,7 +14545,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="UZB"&mildata$year==2019] <- mildata$
 x <- milexp.viewer("VCT")
 y <- milper.viewer("VCT")
 
-##### VEN ----------------------------------------------------------------------
+##### VEN: Venezuela -------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 2013-2017 (non-alt): apply IISS growth estimates based on 2012
@@ -14592,7 +14622,7 @@ mildata <- mil_expenditure_growth_estimator_func(
 # x <- milexp.viewer("VEN")
 # y <- milper.viewer("VEN")
 
-##### VNM ----------------------------------------------------------------------
+##### VNM: Vietnam ---------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 1955-1960
@@ -14802,7 +14832,7 @@ mildata <- mil_expenditure_growth_estimator_func(
 # x <- milexp.viewer("VNM")
 # y <- milper.viewer("VNM")
 
-##### VUT(x) ----------------------------------------------------------------------
+##### VUT: Vanuatu (x) -----------------------------------------------------------------------------
 
 ##### cow expenditure
 # 2013-2019
@@ -14822,7 +14852,7 @@ mildata <- mil_expenditure_growth_estimator_func(
 x <- milexp.viewer("VUT")
 y <- milper.viewer("VUT")
 
-##### WSM(x) ----------------------------------------------------------------------
+##### WSM: Samoa (x) -------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 2013-2019
@@ -14842,7 +14872,7 @@ y <- milper.viewer("VUT")
 x <- milexp.viewer("WSM")
 y <- milper.viewer("WSM")
 
-##### YAR ----------------------------------------------------------------------
+##### YAR: North Yemen -----------------------------------------------------------------------------
 
 ##### cow expenditure
 # 1946-1959
@@ -14887,7 +14917,7 @@ mildata <- mildata %>%
 # x <- milexp.viewer("YAR")
 # y <- milper.viewer("YAR")
 
-##### YEM ----------------------------------------------------------------------
+##### YEM: Yemen -----------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 2013-2014: apply IISS growth estimates based on 2012
@@ -14956,7 +14986,7 @@ mildata <- mil_expenditure_growth_estimator_func(
 # x <- milexp.viewer("YEM")
 # y <- milper.viewer("YEM")
 
-##### YPR ----------------------------------------------------------------------
+##### YPR: South Yemen -----------------------------------------------------------------------------
 
 ##### cow expenditure
 # 1967: recalculate
@@ -15025,7 +15055,7 @@ mildata <- mil_estimator_no_data_func(
 # x <- milexp.viewer("YPR")
 # y <- milper.viewer("YPR")
 
-##### YUG ----------------------------------------------------------------------
+##### YUG: Yugoslavia ------------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -15053,7 +15083,7 @@ mildata <- mildata %>%
 x <- milexp.viewer("YUG")
 # y <- milper.viewer("YUG")
 
-##### ZAF ----------------------------------------------------------------------
+##### ZAF: South Africa ----------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -15099,7 +15129,7 @@ mildata <- mil_expenditure_growth_estimator_func(
 # x <- milexp.viewer("ZAF")
 # y <- milper.viewer("ZAF")
 
-##### ZAN ----------------------------------------------------------------------
+##### ZAN: Zanzibar --------------------------------------------------------------------------------
 
 ##### cow expenditure
 # good
@@ -15119,7 +15149,7 @@ mildata <- mil_expenditure_growth_estimator_func(
 # x <- milexp.viewer("ZAN")
 # y <- milper.viewer("ZAN")
 
-##### ZMB ----------------------------------------------------------------------
+##### ZMB: Zambia ----------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 1992
@@ -15202,7 +15232,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="ZMB"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("ZMB")
 # y <- milper.viewer("ZMB")
 
-##### ZWE ----------------------------------------------------------------------
+##### ZWE: Zimbabwe --------------------------------------------------------------------------------
 
 ##### cow expenditure
 # 2007-2009
@@ -15262,17 +15292,18 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="ZWE"&mildata$year==2019] <- mildata$
 # x <- milexp.viewer("ZWE")
 # y <- milper.viewer("ZWE")
 
-### add gdp and population data ----------------------------------------------------------------------
+### add gdp and population data --------------------------------------------------------------------
 mildata <- mildata %>%
-  dplyr::left_join(population,by=c("iso3c","country","year")) %>%
-  dplyr::left_join(gdp,by=c("iso3c","country","year")) %>%
-  dplyr::full_join(cyears,by=c("iso3c","country","year")) %>%
+  dplyr::left_join(population, by = c("iso3c", "year")) %>%
+  dplyr::left_join(gdp,by = c("iso3c", "year")) %>%
+  dplyr::full_join(cyears, by = c("iso3c", "country", "year")) %>%
   dplyr::select(-c(
-    "milex.cow","milper.cow","defense.spending.iiss","defense.spending.percapita.iiss","defense.spending.percgdp.iiss",
-    "active.armed.forces.iiss","reservists.iiss","active.paramilitary.iiss","milexp.sipri","armed.personnel.wmeat",
-    "population.wmeat","military.expenditure.wmeat","gdp.wmeat","pop.growth.rate.un","pop.growth.rate.cow","gdp.pwt.original",
-    "gdp.gl.original","gdp.growth.rate.pwt.original","gdp.growth.rate.gl.original","gdp.growth.rate.pwt.est",
-    "gdp.growth.rate.gl.est","imf.growth.rate.modern","imf.growth.rate.historical","wb.growth.rate","yrs_since_indep"
+    "milex.cow", "milper.cow", "defense.spending.iiss", "defense.spending.percapita.iiss",
+    "defense.spending.percgdp.iiss", "active.armed.forces.iiss", "reservists.iiss",
+    "active.paramilitary.iiss", "milexp.sipri", "armed.personnel.wmeat", "population.wmeat",
+    "military.expenditure.wmeat", "gdp.wmeat", "pop.growth.rate.un", "pop.growth.rate.cow",
+    "gdp.pwt.original", "gdp.gl.original", "gdp.growth.rate.pwt.est", "gdp.growth.rate.gl.est",
+    "wb.growth.rate", "yrs_since_indep"
     )) %>%
   dplyr::mutate(
     # military expenditure per capita
@@ -15314,14 +15345,14 @@ mildata <- mildata %>%
     gdp.per.mil.personnel.gl.wmeat = gdp.gl.est / mil.personnel.wmeat
   )
 
-### calculate growth rates ----------------------------------------------------------------------
+### calculate growth rates -------------------------------------------------------------------------
 mildata_year_prior <- mildata %>%
   dplyr::mutate(year = year + 1)
 
-names(mildata_year_prior)[4:52] <- paste0(names(mildata_year_prior)[4:52],".plus1")
+names(mildata_year_prior)[4:59] <- paste0(names(mildata_year_prior)[4:59],".plus1")
 
 mildata <- mildata %>%
-  dplyr::left_join(mildata_year_prior,by=c("iso3c","country","year")) %>%
+  dplyr::left_join(mildata_year_prior, by = c("iso3c", "country", "year")) %>%
   dplyr::mutate(
     # military expenditure
     mil.expenditure.growth.rate.cow = 100 * (mil.expenditure.cow - mil.expenditure.cow.plus1) / mil.expenditure.cow.plus1,
@@ -15373,11 +15404,11 @@ mildata <- mildata %>%
   dplyr::filter(cn == 1) %>%
   dplyr::select(-c(un.pop,cow.pop,gdp.pwt.est,gdp.gl.est,cn))
 
-### write data ----------------------------------------------------------------------
+### write data -------------------------------------------------------------------------------------
 # writes formatted dataframe as csv files
-write.csv(mildata,"Data files/Formatted data files/military_data.csv",row.names = FALSE)
+write.csv(mildata, "Data files/Formatted data files/military_data.csv", row.names = FALSE)
 
-### codebook ----------------------------------------------------------------------
+### codebook ---------------------------------------------------------------------------------------
 # iso3c
 ### A country's standardized iso3c code, with non-standard codes for West Germany, East Germany, North Yemen, South Yemen,
 ### South Vietnam, the Soviet Union, Yugoslavia, and Zanzibar.

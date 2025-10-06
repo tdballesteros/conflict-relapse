@@ -1470,10 +1470,7 @@ for(iso in estimate.cow.2010s){
 ### calculate growth rates -------------------------------------------------------------------------
 pd_year_prior <- pd %>%
   dplyr::mutate(year = year + 1) %>%
-  dplyr::rename(
-    un.pop.plus1 = un.pop,
-    cow.pop.plus1 = cow.pop
-    )
+  dplyr::select(iso3c, year, un.pop.plus1 = un.pop, cow.pop.plus1 = cow.pop)
 
 pd <- pd %>%
   dplyr::left_join(pd_year_prior, by = c("iso3c", "year")) %>%

@@ -286,8 +286,7 @@ land_area$land_area[land_area$iso3c == "PAK" & land_area$year %in% c(1946:1960)]
 ### Land per Capita (Population Density) -----------------------------------------------------------
 
 land_area <- land_area %>%
-  dplyr::select(-country) %>%
-  dplyr::full_join(population,by = c("iso3c", "year")) %>%
+  dplyr::full_join(population, by = c("iso3c", "year")) %>%
   dplyr::mutate(
     pop.per.km.un = un.pop / land_area,
     pop.per.km.cow = cow.pop / land_area

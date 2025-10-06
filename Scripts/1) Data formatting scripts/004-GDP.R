@@ -3839,23 +3839,14 @@ gdp <- gdp %>%
 ### calculate growth rates -------------------------------------------------------------------------
 gdp_year_prior <- gdp %>%
   dplyr::mutate(year = year + 1) %>%
-  dplyr::rename(gdp.pwt.original.plus1 = gdp.pwt.original,
-                gdp.gl.original.plus1 = gdp.gl.original,
-                gdp.pwt.est.plus1 = gdp.pwt.est,
-                gdp.gl.est.plus1 = gdp.gl.est)
+  dplyr::select(iso3c, year, gdp.pwt.est.plus1 = gdp.pwt.est, gdp.gl.est.plus1 = gdp.gl.est)
 
 gdp <- gdp %>%
-  dplyr::left_join(gdp_year_prior,by=c("iso3c","year")) %>%
-  dplyr::mutate(gdp.growth.rate.pwt.original = 100 * (gdp.pwt.original - gdp.pwt.original.plus1) /
-                  gdp.pwt.original.plus1,
-                gdp.growth.rate.gl.original = 100 * (gdp.gl.original - gdp.gl.original.plus1) /
-                  gdp.gl.original.plus1,
-                gdp.growth.rate.pwt.est = 100 * (gdp.pwt.est - gdp.pwt.est.plus1) /
-                  gdp.pwt.est.plus1,
-                gdp.growth.rate.gl.est = 100 * (gdp.gl.est - gdp.gl.est.plus1) /
-                  gdp.gl.est.plus1) %>%
-  dplyr::select(-c(gdp.pwt.original.plus1, gdp.gl.original.plus1, gdp.pwt.est.plus1,
-                   gdp.gl.est.plus1))
+  dplyr::left_join(gdp_year_prior, by = c("iso3c", "year")) %>%
+  dplyr::mutate(
+    gdp.growth.rate.pwt.est = 100 * (gdp.pwt.est - gdp.pwt.est.plus1) / gdp.pwt.est.plus1,
+    gdp.growth.rate.gl.est = 100 * (gdp.gl.est - gdp.gl.est.plus1) / gdp.gl.est.plus1) %>%
+  dplyr::select(-c(gdp.pwt.est.plus1, gdp.gl.est.plus1))
 
 
 ### adjust growth estimates for countries uniting/dissolving ---------------------------------------
@@ -3870,10 +3861,10 @@ gdp$gdp.growth.rate.gl.est[gdp$iso3c == "SVK" & gdp$year == 1993] <- 100 *
                                                                        (cze.gl.growth.1992.1993 - 1)
 
 # Germany
-gdp$gdp.growth.rate.pwt.est[gdp$iso3c == "DEU" & gdp$year == 1990] <- 100 *
-                                                                      (deu.pwt.growth.1989.1990 - 1)
-gdp$gdp.growth.rate.gl.est[gdp$iso3c == "DEU" & gdp$year == 1990] <- 100 *
-                                                                       (deu.gl.growth.1989.1990 - 1)
+# gdp$gdp.growth.rate.pwt.est[gdp$iso3c == "DEU" & gdp$year == 1990] <- 100 *
+#                                                                       (deu.pwt.growth.1989.1990 - 1)
+# gdp$gdp.growth.rate.gl.est[gdp$iso3c == "DEU" & gdp$year == 1990] <- 100 *
+#                                                                        (deu.gl.growth.1989.1990 - 1)
 
 # Ethiopia/Eritrea
 
@@ -3894,14 +3885,14 @@ gdp$gdp.growth.rate.gl.est[gdp$iso3c == "BGD" & gdp$year == 1971] <- 100 *
 # Serbia/Montenegro
 
 # South Africa/Namibia
-gdp$gdp.growth.rate.pwt.est[gdp$iso3c == "NAM" & gdp$year == 1990] <- 100 *
-                                                                      (nam.pwt.growth.1989.1990 - 1)
-gdp$gdp.growth.rate.pwt.est[gdp$iso3c == "ZAF" & gdp$year == 1990] <- 100 *
-                                                                      (zaf.pwt.growth.1989.1990 - 1)
-gdp$gdp.growth.rate.gl.est[gdp$iso3c == "NAM" & gdp$year == 1990] <- 100 *
-                                                                       (nam.gl.growth.1989.1990 - 1)
-gdp$gdp.growth.rate.gl.est[gdp$iso3c == "ZAF" & gdp$year == 1990] <- 100 *
-                                                                       (zaf.gl.growth.1989.1990 - 1)
+# gdp$gdp.growth.rate.pwt.est[gdp$iso3c == "NAM" & gdp$year == 1990] <- 100 *
+#                                                                       (nam.pwt.growth.1989.1990 - 1)
+# gdp$gdp.growth.rate.pwt.est[gdp$iso3c == "ZAF" & gdp$year == 1990] <- 100 *
+#                                                                       (zaf.pwt.growth.1989.1990 - 1)
+# gdp$gdp.growth.rate.gl.est[gdp$iso3c == "NAM" & gdp$year == 1990] <- 100 *
+#                                                                        (nam.gl.growth.1989.1990 - 1)
+# gdp$gdp.growth.rate.gl.est[gdp$iso3c == "ZAF" & gdp$year == 1990] <- 100 *
+#                                                                        (zaf.gl.growth.1989.1990 - 1)
 
 # Sudan/South Sudan
 
@@ -3920,10 +3911,10 @@ gdp$gdp.growth.rate.gl.est[gdp$iso3c == "VNM" & gdp$year == 1976] <- 100 *
                                                                        (vnm.gl.growth.1975.1976 - 1)
 
 # Yemen
-gdp$gdp.growth.rate.pwt.est[gdp$iso3c == "YEM" & gdp$year == 1991] <- 100 *
-                                                                      (yem.pwt.growth.1990.1991 - 1)
-gdp$gdp.growth.rate.gl.est[gdp$iso3c == "YEM" & gdp$year == 1991] <- 100 *
-                                                                       (yem.gl.growth.1990.1991 - 1)
+# gdp$gdp.growth.rate.pwt.est[gdp$iso3c == "YEM" & gdp$year == 1991] <- 100 *
+#                                                                       (yem.pwt.growth.1990.1991 - 1)
+# gdp$gdp.growth.rate.gl.est[gdp$iso3c == "YEM" & gdp$year == 1991] <- 100 *
+#                                                                        (yem.gl.growth.1990.1991 - 1)
 
 # Yugoslavia + Successors
 
