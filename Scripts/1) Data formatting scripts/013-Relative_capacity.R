@@ -1,4 +1,4 @@
-# This script creates a relative capacity metric for each country-year based on Artbetman and Kugler's (2013) RPC.
+# This script creates a relative capacity metric for each country-year based on Arbetman and Kugler's (2013) RPC.
 
 ### load libraries ----------------------------------------------------------------------
 library(readxl)
@@ -14,20 +14,30 @@ library(dplyr)
 # need to fix estimates to finalised estimates
 rpc <- readxl::read_excel("Data files/Raw data files/RPC2015_components.xlsx")
 
+# load country-year data
+cyears <- read.csv("Data files/Formatted data files/country_years.csv") %>%
+  dplyr::select(-c(country, yrs_since_indep))
+
 ### format dataset ----------------------------------------------------------------------
 rpc <- rpc %>%
-  dplyr::select(country,year,rpe_gdp) %>%
-  # fixes spelling of Guinea-Bissau
-  dplyr::mutate(country = ifelse(country=="Guinea-Bissaau","Guinea-Bissau",country),
-                # using the countrycode package, add iso3c based on country name
-                iso3c = countrycode::countrycode(country,"country.name","iso3c")) %>%
-  # remove non-sovereign entities, countries without data, and countries with very limited
-  # data (no data prior to 2000)
-  dplyr::filter(iso3c %!in% c("ASM","DMA","KIR","LCA","LIE","MCO","NRU","PRK","ABW","AIA",
-                              "BRN","CYM","HKG","MAC","PYF","GRL","GUM","MSR","NCL","BMU",
-                              "CUB","TKM"),
-                # remove non-sovereign entities that are missing from the countrycode dataset
-                country %!in% c("Faeore Islands","Netherlands Antilles"))
+  dplyr::select(country, year, rpe_gdp) %>%
+  dplyr::mutate(
+    # fixes spelling of Guinea-Bissau
+    country = ifelse(country == "Guinea-Bissaau", "Guinea-Bissau", country),
+    # using the countrycode package, add iso3c based on country name
+    iso3c = countrycode::countrycode(country,"country.name","iso3c")) %>%
+  dplyr::filter(
+    # remove non-sovereign entities, countries without data, and countries with very limited
+    # data (no data prior to 2000)
+    iso3c %!in% c("ASM","DMA","KIR","LCA","LIE","MCO","NRU","PRK","ABW","AIA",
+                  "BRN","CYM","HKG","MAC","PYF","GRL","GUM","MSR","NCL","BMU",
+                  "CUB","TKM"),
+    # remove non-sovereign entities that are missing from the countrycode dataset
+    country %!in% c("Faeore Islands","Netherlands Antilles")
+    ) %>%
+  dplyr::left_join(cyears, by = c("iso3c", "year")) %>%
+  dplyr::filter(!is.na(rpe_gdp) & cn == 1) %>%
+  dplyr::select(iso3c, year, rpe_gdp)
 
 ### approximate missing countries ----------------------------------------------------------------------
 # CUB approx
@@ -36,8 +46,7 @@ rpc.cub <- rpc %>%
   dplyr::filter(iso3c %in% c("HTI","DOM","JAM")) %>%
   dplyr::group_by(year) %>%
   dplyr::summarise(rpe_gdp = mean(rpe_gdp)) %>%
-  dplyr::mutate(iso3c = "CUB",
-                country = "Cuba")
+  dplyr::mutate(iso3c = "CUB")
 
 # TKM approx
 # Take mean of Kazakhstan, Kyrgyzstan, Tajikistan, and Uzbekistan
@@ -45,14 +54,13 @@ rpc.tkm <- rpc %>%
   dplyr::filter(iso3c %in% c("KAZ","KGZ","TJK","UZB")) %>%
   dplyr::group_by(year) %>%
   dplyr::summarise(rpe_gdp = mean(rpe_gdp)) %>%
-  dplyr::mutate(iso3c = "TKM",
-                country = "Turkmenistan")
+  dplyr::mutate(iso3c = "TKM")
 
 # merge estimates with main dataset
 rpc <- rpc %>%
   rbind(rpc.cub,rpc.tkm) %>%
   # reorders variables
-  dplyr::relocate(iso3c,.before=country)
+  dplyr::relocate(iso3c,.before=1)
 
 ### expand to all country-years ----------------------------------------------------------------------
 rpc <- rpc %>%
@@ -67,11 +75,12 @@ rpc <- rpc %>%
 
 ### remove if countries did not exist that year ----------------------------------------------------------------------
 # load formatted data output by script 005-Country_years
-cyears <- read.csv("Data files/Formatted data files/country_years.csv")
+cyears <- read.csv("Data files/Formatted data files/country_years.csv") %>%
+  dplyr::select(-c(country, yrs_since_indep))
 
 # merge datasets and filter out if the country-year is not included in the cyears dataset
 rpc <- rpc %>%
-  dplyr::left_join(cyears,by=c("iso3c","year")) %>%
+  dplyr::left_join(cyears, by = c("iso3c", "year")) %>%
   dplyr::filter(cn == 1) %>%
   dplyr::select(-cn)
 
