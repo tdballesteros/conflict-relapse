@@ -18,6 +18,16 @@ library(tidyverse)
 # COW trade dataset
 cow_trade <- read.csv("Data files/Raw data files/COW_Trade_4.0/National_COW_4.0.csv")
 
+# WB import data
+wb_imports <- readxl::read_xls("Data files/Raw data files/API_NE.IMP.GNFS.CD_DS2_en_excel_v2_1226831.xls",
+                               sheet = "Data",
+                               skip = 3)
+
+# WB export data
+wb_exports <- readxl::read_xls("Data files/Raw data files/API_NE.EXP.GNFS.CD_DS2_en_excel_v2_1226659.xls",
+                               sheet = "Data",
+                               skip = 3)
+
 # country-years dataset
 cyears <- read.csv("Data files/Formatted data files/country_years.csv")
 
@@ -29,6 +39,21 @@ population <- read.csv("Data files/Formatted data files/population.csv")
 
 
 ### format data files ------------------------------------------------------------------------------
+# inflation from https://www.bls.gov/data/inflation_calculator.htm
+# July to July, converting to 2019 dollars
+inflation_table <- data.frame(
+  year = c(1946:2019),
+  multiplier = c(
+    1+11.96,1+10.56,1+9.52,1+9.83, #40s
+    1+9.65,1+8.91,1+8.61,1+8.57,1+8.54,1+8.57,1+8.36,1+8.07,1+7.85,1+7.79, #50s
+    1+7.67,1+7.55,1+7.47,1+7.36,1+7.25,1+7.12,1+6.89,1+6.68,1+6.35,1+5.97, #60s
+    1+5.58,1+5.30,1+5.12,1+4.79,1+4.19,1+3.73,1+3.49,1+3.21,1+2.91,1+2.51, #70s
+    1+2.10,1+1.80,1+1.63,1+1.57,1+1.46,1+1.38,1+1.34,1+1.25,1+1.17,1+1.06, #80s
+    1+0.97,1+0.88,1+0.83,1+0.78,1+0.73,1+0.68,1+0.63,1+0.60,1+0.57,1+0.54, #90s
+    1+0.48,1+0.45,1+0.42,1+0.40,1+0.35,1+0.31,1+0.26,1+0.23,1+0.17,1+0.19, #00s
+    1+0.18,1+0.14,1+0.12,1+0.10,1+0.08,1+0.08,1+0.07,1+0.05,1+0.02,1+0.00) #10s
+)
+
 cow_trade <- cow_trade %>%
   dplyr::filter(
     year >= 1945,
@@ -50,8 +75,12 @@ cow_trade <- cow_trade %>%
       ),
     # convert import and export values to total values, from $ in millions
     imports = 1000000 * imports,
-    exports = 1000000 * exports,
-    
+    exports = 1000000 * exports) %>%
+  dplyr::left_join(inflation_table, by = "year") %>%
+  dplyr::mutate(
+    # apply inflation to create constant $
+    imports = imports * multiplier,
+    exports = exports * multiplier,
     # create total trade and balance of trade metrics
     total_trade = imports + exports,
     trade_balance = imports - exports,
@@ -67,6 +96,55 @@ cow_trade <- cow_trade %>%
   # drop unneeded gdp and population variables
   dplyr::select(iso3c, year, imports, exports, total_trade, trade_balance, cn, gdp.pwt.est,
                 gdp.gl.est, un.pop, cow.pop)
+
+wb_imports <- wb_imports %>%
+  tidyr::pivot_longer(5:69, names_to = "year", values_to = "imports_wb") %>%
+  dplyr::filter(
+    # filter out groups of countries
+    `Country Code` %!in% c("AFE", "AFW", "ARB", "CEB", "CSS", "EAP", "EAR", "EAS", "ECA", "ECS",
+                           "EMU", "EUU", "FCS", "HIC", "HPC", "IBD", "IBT", "IDA", "IDB", "IDX",
+                           "INX", "LAC", "LCN", "LDC", "LIC", "LMC", "LMY", "LTE", "MEA", "MIC",
+                           "MNA", "NAC", "OED", "OSS", "PRE", "PSS", "PST", "SAS", "SSA", "SSF",
+                           "SST", "TEA", "TEC", "TLA", "TMN", "TSA", "TSS", "UMC", "WLD"),
+    !is.na(imports_wb)) %>%
+  dplyr::mutate(
+    year = as.numeric(year),
+    iso3c = dplyr::case_when(
+      `Country Code` == "XKX" ~ "KSV",
+      .default = countrycode::countrycode(`Country Code`, "wb", "iso3c")
+    )) %>%
+  dplyr::group_by(iso3c, year) %>%
+  dplyr::summarise(imports_wb = sum(imports_wb, na.rm = TRUE)) %>%
+  dplyr::ungroup()
+
+wb_exports <- wb_exports %>%
+  tidyr::pivot_longer(5:69, names_to = "year", values_to = "exports_wb") %>%
+  dplyr::filter(
+    # filter out groups of countries
+    `Country Code` %!in% c("AFE", "AFW", "ARB", "CEB", "CSS", "EAP", "EAR", "EAS", "ECA", "ECS",
+                           "EMU", "EUU", "FCS", "HIC", "HPC", "IBD", "IBT", "IDA", "IDB", "IDX",
+                           "INX", "LAC", "LCN", "LDC", "LIC", "LMC", "LMY", "LTE", "MEA", "MIC",
+                           "MNA", "NAC", "OED", "OSS", "PRE", "PSS", "PST", "SAS", "SSA", "SSF",
+                           "SST", "TEA", "TEC", "TLA", "TMN", "TSA", "TSS", "UMC", "WLD"),
+    !is.na(exports_wb)) %>%
+  dplyr::mutate(
+    year = as.numeric(year),
+    iso3c = dplyr::case_when(
+      `Country Code` == "XKX" ~ "KSV",
+      .default = countrycode::countrycode(`Country Code`, "wb", "iso3c")
+  )) %>%
+  dplyr::group_by(iso3c, year) %>%
+  dplyr::summarise(exports_wb = sum(exports_wb, na.rm = TRUE)) %>%
+  dplyr::ungroup()
+
+wb_trade <- dplyr::full_join(wb_imports, wb_exports, by = c("iso3c", "year")) %>%
+  dplyr::left_join(inflation_table, by = "year") %>%
+  dplyr::mutate(
+    # apply inflation to create constant $
+    imports_wb = imports_wb * multiplier,
+    exports_wb = exports_wb * multiplier
+  ) %>%
+  dplyr::select(-multiplier)
 
 
 ### missing data -----------------------------------------------------------------------------------
@@ -116,6 +194,38 @@ cow_trade$trade_balance[cow_trade$iso3c == "AGO" & cow_trade$year == 1976] <- ag
 
 #### BDI: Burundi ----------------------------------------------------------------------------------
 # Missing: 1962-1968, imports
+
+# approximate based on % annual change of exports
+
+# pull BDI 1963-1969 export values annual change
+bdi.exports.1963.1969.perc_change <- cow_trade %>%
+  dplyr::filter(
+    iso3c == "BDI"
+  ) %>%
+  dplyr::arrange(year) %>%
+  dplyr::mutate(
+    exports_lagged = lag(exports),
+    exports_perc_change = (exports - exports_lagged) / exports_lagged
+  ) %>%
+  dplyr::filter(
+    year %in% c(1963:1969)
+  ) %>%
+  dplyr::pull(exports_perc_change) %>%
+  rev()
+
+# apply exports percent change to imports
+for(y in c(1968:1962)){
+  
+  # pull next year imports value (or estimate)
+  bdi.imports.yplus1 <- cow_trade$imports[cow_trade$iso3c == "BDI" & cow_trade$year == (y+1)]
+  
+  # estimate imports value
+  bdi.imports.est.y <- bdi.imports.yplus1 / (1 + bdi.exports.1963.1969.perc_change[1969-y])
+  
+  # add estimate to df
+  cow_trade$imports[cow_trade$iso3c == "BDI" & cow_trade$year == y] <- bdi.imports.est.y
+  
+}
 
 #### BFA: Burkina Faso -----------------------------------------------------------------------------
 # Missing: 1960, imports
@@ -187,6 +297,54 @@ cow_trade$imports[cow_trade$iso3c == "CHN" & cow_trade$year == 1960] <- chn.impo
 #### ERI: Eritrea ----------------------------------------------------------------------------------
 # Not in dataset
 
+# pull ETH WB and COW data 2011-2014 and compare ratios across datasets for imports and exports
+eth.imports.wb <- wb_trade %>%
+  dplyr::filter(
+    iso3c == "ETH",
+    year %in% c(2011:2014)
+  ) %>%
+  dplyr::arrange(year) %>%
+  dplyr::pull(imports_wb)
+
+eth.exports.wb <- wb_trade %>%
+  dplyr::filter(
+    iso3c == "ETH",
+    year %in% c(2011:2014)
+  ) %>%
+  dplyr::arrange(year) %>%
+  dplyr::pull(exports_wb)
+
+eth.imports.cow <- cow_trade %>%
+  dplyr::filter(
+    iso3c == "ETH",
+    year %in% c(2011:2014)
+  ) %>%
+  dplyr::arrange(year) %>%
+  dplyr::pull(imports)
+
+eth.exports.cow <- cow_trade %>%
+  dplyr::filter(
+    iso3c == "ETH",
+    year %in% c(2011:2014)
+  ) %>%
+  dplyr::arrange(year) %>%
+  dplyr::pull(exports)
+
+eth.imports.avg.ratio <- mean(eth.imports.cow / eth.imports.wb)
+eth.exports.avg.ratio <- mean(eth.exports.cow / eth.exports.wb)
+
+# apply ratios to WB ERI estimates
+for(e in c(1992:2011)){
+  
+  cow_trade$imports[cow_trade$iso3c == "ERI" & cow_trade$year == e] <- wb_trade$imports_wb[wb_trade$iso3c == "ERI" &
+                                                                                             wb_trade$year == e] *
+                                                                                            eth.imports.avg.ratio
+  cow_trade$exports[cow_trade$iso3c == "ERI" & cow_trade$year == e] <- wb_trade$exports_wb[wb_trade$iso3c == "ERI" &
+                                                                                             wb_trade$year == e] *
+                                                                                            eth.exports.avg.ratio
+  
+}
+
 #### GIN: Guinea -----------------------------------------------------------------------------------
 # Missing: 1961-1969, imports
 
@@ -211,6 +369,19 @@ cow_trade$imports[cow_trade$iso3c == "CHN" & cow_trade$year == 1960] <- chn.impo
 #### LSO: Lesotho ----------------------------------------------------------------------------------
 # Missing: 1966-2014, imports
 
+# calculate ratio between WB imports and exports
+lso_ratio <- wb_trade %>%
+  dplyr::filter(iso3c == "LSO") %>%
+  dplyr::mutate(imports_ratio = imports_wb / exports_wb) %>%
+  dplyr::select(iso3c, year, imports_ratio)
+
+cow_trade <- cow_trade %>%
+  dplyr::left_join(lso_ratio, by = c("iso3c", "year")) %>%
+  dplyr::mutate(
+    imports = ifelse(iso3c == "LSO", exports * imports_ratio, imports)
+  ) %>%
+  dplyr::select(-imports_ratio)
+
 #### MDV: Maldives ---------------------------------------------------------------------------------
 # Missing: 1965-1980, imports
 
@@ -229,6 +400,83 @@ cow_trade$imports[cow_trade$iso3c == "CHN" & cow_trade$year == 1960] <- chn.impo
 #### NPL: Nepal ------------------------------------------------------------------------------------
 # Missing: 1946-1963; 1964-1980, imports
 
+# 1965-1980: calculate ratio between WB imports and exports
+npl_ratio <- wb_trade %>%
+  dplyr::filter(iso3c == "NPL") %>%
+  dplyr::mutate(imports_ratio = imports_wb / exports_wb) %>%
+  dplyr::select(iso3c, year, imports_ratio)
+
+cow_trade <- cow_trade %>%
+  dplyr::left_join(npl_ratio, by = c("iso3c", "year")) %>%
+  dplyr::mutate(
+    imports = ifelse(iso3c == "NPL" & year %in% c(1964:1980), exports * imports_ratio, imports)
+  ) %>%
+  dplyr::select(-imports_ratio)
+
+# 1964: calculate 3-year average imports-exports ratio for (estimated) 1965-1967 data
+npl_avg_ratio <- mean(cow_trade$imports[cow_trade$iso3c == "NPL" & cow_trade$year %in% c(1965:1967)] /
+  cow_trade$exports[cow_trade$iso3c == "NPL" & cow_trade$year %in% c(1965:1967)])
+
+cow_trade$imports[cow_trade$iso3c == "NPL" & cow_trade$year == 1964] <- npl_avg_ratio *
+  cow_trade$exports[cow_trade$iso3c == "NPL" & cow_trade$year == 1964]
+
+# 1946-1963: use a 3-year moving average growth ratio for the subsequent 3 years for imports and
+# exports
+
+for(n in 1963:1946){
+  
+  imports_yplus1 <- cow_trade$imports[cow_trade$iso3c == "NPL" & cow_trade$year == (n + 1)]
+  imports_yplus2 <- cow_trade$imports[cow_trade$iso3c == "NPL" & cow_trade$year == (n + 2)]
+  imports_yplus3 <- cow_trade$imports[cow_trade$iso3c == "NPL" & cow_trade$year == (n + 3)]
+  imports_yplus4 <- cow_trade$imports[cow_trade$iso3c == "NPL" & cow_trade$year == (n + 4)]
+  
+  exports_yplus1 <- cow_trade$exports[cow_trade$iso3c == "NPL" & cow_trade$year == (n + 1)]
+  exports_yplus2 <- cow_trade$exports[cow_trade$iso3c == "NPL" & cow_trade$year == (n + 2)]
+  exports_yplus3 <- cow_trade$exports[cow_trade$iso3c == "NPL" & cow_trade$year == (n + 3)]
+  exports_yplus4 <- cow_trade$exports[cow_trade$iso3c == "NPL" & cow_trade$year == (n + 4)]
+  
+  imports_ratio <- mean(c((imports_yplus1 / imports_yplus2), (imports_yplus2 / imports_yplus3),
+                        (imports_yplus3 / imports_yplus4)))
+  exports_ratio <- mean(c((exports_yplus1 / exports_yplus2), (exports_yplus2 / exports_yplus3),
+                        (exports_yplus3 / exports_yplus4)))
+  
+  cow_trade$imports[cow_trade$iso3c == "NPL" & cow_trade$year == n] <- imports_yplus1 * imports_ratio
+  cow_trade$exports[cow_trade$iso3c == "NPL" & cow_trade$year == n] <- exports_yplus1 * exports_ratio
+
+}
+
+# # approximate based on % annual change of exports
+# 
+# # pull NPL 1964-1981 export values annual change
+# npl.exports.1965.1981.perc_change <- cow_trade %>%
+#   dplyr::filter(
+#     iso3c == "NPL"
+#   ) %>%
+#   dplyr::arrange(year) %>%
+#   dplyr::mutate(
+#     exports_lagged = lag(exports),
+#     exports_perc_change = (exports - exports_lagged) / exports_lagged
+#   ) %>%
+#   dplyr::filter(
+#     year %in% c(1964:1980)
+#   ) %>%
+#   dplyr::pull(exports_perc_change) %>%
+#   rev()
+# 
+# # apply exports percent change to imports
+# for(y in c(1980:1964)){
+#   
+#   # pull next year imports value (or estimate)
+#   npl.imports.yplus1 <- cow_trade$imports[cow_trade$iso3c == "NPL" & cow_trade$year == (y+1)]
+#   
+#   # estimate imports value
+#   npl.imports.est.y <- npl.imports.yplus1 / (1 + npl.exports.1965.1981.perc_change[1981-y])
+#   
+#   # add estimate to df
+#   cow_trade$imports[cow_trade$iso3c == "NPL" & cow_trade$year == y] <- npl.imports.est.y
+#   
+# }
+
 #### NRU: Nauru ------------------------------------------------------------------------------------
 # Missing: 1999-2014, imports
 
@@ -243,6 +491,9 @@ cow_trade$imports[cow_trade$iso3c == "CHN" & cow_trade$year == 1960] <- chn.impo
 
 #### SOM: Somalia ----------------------------------------------------------------------------------
 # Missing: 1960-1961, imports
+
+#### SRB: Serbia -----------------------------------------------------------------------------------
+# Missing: 1992-2019
 
 #### SWZ: eSwatini ---------------------------------------------------------------------------------
 # Missing: 1968-2014, imports

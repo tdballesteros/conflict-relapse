@@ -81,9 +81,9 @@ vdem_hl_pca_df <- vdem %>%
   dplyr::filter(
     # filter out the same small countries filtered for other index values for consistency
     iso3c %!in% c(
-      "DMA", "GRD", "LCA", "VCT", "ATG", "KNA", "MCO", "LIE", "AND", "SMR", "ISL", "COM", "MDV",
+      "DMA", "GRD", "LCA", "VCT", "ATG", "KNA", "MCO", "LIE", "AND", "SMR", "ISL", "MDV",
       "VUT", "SLB", "KIR", "TUV", "TON", "NRU", "MHL", "PLW", "FSM", "WSM", "PSE",
-      "MLT", "BHS", "BRB", "BRN", "BTN", "CPV", "MUS", "SYC", "STP", "ZAN" ###
+      "BHS", "BRB", "BRN", "BTN", "CPV", "MUS", "SYC", "STP", "ZAN" ###
     )
   ) %>%
   tidyr::drop_na(dplyr::all_of(vdem_hl_pca_vars))

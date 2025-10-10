@@ -1,53 +1,64 @@
 
 
-### load libraries ----------------------------------------------------------------------
+### load libraries ---------------------------------------------------------------------------------
 library(readxl)
 library(countrycode)
 library(imputeTS)
 library(dplyr)
 
-### load data file ----------------------------------------------------------------------
+### load data file ---------------------------------------------------------------------------------
 qog <- read.csv("Data files/Raw data files/qog_std_ts_jan20.csv")
 
-### format data ----------------------------------------------------------------------
+# Ceyhun and Oguz - not needed
+# Elgin and Oztunali - in progress
+# Medina and Schneider - done
+# Schneider, Buehn and Montenegro - needs to be QC'd
+# Schneider and Klinglmair - ID'd source
+# Hassan and Schneider - ID'd source
+# Buehn and Schneider - ID'd source
+# Kelmanson et al - ID'd source
+# "size_of_shadow_economies_around_the_world" - ID'd source
+# Schneider (shadeconomycorruption_july2007.pdf) - ID'd source
+
+### format data ------------------------------------------------------------------------------------
 se <- qog %>%
-  dplyr::select(cname,year,shec_se) %>%
-  # using the countrycode package, add iso3c based on country name
-  dplyr::mutate(iso3c = countrycode::countrycode(cname,"country.name","iso3c"),
-                # using the countrycode package, add country name based on iso3c code
-                country = countrycode::countrycode(iso3c,"iso3c","country.name")) 
-
-# add missing iso3c codes
-se$iso3c[se$cname=="Czechoslovakia"] <- "CZE"
-se$iso3c[se$cname=="Germany, East"] <- "DDR"
-se$iso3c[se$cname=="Micronesia"] <- "FSM"
-se$iso3c[se$cname=="Serbia and Montenegro"] <- "SRB"
-se$iso3c[se$cname=="Tibet"] <- "TBT"
-se$iso3c[se$cname=="Vietnam, South"] <- "RVN"
-se$iso3c[se$cname=="Yemen, North"] <- "YAR"
-se$iso3c[se$cname=="Yemen, South"] <- "YPR"
-se$iso3c[se$cname=="Yugoslavia"] <- "YUG"
-
-# add missing country names
-se$country[se$cname=="Czechoslovakia"] <- "Czechia"
-se$country[se$cname=="Germany, East"] <- "East Germany"
-se$country[se$cname=="Micronesia"] <- "Micronesia (Federated States of)"
-se$country[se$cname=="Serbia and Montenegro"] <- "Serbia and Montenegro"
-se$country[se$cname=="Tibet"] <- "Tibet"
-se$country[se$cname=="Vietnam, South"] <- "South Vietnam"
-se$country[se$cname=="Yemen, North"] <- "North Yemen"
-se$country[se$cname=="Yemen, South"] <- "South Yemen"
-se$country[se$cname=="Yugoslavia"] <- "Yugoslavia"
-
-# filter out non-sovereign entities
-se <- se %>%
+  dplyr::select(cname, year, shec_se) %>%
+  dplyr::mutate(
+    # using the countrycode package, add iso3c based on country name
+    iso3c = dplyr::case_when(
+      cname == "Czechoslovakia" ~ "CZE",
+      cname == "Germany, East" ~ "DDR",
+      cname == "Micronesia" ~ "FSM",
+      cname == "Serbia and Montenegro" ~ "SRB",
+      cname == "Tibet" ~ "TBT",
+      cname == "Vietnam, South" ~ "RVN",
+      cname == "Yemen, North" ~ "YAR",
+      cname == "Yemen, South" ~ "YPR",
+      cname == "Yugoslavia" ~  "YUG",
+      .default = countrycode::countrycode(cname, "country.name", "iso3c")
+      ),
+    # using the countrycode package, add country name based on iso3c code
+    country = dplyr::case_when(
+      cname == "Czechoslovakia" ~ "Czechia",
+      cname == "Germany, East" ~ "East Germany",
+      cname == "Micronesia" ~ "Micronesia (Federated States of)",
+      cname == "Serbia and Montenegro" ~ "Serbia and Montenegro",
+      cname == "Tibet" ~ "Tibet",
+      cname == "Vietnam, South" ~ "South Vietnam",
+      cname == "Yemen, North" ~ "North Yemen",
+      cname == "Yemen, South" ~ "South Yemen",
+      cname == "Yugoslavia" ~ "Yugoslavia",
+      .default = countrycode::countrycode(iso3c, "iso3c", "country.name")
+    )) %>%
+  # filter out non-sovereign entities
   dplyr::filter(iso3c != "TBT") %>%
-  dplyr::select(iso3c,country,year,shec_se)
+  dplyr::select(iso3c, country, year, shec_se)
 
 
 #### fill in missing values from MS using method done on spreadsheet ####
 se_filled <- read_excel("~/Documents/se_estimates_upload.xlsx") %>%
-  select(-source_method)
+  dplyr::select(-source_method) %>%
+  dplyr::mutate(country = NA)
 
 se <- se %>%
   na.omit() %>%
@@ -63,6 +74,11 @@ se <- se %>%
 
 # cleaning
 se <- se %>%
-  select(iso3c,year,shec_se) %>%
+  select(iso3c, year, shec_se) %>%
   rename(shec = shec_se) %>%
   na.omit()
+
+
+### write data -------------------------------------------------------------------------------------
+# writes formatted dataframe as csv files
+write.csv(se, "Data files/Formatted data files/shadow_economy.csv", row.names = FALSE)

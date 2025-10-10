@@ -211,10 +211,42 @@ energyandsteel <- nmc %>%
   # calculate irst and pec per capita data (per 100,000 people)
   # using cow.pop estimates over un.pop estimates as this data originates from COW
   dplyr::mutate(
-    irst_per_capita = 100000 * irst / cow.pop,
-    pec_per_capita = 100000 * pec / cow.pop
+    irst_per_capita_un = 100000 * irst / un.pop,
+    irst_per_capita_cow = 100000 * irst / cow.pop,
+    pec_per_capita_un = 100000 * pec / un.pop,
+    pec_per_capita_cow = 100000 * pec / cow.pop,
   ) %>%
+  dplyr::select(iso3c, year, irst, pec, upop_perc, irst_per_capita_un, irst_per_capita_cow,
+                pec_per_capita_un, pec_per_capita_cow)
   
-  dplyr::select(-c(un.pop, cow.pop, pop.growth.rate.un, pop.growth.rate.cow))
+energyandsteel <- energyandsteel %>%
+  # apply 2012 values as 2013-2019 estimates
+  rbind(energyandsteel %>%
+          dplyr::filter(year == 2012) %>%
+          dplyr::mutate(year = 2013),
+        energyandsteel %>%
+          dplyr::filter(year == 2012) %>%
+          dplyr::mutate(year = 2014),
+        energyandsteel %>%
+          dplyr::filter(year == 2012) %>%
+          dplyr::mutate(year = 2015),
+        energyandsteel %>%
+          dplyr::filter(year == 2012) %>%
+          dplyr::mutate(year = 2016),
+        energyandsteel %>%
+          dplyr::filter(year == 2012) %>%
+          dplyr::mutate(year = 2017),
+        energyandsteel %>%
+          dplyr::filter(year == 2012) %>%
+          dplyr::mutate(year = 2018),
+        energyandsteel %>%
+          dplyr::filter(year == 2012) %>%
+          dplyr::mutate(year = 2019))
 
+
+### write data -------------------------------------------------------------------------------------
+# writes formatted dataframe as csv files
+write.csv(energyandsteel,
+          "Data files/Formatted data files/energy_and_steel.csv",
+          row.names = FALSE)
 

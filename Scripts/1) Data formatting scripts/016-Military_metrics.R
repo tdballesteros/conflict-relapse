@@ -15295,7 +15295,7 @@ mildata$mil.personnel.wmeat[mildata$iso3c=="ZWE"&mildata$year==2019] <- mildata$
 ### add gdp and population data --------------------------------------------------------------------
 mildata <- mildata %>%
   dplyr::left_join(population, by = c("iso3c", "year")) %>%
-  dplyr::left_join(gdp,by = c("iso3c", "year")) %>%
+  dplyr::left_join(gdp, by = c("iso3c", "year")) %>%
   dplyr::full_join(cyears, by = c("iso3c", "country", "year")) %>%
   dplyr::select(-c(
     "milex.cow", "milper.cow", "defense.spending.iiss", "defense.spending.percapita.iiss",
@@ -15403,6 +15403,21 @@ mildata <- mildata %>%
   dplyr::select(-contains("plus1")) %>%
   dplyr::filter(cn == 1) %>%
   dplyr::select(-c(un.pop,cow.pop,gdp.pwt.est,gdp.gl.est,cn))
+
+
+### cleanup ----------------------------------------------------------------------------------------
+mildata <- mildata %>%
+  dplyr::mutate(across(everything(), replace_na, 0))
+
+mildata[as.matrix(mildata) == Inf]  <- 0
+mildata[as.matrix(mildata) == -Inf]  <- 0
+
+# table(mildata$mil.expenditure.per.capita.cow.un.ln)
+# 
+# "mil.expenditure.per.capita.cow.un.ln","mil.expenditure.perc.gdp.cow.pwt.ln",
+# "mil.expenditure.per.personnel.cow.cow.ln","mil.personnel.per.capita.cow.un.ln",
+# "gdp.per.mil.personnel.pwt.cow.ln"
+
 
 ### write data -------------------------------------------------------------------------------------
 # writes formatted dataframe as csv files

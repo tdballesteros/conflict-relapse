@@ -1,6 +1,5 @@
-# This script creates an aid estimate variable.
 
-# TODO: is the aid in constant $?
+# This script creates an aid estimate variable.
 
 
 ### load libraries ---------------------------------------------------------------------------------
@@ -16,6 +15,9 @@ library(dplyr)
 # aid from aiddata.org through Quality of Government dataset
 aiddata_full <- read.csv("~/Downloads/AidDataCore_ResearchRelease_Level1_v3/AidDataCoreFull_ResearchRelease_Level1_v3.1.csv")
 # received_amount_usd_nominal - very minimal data
+
+# load formatted data output by script 003-Country_years
+country_years <- read.csv("Data files/Formatted data files/country_years.csv")
 
 
 ### data formatting --------------------------------------------------------------------------------
@@ -129,6 +131,33 @@ for(y in 1946:1970){
   
 }
 
+#### RVN: South Vietnam ----------------------------------------------------------------------------
+# code 1954-1975 RVN values as $0
+
+aid_rvn <- data.frame(
+  iso3c = rep("RVN", 22),
+  year = c(1954:1975),
+  aid_value = rep(0, 22)
+)
+
+aid <- aid %>%
+  rbind(aid_rvn)
+
+#### YEM/YAR/YPR: Yeme, North Yemen, and South Yemen -----------------------------------------------
+# recode YEM values for year < 1991 as YAR
+aid$iso3c[aid$iso3c == "YEM" & aid$year < 1991] <- "YAR"
+
+# code 1967-1990 YPR values as $0
+aid_ypr <- data.frame(
+  iso3c = rep("YPR", 24),
+  year = c(1967:1990),
+  aid_value = rep(0, 24)
+)
+
+aid <- aid %>%
+  rbind(aid_ypr)
+
+
 ### filter out non-sovereign country-years ---------------------------------------------------------
 # load formatted country-years table output by the 003-Country_years script
 cyears <- utils::read.csv("Data files/Formatted data files/country_years.csv") %>%
@@ -140,7 +169,7 @@ aid <- aid %>%
   dplyr::full_join(cyears, by = c("iso3c", "year")) %>%
   # filter non-sovereign country-years that did not have aid; leave non-sovereign country-years if
   # aid data is present
-  dplyr::filter(cn == 1 | aid_value > 0) %>%
+  dplyr::filter(cn == 1 | aid_value > 0 | iso3c == "OMN") %>%
   dplyr::select(-cn)
   
 ### merge GDP and population data ------------------------------------------------------------------

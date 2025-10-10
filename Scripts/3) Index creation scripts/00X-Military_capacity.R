@@ -52,7 +52,28 @@ mil.metrics <- mil.metrics %>%
     gdp.per.mil.personnel.gl.wmeat.ln = log(gdp.per.mil.personnel.gl.wmeat)
   )
 
-### Index CCPU ----------------------------------------------------------------------
+# which countries have Inf values?
+mil.metrics.inf <- mil.metrics %>%
+  dplyr::select(
+    iso3c, year, dplyr::all_of(ccpu_vars_pca)
+  ) %>%
+  dplyr::filter(
+    is.infinite(mil.expenditure.per.capita.cow.un.ln) |
+      is.infinite(mil.expenditure.perc.gdp.cow.pwt.ln) |
+      is.infinite(mil.expenditure.per.personnel.cow.cow.ln) |
+      is.infinite(mil.personnel.per.capita.cow.un.ln) |
+      is.infinite(gdp.per.mil.personnel.pwt.cow.ln)
+  ) %>%
+  dplyr::group_by(iso3c) %>%
+  dplyr::tally()
+    
+mil.metrics[as.matrix(mil.metrics) == Inf]  <- 0
+mil.metrics[as.matrix(mil.metrics) == -Inf]  <- 0
+
+mil.metrics <- do.call(data.frame,lapply(mil.metrics, function(x) replace(x, is.infinite(x),0)))
+
+
+### Index CCPU -------------------------------------------------------------------------------------
 # military expenditure - COW
 # military personnel - COW
 # GDP - PWT
@@ -73,44 +94,112 @@ ccpu_vars_pca <- c(
   "gdp.per.mil.personnel.pwt.cow.ln"
   )
 
+# index_ccpu_data <- index_ccpu_data %>%
+#   dplyr::mutate(
+#     mil.expenditure.per.capita.cow.un.ln <- dplyr::case_when(
+#       is.infinite(mil.expenditure.per.capita.cow.un.ln)  ~ 0,
+#       .default = mil.expenditure.per.capita.cow.un.ln
+#     )
+#   ) %>%
+#   dplyr::filter(
+#     is.infinite(mil.expenditure.per.capita.cow.un.ln)
+#   )
+# 
+# index_ccpu_data$mil.expenditure.per.capita.cow.un.ln[is.infinite(index_ccpu_data$mil.expenditure.per.capita.cow.un.ln)] <- 0
+# index_ccpu_data$mil.expenditure.perc.gdp.cow.pwt.ln[is.infinite(index_ccpu_data$mil.expenditure.perc.gdp.cow.pwt.ln)] <- 0
+# index_ccpu_data$mil.expenditure.per.personnel.cow.cow.ln[is.infinite(index_ccpu_data$mil.expenditure.per.personnel.cow.cow.ln)] <- 0
+# index_ccpu_data$mil.personnel.per.capita.cow.un.ln[is.infinite(index_ccpu_data$mil.personnel.per.capita.cow.un.ln)] <- 0
+# index_ccpu_data$gdp.per.mil.personnel.pwt.cow.ln[is.infinite(index_ccpu_data$gdp.per.mil.personnel.pwt.cow.ln)] <- 0
+# 
+# table(is.infinite(index_ccpu_data$mil.expenditure.per.capita.cow.un.ln), useNA='always')
+
 index_ccpu_data <- mil.metrics %>%
   dplyr::select(
-    iso3c,year,dplyr::all_of(ccpu_vars_pca)
+    iso3c, year, dplyr::all_of(ccpu_vars_pca)
     ) %>%
   dplyr::filter(
     iso3c %!in% c(
-      "DMA","GRD","LCA","VCT","ATG","KNA","MCO","LIE","AND","SMR","ISL","COM","MDV","VUT",
+      "DMA","GRD","LCA","VCT","ATG","KNA","MCO","LIE","AND","SMR","ISL","MDV","VUT",
       "SLB","KIR","TUV","TON","NRU","MHL","PLW","FSM","WSM","PSE",
-      "MLT","BHS","BRB","BRN","BTN","CPV","MUS","SYC","STP" ###
+      "BHS","BRB","BRN","BTN","CPV","MUS","SYC","STP" ###
     )
-  ) %>%
-  tidyr::drop_na(dplyr::all_of(ccpu_vars_pca)) %>%
-  dplyr::filter(
-    mil.expenditure.per.capita.cow.un.ln %!in% c(-Inf,Inf),
-    mil.expenditure.perc.gdp.cow.pwt.ln %!in% c(-Inf,Inf),
-    mil.expenditure.per.personnel.cow.cow.ln %!in% c(-Inf,Inf),
-    mil.personnel.per.capita.cow.un.ln %!in% c(-Inf,Inf),
-    gdp.per.mil.personnel.pwt.cow.ln %!in% c(-Inf,Inf)
   )
 
-index_ccpu_cor <- cor(index_ccpu_data %>%
-                        dplyr::select(-c(iso3c,year)))
+# standardize: (x - μ) / σ
+
+# mil.expenditure.per.capita.cow.un.ln
+mu_var1 <- mean(index_ccpu_data$mil.expenditure.per.capita.cow.un.ln, na.rm = TRUE)
+sd_var1 <- sd(index_ccpu_data$mil.expenditure.per.capita.cow.un.ln, na.rm = TRUE)
+
+# mil.expenditure.perc.gdp.cow.pwt.ln
+mu_var2 <- mean(index_ccpu_data$mil.expenditure.perc.gdp.cow.pwt.ln, na.rm = TRUE)
+sd_var2 <- sd(index_ccpu_data$mil.expenditure.perc.gdp.cow.pwt.ln, na.rm = TRUE)
+
+# mil.expenditure.per.personnel.cow.cow.ln
+mu_var3 <- mean(index_ccpu_data$mil.expenditure.per.personnel.cow.cow.ln, na.rm = TRUE)
+sd_var3 <- sd(index_ccpu_data$mil.expenditure.per.personnel.cow.cow.ln, na.rm = TRUE)
+
+# mil.personnel.per.capita.cow.un.ln
+mu_var4 <- mean(index_ccpu_data$mil.personnel.per.capita.cow.un.ln, na.rm = TRUE)
+sd_var4 <- sd(index_ccpu_data$mil.personnel.per.capita.cow.un.ln, na.rm = TRUE)
+
+# gdp.per.mil.personnel.pwt.cow.ln
+mu_var5 <- mean(index_ccpu_data$gdp.per.mil.personnel.pwt.cow.ln, na.rm = TRUE)
+sd_var5 <- sd(index_ccpu_data$gdp.per.mil.personnel.pwt.cow.ln, na.rm = TRUE)
+
+index_ccpu_data <- index_ccpu_data %>%
+  dplyr::mutate(
+    mil.expenditure.per.capita.cow.un.ln = (mil.expenditure.per.capita.cow.un.ln - mu_var1) / sd_var1,
+    mil.expenditure.perc.gdp.cow.pwt.ln = (mil.expenditure.perc.gdp.cow.pwt.ln - mu_var2) / sd_var2,
+    mil.expenditure.per.personnel.cow.cow.ln = (mil.expenditure.per.personnel.cow.cow.ln - mu_var3) / sd_var3,
+    mil.personnel.per.capita.cow.un.ln = (mil.personnel.per.capita.cow.un.ln - mu_var4) / sd_var4,
+    gdp.per.mil.personnel.pwt.cow.ln = (gdp.per.mil.personnel.pwt.cow.ln - mu_var5) / sd_var5
+  )
+
+
+# %>%
+#   tidyr::drop_na(dplyr::all_of(ccpu_vars_pca)) %>%
+#   dplyr::filter(
+#     mil.expenditure.per.capita.cow.un.ln %!in% c(-Inf,Inf),
+#     mil.expenditure.perc.gdp.cow.pwt.ln %!in% c(-Inf,Inf),
+#     mil.expenditure.per.personnel.cow.cow.ln %!in% c(-Inf,Inf),
+#     mil.personnel.per.capita.cow.un.ln %!in% c(-Inf,Inf),
+#     gdp.per.mil.personnel.pwt.cow.ln %!in% c(-Inf,Inf)
+#   )
+# 
+# index_ccpu_cor <- cor(index_ccpu_data %>%
+#                         dplyr::select(-c(iso3c,year)))
 
 ccpu_pca <- stats::prcomp(
-  ~  mil.expenditure.per.capita.cow.un.ln + mil.expenditure.perc.gdp.cow.pwt.ln + mil.expenditure.per.personnel.cow.cow.ln +
-    mil.personnel.per.capita.cow.un.ln + gdp.per.mil.personnel.pwt.cow.ln,
-  data = index_ccpu_data, retx = T, center = T, scale. = T)
+  ~  mil.expenditure.per.capita.cow.un.ln + mil.expenditure.perc.gdp.cow.pwt.ln +
+    mil.expenditure.per.personnel.cow.cow.ln + mil.personnel.per.capita.cow.un.ln +
+    gdp.per.mil.personnel.pwt.cow.ln,
+  data = index_ccpu_data, retx = F, center = F, scale. = F)
 
 index_ccpu <- index_ccpu_data %>%
-  # combines principal component scores with PCA dataset
-  cbind(ccpu_pca[["x"]]) %>%
-  # drops 2nd-5th principal component scores
-  dplyr::select(-c(PC2,PC3,PC4,PC5)) %>%
-  # renames first principal component as mil.cap
-  dplyr::rename(mil.cap = PC1) %>%
-  # creates mil.cap.sq variable, the square of mil.cap
-  # this tests for extremes of military capacity - extremely strong/weak vs. average capacity
-  dplyr::mutate(mil.cap.sq = mil.cap^2)
+  dplyr::mutate(
+    mil.expenditure.per.capita.cow.un.ln = ccpu_pca$rotation[1,1] * mil.expenditure.per.capita.cow.un.ln,
+    mil.expenditure.perc.gdp.cow.pwt.ln = ccpu_pca$rotation[2,1] * mil.expenditure.perc.gdp.cow.pwt.ln,
+    mil.expenditure.per.personnel.cow.cow.ln = ccpu_pca$rotation[3,1] * mil.expenditure.per.personnel.cow.cow.ln,
+    mil.personnel.per.capita.cow.un.ln = ccpu_pca$rotation[4,1] * mil.personnel.per.capita.cow.un.ln,
+    gdp.per.mil.personnel.pwt.cow.ln = ccpu_pca$rotation[5,1] * gdp.per.mil.personnel.pwt.cow.ln,
+    mil.cap = mil.expenditure.per.capita.cow.un.ln + mil.expenditure.perc.gdp.cow.pwt.ln +
+      mil.expenditure.per.personnel.cow.cow.ln + mil.personnel.per.capita.cow.un.ln +
+      gdp.per.mil.personnel.pwt.cow.ln,
+    mil.cap.sq = mil.cap^2
+  )
+
+
+# index_ccpu <- index_ccpu_data %>%
+#   # combines principal component scores with PCA dataset
+#   cbind(ccpu_pca[["x"]]) %>%
+#   # drops 2nd-5th principal component scores
+#   dplyr::select(-c(PC2,PC3,PC4,PC5)) %>%
+#   # renames first principal component as mil.cap
+#   dplyr::rename(mil.cap = PC1) %>%
+#   # creates mil.cap.sq variable, the square of mil.cap
+#   # this tests for extremes of military capacity - extremely strong/weak vs. average capacity
+#   dplyr::mutate(mil.cap.sq = mil.cap^2)
 
 # test directionality of metric
 # invert direction if KWT 1992 is negative - higher value is higher capacity.
@@ -118,6 +207,7 @@ if(index_ccpu$mil.cap[index_ccpu$iso3c=="KWT"&index_ccpu$year==1992]<1){
   index_ccpu <- index_ccpu %>%
     dplyr::mutate(mil.cap = -1 * mil.cap)
 }
+
 
 #### write data ----------------------------------------------------------------------
 # writes formatted dataframe as csv files

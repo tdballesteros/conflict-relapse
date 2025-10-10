@@ -173,7 +173,7 @@ mpd <- mpd %>%
   dplyr::summarise(mpd.pop = sum(mpd.pop)) %>%
   dplyr::ungroup()
 
-#### Gleditsch ----------------------------------------------------------------------
+#### Gleditsch -------------------------------------------------------------------------------------
 
 pop.gl <- pop.gl %>%
   
@@ -295,12 +295,10 @@ pop_growth_estimator_func <- function(df = pd, estimate = "cow", iso, yr = 1950,
   # pull the relative estimate from which to base the proportions
   relative <- as.numeric(df[row_num, est_column_number])
   
-  prop_values <- relative * df[, ref_column_number] / baseline
-  
   df <- df %>%
     as.data.frame() %>%
     dplyr::mutate(
-      !!est_column := ifelse(iso3c == iso & is.na((!!sym(ref_column))) & year %in% restricted,
+      !!est_column := ifelse(iso3c == iso & is.na((!!sym(est_column))) & year %in% restricted,
                              relative * (!!sym(ref_column)) / baseline,
                              !!sym(est_column))
     )
@@ -1224,55 +1222,79 @@ tza.cow.growth.1963.1964 <- pd$cow.pop[pd$iso3c=="TZA" & pd$year==1964] /
 
 #### YEM/YAR/YPR: Yemen, North Yemen, and South Yemen ----------------------------------------------
 # COW contains estimates for YAR (1946-1990), YPR (1967-1990), and YEM (1990-2012)
-# UN contains combined estimates for YAR/YPR starting in 1950
+# UN contains combined estimates for YEM (combined) starting in 1950
 
 # Yemen coded as unified beginning in 1991
 
 # 1967-1990: calculate ratio between COW's YAR and YPR population estimates
 # and apply to UN's YEM estimates
 pd.yem.ratios <- pd %>%
-  dplyr::filter(iso3c %in% c("YAR","YPR"),
-                # only have COW YPR data starting in 1967 - year of independence
-                year >= 1967) %>%
+  dplyr::filter(
+    iso3c %in% c("YAR", "YPR"),
+    # only have COW YPR data starting in 1967 - year of independence
+    year %in% c(1967:1990)
+    ) %>%
   dplyr::group_by(year) %>%
   dplyr::mutate(cow.pop.combined = sum(cow.pop, na.rm = TRUE)) %>%
   dplyr::ungroup() %>%
   dplyr::mutate(cow.pop.ratio = cow.pop / cow.pop.combined) %>%
-  dplyr::select(-c(mpd.pop, gl.pop, un.pop.estimated, cow.pop.estimated))
+  dplyr::select(-c(mpd.pop, gl.pop, un.pop.estimated, cow.pop.estimated)) %>%
+  dplyr::pull(cow.pop.ratio)
 
-# pull 1967 ratios for use later
-pd.ratio.yar <- pd.yem.ratios$cow.pop.ratio[pd.yem.ratios$iso3c == "YAR" & pd.yem.ratios$year == 1967]
-pd.ratio.ypr <- pd.yem.ratios$cow.pop.ratio[pd.yem.ratios$iso3c == "YPR" & pd.yem.ratios$year == 1967]
+# assume 1950-1966 ratio is consistent with 1967 ratio
+pd.yem.ratios <- c(rep(pd.yem.ratios[1], 17), pd.yem.ratios)
 
-# pull UN 1967-1990 population estimates
-pd.yem.estimates <- pd %>%
-  dplyr::filter(iso3c == "YEM",
-                year %in% c(1967:1990)) %>%
-  dplyr::select(-c(iso3c, cow.pop, un.pop))
 
-# merge YEM estimates with YAR/YPR ratios
-pd.yem.ratios <- pd.yem.ratios %>%
-  dplyr::full_join(pd.yem.estimates, by = "year") %>%
-  # apply ratios to un.pop
-  dplyr::mutate(un.pop = un.pop * cow.pop.ratio) %>%
-  dplyr::select(-c(cow.pop.combined, cow.pop.ratio))
-
-# filter out YEM, YAR, and YPR 1967-1990 from main dataset and rbind
-# estimate dataset 
-pd <- pd %>%
-  dplyr::filter(iso3c %!in% c("YEM","YAR","YPR") | year %!in% c(1967:1990)) %>%
-  rbind(pd.yem.ratios)
-
-# apply 1967 ratio to UN YEM 1950-1966 estimates to calculate YAR estimates
-for(y in 1950:1966){
+# estimate YAR (1950-1990) un.pop values based on combined un.pop YEM values
+for(y in 1950:1990){
   
-  pd$un.pop[pd$iso3c == "YAR" & pd$year == y] <- pd$un.pop[pd$iso3c == "YEM" & pd$year == y] * pd.ratio.yar
-
+  pd$un.pop[pd$iso3c == "YAR" & pd$year == y] <- pd$un.pop[pd$iso3c == "YEM" & pd$year == y] * pd.yem.ratios[y - 1945]
+  
 }
 
-# filter out YEM 1950-1966 entries
-pd <- pd %>%
-  dplyr::filter(iso3c != "YEM" | year %!in% c(1950:1966))
+# estimate YPR (1967-1990) un.pop values based on combined un.pop YEM values
+for(y in 1967:1990){
+  
+  pd$un.pop[pd$iso3c == "YPR" & pd$year == y] <- pd$un.pop[pd$iso3c == "YEM" & pd$year == y] * (1 - pd.yem.ratios[y - 1945])
+  
+}
+
+# YAR 1946-1949: apply COW growth rates to UN estimates
+pd <- pop_growth_estimator_func(pd, estimate = "un", "YAR", yr = 1950, restricted = c(1946:1949))
+
+# pull 1967 ratios for use later
+# pd.ratio.yar <- pd.yem.ratios$cow.pop.ratio[pd.yem.ratios$iso3c == "YAR" & pd.yem.ratios$year == 1967]
+# pd.ratio.ypr <- pd.yem.ratios$cow.pop.ratio[pd.yem.ratios$iso3c == "YPR" & pd.yem.ratios$year == 1967]
+
+# # pull UN 1967-1990 population estimates
+# pd.yem.estimates <- pd %>%
+#   dplyr::filter(iso3c == "YEM",
+#                 year %in% c(1967:1990)) %>%
+#   dplyr::select(-c(iso3c, cow.pop, un.pop))
+# 
+# # merge YEM estimates with YAR/YPR ratios
+# pd.yem.ratios <- pd.yem.ratios %>%
+#   dplyr::full_join(pd.yem.estimates, by = "year") %>%
+#   # apply ratios to un.pop
+#   dplyr::mutate(un.pop = un.pop * cow.pop.ratio) %>%
+#   dplyr::select(-c(cow.pop.combined, cow.pop.ratio))
+# 
+# # filter out YEM, YAR, and YPR 1967-1990 from main dataset and rbind
+# # estimate dataset 
+# pd <- pd %>%
+#   dplyr::filter(iso3c %!in% c("YEM","YAR","YPR") | year %!in% c(1967:1990)) %>%
+#   rbind(pd.yem.ratios)
+
+# # apply 1967 ratio to UN YEM 1950-1966 estimates to calculate YAR estimates
+# for(y in 1950:1966){
+#   
+#   pd$un.pop[pd$iso3c == "YAR" & pd$year == y] <- pd$un.pop[pd$iso3c == "YEM" & pd$year == y] * pd.ratio.yar
+# 
+# }
+# 
+# # filter out YEM 1950-1966 entries
+# pd <- pd %>%
+#   dplyr::filter(iso3c != "YEM" | year %!in% c(1950:1966))
 
 # capture growth rates
 yem.un.growth.1990.1991 <- pd$un.pop[pd$iso3c == "YEM" & pd$year == 1991] /
@@ -1426,7 +1448,7 @@ estimate.un.1940s <- c(
 # 1946-1949: apply COW population growth rates to UN's 1950 population estimate
 for(iso in estimate.un.1940s){
   
-  pd <- pop_growth_estimator_func(pd, "un", iso, yr = 1950, restricted = c(1946:1949))
+  pd <- pop_growth_estimator_func(pd, "un", iso, yr = 1950, restricted = c(1949:1946))
   
 }
 
@@ -1460,11 +1482,11 @@ estimate.cow.2010s <- c(
   "UZB", "VCT", "VEN", "VNM", "VUT", "WSM", "YEM", "ZAF", "ZMB", "ZWE"
   )
 
-# 2013-2019: apply UN population growth rates to COW's 2012 population estimate
+# 2013-2019: apply UN population growth rates to COW's and UN's 2012 population estimate
 for(iso in estimate.cow.2010s){
   
   pd <- pop_growth_estimator_func(pd, "cow", iso, yr = 2012, restricted = c(2013:2019))
-  
+
 }
 
 ### calculate growth rates -------------------------------------------------------------------------
