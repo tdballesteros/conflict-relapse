@@ -52,6 +52,27 @@ efi <- efi %>%
 ### calculate missing countries / adjust values ----------------------------------------------------
 #### Cameroon --------------------------------------------------------------------------------------
 
+# Source: CIA World Factbook, accessed 9 Oct 2025
+efi_cmr_formatted <- readxl::read_xlsx("Data files/Raw data files/Ethnic_Composition.xlsx",
+                                       sheet = "CMR") %>%
+  # percents do not add up to 100 - reallocate based on % sum
+  dplyr::mutate(
+    Percent = Percent / sum(Percent, na.rm = TRUE),
+    perc_sq = Percent^2
+  )
+
+cmr_efi_est <- 1 - sum(efi_cmr_formatted$perc_sq, na.rm = TRUE)
+
+# add estimate to data
+cmr_efi_est_df <- data.frame(
+  iso3c = rep("CMR", 54),
+  year = c(1960:2013),
+  ethf = rep(cmr_efi_est, 54)
+)
+
+efi <- efi %>%
+  rbind(cmr_efi_est_df)
+
 #### Czechoslovakia --------------------------------------------------------------------------------
 # Czechoslovakia and Czechia coded as CZE; Slovakia coded as SVK beginning in 1993
 # no changes required
@@ -62,6 +83,26 @@ efi <- efi %>%
 # Eritrea's inclusion in ETH metrics before 1993
 
 #### France ----------------------------------------------------------------------------------------
+# source: https://en.wikipedia.org/wiki/Demographics_of_France
+efi_fra_formatted <- readxl::read_xlsx("Data files/Raw data files/Ethnic_Composition.xlsx",
+                                       sheet = "FRA") %>%
+  # percents do not add up to 100 - reallocate based on % sum
+  dplyr::mutate(
+    Percent = Percent / sum(Percent, na.rm = TRUE),
+    perc_sq = Percent^2
+  )
+
+fra_efi_est <- 1 - sum(efi_fra_formatted$perc_sq, na.rm = TRUE)
+
+# add estimate to data
+fra_efi_est_df <- data.frame(
+  iso3c = rep("FRA", 68),
+  year = c(1946:2013),
+  ethf = rep(fra_efi_est, 68)
+)
+
+efi <- efi %>%
+  rbind(fra_efi_est_df)
 
 #### Germany ---------------------------------------------------------------------------------------
 # West Germany and (unified) Germany coded as DEU 1949-2013; East Germany coded as DDR 1949-1990
@@ -108,6 +149,24 @@ efi <- efi %>%
 # MYS and SGP coded separately throughout time series, though SGP data starts in 1960
 
 #### Mozambique ------------------------------------------------------------------------------------
+# use primary language as a proxy
+
+# source: https://en.wikipedia.org/wiki/Languages_of_Mozambique#Largest_language_groups
+efi_moz_formatted <- readxl::read_xlsx("Data files/Raw data files/Ethnic_Composition.xlsx",
+                                       sheet = "MOZ") %>%
+  dplyr::mutate(perc_sq = (`Percentage of population` / 100)^2)
+
+moz_efi_est <- 1 - sum(efi_moz_formatted$perc_sq, na.rm = TRUE)
+
+# add estimate to data
+moz_efi_est_df <- data.frame(
+  iso3c = rep("MOZ", 39),
+  year = c(1975:2013),
+  ethf = rep(moz_efi_est, 39)
+)
+
+efi <- efi %>%
+  rbind(moz_efi_est_df)
 
 #### Pakistan/Bangladesh(x) ------------------------------------------------------------------------
 # BGD coded beginning in 1971
@@ -147,6 +206,21 @@ for(y in 1:24){
   efi$ethf[efi$iso3c == "PAK" & efi$year == y + 1946] <- est
   
 }
+
+#### Papua New Guinea ------------------------------------------------------------------------------
+# There are ~250 ethnic-linguist groups. Assume equal distribution and calculate index score.
+
+png_efi_est <- 250 * (1 / 250)^2
+
+# add estimate to data
+png_efi_est_df <- data.frame(
+  iso3c = rep("PNG", 39),
+  year = c(1975:2013),
+  ethf = rep(png_efi_est, 39)
+)
+
+efi <- efi %>%
+  rbind(png_efi_est_df)
 
 #### Serbia/Montenegro/Kosovo ----------------------------------------------------------------------
 efi_srb_formatted <- readxl::read_xlsx("Data files/Raw data files/Ethnic_Composition.xlsx",
@@ -280,6 +354,63 @@ ssd_efi_est_df <- data.frame(
 
 efi <- efi %>%
   rbind(ssd_efi_est_df)
+
+#### Suriname --------------------------------------------------------------------------------------
+# load data from Wikipedia: https://en.wikipedia.org/wiki/Demographics_of_Suriname#Ethnic_groups
+efi_sur <- readxl::read_xlsx("Data files/Raw data files/Ethnic_Composition.xlsx",
+                             sheet = "SUR",
+                             skip = 1)
+
+# rename
+names(efi_sur) <- c("ethnicity", "census1921", "census1921_perc", "census1950", "census1950_perc",
+                    "census1964", "census1964_perc", "census1972", "census1972_perc", "census1980",
+                    "census1980_perc", "census2004", "census2004_perc", "census2012",
+                    "census2012_perc")
+
+efi_sur <- efi_sur %>%
+  # select the 1972, 2004, and 2012 census counts; 1980 does not have demographic breakdowns
+  dplyr::select(ethnicity, census1972, census2004, census2012) %>%
+  tidyr::pivot_longer(2:4, names_to = "year", values_to = "count") %>%
+  dplyr::mutate(year = dplyr::case_when(
+    year == "census1972" ~ 1972,
+    year == "census2004" ~ 2004,
+    year == "census2012" ~ 2012,
+    .default = as.numeric(year)
+  )) %>%
+  # expand df to contain all ethnicity values for years 1972-2013
+  dplyr::full_join(expand.grid(ethnicity = unique(efi_sur$ethnicity), year = c(1972:2013))) %>%
+  dplyr::arrange(year) %>%
+  dplyr::group_by(ethnicity) %>%
+  dplyr::mutate(count = zoo::na.approx(count, na.rm = FALSE)) %>%
+  dplyr::ungroup()
+
+for(e in unique(efi_sur$ethnicity)){
+  
+  efi_sur$count[efi_sur$ethnicity == e & efi_sur$year == 2013] <- efi_sur$count[efi_sur$ethnicity == e &
+                                                                                  efi_sur$year == 2012]
+  
+}
+
+# calculate annual percentages
+efi_sur <- efi_sur %>%
+  dplyr::group_by(year) %>%
+  dplyr::summarise(
+    perc = count / sum(count, na.rm = TRUE),
+    perc_sq = perc^2
+  ) %>%
+  dplyr::ungroup() %>%
+  dplyr::group_by(year) %>%
+  dplyr::summarise(
+    ethf = sum(perc_sq)
+  ) %>%
+  dplyr::ungroup() %>%
+  dplyr::mutate(
+    iso3c = "SUR"
+  )
+
+# append SUR estimates
+efi <- efi %>%
+  rbind(efi_sur)
 
 #### Tanzania/Zanzibar -----------------------------------------------------------------------------
 # Zanzibar data is missing
