@@ -1,5 +1,5 @@
 
-# This script formats UCDP's conflict dataset.
+# This script formats UCDP's conflict dataset version 20.1.
 
 
 ### load libraries ---------------------------------------------------------------------------------
@@ -15,133 +15,97 @@ ucdp_original <- read.csv("Data files/Raw data files/ucdp-prio-acd-201.csv")
 
 ### format data ------------------------------------------------------------------------------------
 ucdp <- ucdp_original %>%
-  dplyr::select(confid = conflict_id, country = side_a, year, intensity = intensity_level,
-                type_of_conflict) %>%
   # Remove colonial/imperial wars and interstate conflict
   dplyr::filter(type_of_conflict > 2) %>%
-  dplyr::select(-type_of_conflict) %>%
-  dplyr::arrange(confid, year) %>%
+  # drop unneeded variables and rename
+  dplyr::select(confid = conflict_id, country = side_a, year, intensity = intensity_level,
+                initial_start_date = start_date, episode_start_date = start_date2,
+                end_date = ep_end_date, ucdp_region = region) %>%
   dplyr::mutate(
     country = gsub(pattern = "Government of ", replacement = "", country),
-    confid = as.factor(confid),
+    confid = as.character(confid),
+    # replace blank end_date values with NA
+    end_date = ifelse(end_date == "", NA, end_date),
     # using the countrycode package, add iso3c based on country name
     iso3c = dplyr::case_when(
-      country == "Hyderabad" ~ "IND",
+      country == "Congo"~ "COG",
+      country == "Russia (Soviet Union)" & year < 1991 ~ "SOV",
+      country == "Russia (Soviet Union)" & year >= 1991 ~ "RUS",
+      country == "Serbia (Yugoslavia)" & year < 1992 ~ "YUG",
+      country == "Serbia (Yugoslavia)" & year >= 1992 ~ "SRB",
       country == "South Vietnam" ~ "RVN",
       country == "South Yemen" ~ "YPR",
       country == "Yemen (North Yemen)" & year < 1991 ~ "YAR",
       country == "Yemen (North Yemen)" & year >= 1991 ~ "YEM",
-      .default = countrycode::countrycode(country,"country.name","iso3c")
-      )) %>%
+      # collapse the state of Hyderabad into India
+      country == "Hyderabad" ~ "IND",
+      # multilateral coalitions fighting against a non-stage group - code iso3c as NA
+      country == "Australia, United Kingdom, United States of America" ~ NA,
+      country == "Egypt, Iraq, Jordan, Lebanon, Syria" ~ NA,
+      country == "United Kingdom, United States of America" ~ NA,
+      .default = countrycode::countrycode(country, "country.name", "iso3c", warn = FALSE)
+    )) %>%
   dplyr::relocate(iso3c, .before = country) %>%
   dplyr::select(-country) %>%
   dplyr::mutate(
+    # recode iso3c codes for select conflict ids
+    iso3c = dplyr::case_when(
+      confid == "210" ~ "EST",
+      confid == "211" ~ "LVA",
+      confid == "212" ~ "LTU",
+      confid == "213" ~ "UKR",
+      confid == "230" ~ "YAR",
+      confid == "376" ~ "AZE",
+      confid == "377" ~ "AZE",
+      confid == "384" ~ "SVN",
+      confid == "385" ~ "HRV",
+      confid == "402" ~ "YPR",
+      confid == "412" ~ "SRB",
+      confid == "13645" ~ "YAR",
+      .default = iso3c
+    ),
     # using the countrycode package, add country name based on iso3c code
     country = dplyr::case_when(
       iso3c == "RVN" ~ "South Vietnam",
       iso3c == "YAR" ~ "North Yemen",
       iso3c == "YPR" ~ "South Yemen",
+      iso3c == "SOV" ~ "Soviet Union",
+      iso3c == "YUG" ~ "Yugoslavia",
       .default = countrycode::countrycode(iso3c,"iso3c","country.name")
-      )) %>%
-  dplyr::relocate(country, .after = iso3c)
-
-
-### recode countries -------------------------------------------------------------------------------
-#### Soviet Union + successors ---------------------------------------------------------------------
-# recode SSRs in the Soviet Union from RUS to the specific SSR
-
-# 210 - EST (SOV)
-ucdp$country[ucdp$confid == "210"] <- "Estonia"
-ucdp$iso3c[ucdp$confid == "210"] <- "EST"
-
-# 211 - LVA (SOV)
-ucdp$country[ucdp$confid == "211"] <- "Latvia"
-ucdp$iso3c[ucdp$confid == "211"] <- "LVA"
-
-# 212 - LTU (SOV)
-ucdp$country[ucdp$confid == "212"] <- "Lithuania"
-ucdp$iso3c[ucdp$confid == "212"] <- "LTU"
-
-# 213 - UKR (SOV)
-ucdp$country[ucdp$confid == "213"] <- "Ukraine"
-ucdp$iso3c[ucdp$confid == "213"] <- "UKR"
-
-# 376 - AZE (SOV)
-ucdp$country[ucdp$confid == "376"] <- "Azerbaijan"
-ucdp$iso3c[ucdp$confid == "376"] <- "AZE"
-
-# 377 - AZE (SOV)
-ucdp$country[ucdp$confid == "377"] <- "Azerbaijan"
-ucdp$iso3c[ucdp$confid == "377"] <- "AZE"
-
-# keep coded as RUS: 399, 401, 414, 432, 13588
-
-#### Yemen -----------------------------------------------------------------------------------------
-# recode into YAR or YPR
-
-# 13645 - YEM (coding as YAR)
-ucdp$country[ucdp$confid == "13645"] <- "North Yemen"
-ucdp$iso3c[ucdp$confid == "13645"] <- "YAR"
-
-# 230 - YAR
-ucdp$country[ucdp$confid == "230"] <- "North Yemen"
-ucdp$iso3c[ucdp$confid == "230"] <- "YAR"
-
-# 359 - YPR
-ucdp$country[ucdp$confid == "359"] <- "South Yemen"
-ucdp$iso3c[ucdp$confid == "235930"] <- "YPR"
-
-# 402 - YEM (coding as YPR)
-ucdp$country[ucdp$confid == "402"] <- "South Yemen"
-ucdp$iso3c[ucdp$confid == "402"] <- "YPR"
-
-#### Yugoslavia + successors -----------------------------------------------------------------------
-# recode republics of Yugoslavia from SRB to the specific republic
-
-# 384 - SVN
-ucdp$country[ucdp$confid == "384"] <- "Slovenia"
-ucdp$iso3c[ucdp$confid == "384"] <- "SVN"
-
-# 385 - HRV
-ucdp$country[ucdp$confid == "385"] <- "Croatia"
-ucdp$iso3c[ucdp$confid == "385"] <- "HRV"
-
-# 412 - SRB
-ucdp$country[ucdp$confid == "412"] <- "Serbia"
-ucdp$iso3c[ucdp$confid == "412"] <- "SRB"
-
-
-### expand dataset ---------------------------------------------------------------------------------
-ucdp <- ucdp %>%
+      ),
+    # recode numeric-coded variables to string values
+    ucdp_region = dplyr::case_match(
+      ucdp_region,
+      "1" ~ "Europe",
+      "2" ~ "Middle East",
+      "3" ~ "Asia",
+      "4" ~ "Africa",
+      "5" ~ "Americas",
+      .default = NA
+    ),
+    # recast time variable values as time instead of character
+    initial_start_date = as.POSIXct(initial_start_date, origin = "1970-01-01", tz = "UTC"),
+    episode_start_date = as.POSIXct(episode_start_date, origin = "1970-01-01", tz = "UTC"),
+    end_date = as.POSIXct(end_date, origin = "1970-01-01", tz = "UTC")
+    ) %>%
+  dplyr::relocate(country, .after = iso3c) %>%
+  dplyr::arrange(confid, year) %>%
   # expand dataset to have entries for each conflict id for all years 1946-2019
   dplyr::full_join(expand.grid(confid = unique(ucdp$confid), year = c(1946:2019))) %>%
   dplyr::mutate(
     # create binary conflict variable based on intensity variable from source dataset
-    conflict = ifelse(intensity %in% c(1:2), 1, 0),
+    conflict = ifelse(!is.na(intensity), 1, 0),
     # fill entries without intensity coding as 0
     intensity = ifelse(is.na(intensity), 0, intensity)
-    )
-
-list_of_conflicts_and_countries <- ucdp %>%
-  dplyr::select(confid, iso3c, country) %>%
-  na.omit() %>%
-  unique()
-
-# add iso3c and country names to newly expanded dataset to fill in missing iso3c/country values
-ucdp <- ucdp %>%
-  dplyr::select(-c(iso3c, country)) %>%
-  dplyr::full_join(list_of_conflicts_and_countries, by = "confid") %>%
-  dplyr::select(confid, iso3c, country, year, conflict, intensity)
-  
-list_of_conflicts <- list_of_conflicts_and_countries %>%
-  dplyr::pull(confid)
+    ) %>%
+  dplyr::arrange(confid, year)
 
 
 ### fill short peace gaps --------------------------------------------------------------------------
 # replaces one-year peace intervals with continued conflict, per literature standard
 ucdp2 <- data.frame()
 
-for(i in list_of_conflicts){
+for(i in unique(ucdp$confid)){
   
   tmp <- ucdp %>%
     dplyr::filter(confid == i) %>%
@@ -171,123 +135,74 @@ for(i in list_of_conflicts){
 
 
 ### create peace/conflict groupings ----------------------------------------------------------------
-ucdp3 <- data.frame()
-
-for(i in list_of_conflicts){
-  
-  tmp <- ucdp2 %>%
-    dplyr::filter(confid == i) %>%
-    dplyr::arrange(year)
-  
-  index <- c(TRUE, diff(tmp$conflict) != 0)
-  index <- cumsum(index)
-  
-  tmp$grouping <- index
-  
-  ucdp3 <- rbind(ucdp3, tmp)
-  
-}
-
-# filter out first grouping if it is not a conflict, as this is before the
-# initial outbreak of conflict
-ucdp3 <- ucdp3 %>%
-  dplyr::filter(grouping != 1 | conflict == 1)
-
-
-### remove unneeded conflict year entries ----------------------------------------------------------
-ucdp3 <- ucdp3 %>%
-  dplyr::mutate(remove = NA)
-
-ucdp4 <- data.frame()
-
-for(i in list_of_conflicts){
-  
-  tmp <- ucdp3 %>%
-    dplyr::filter(confid == i)
-  
-  if(nrow(tmp) > 1){
-  for(k in 2:nrow(tmp)){
-    
-    # if the previous and current year are both coded as conflict...
-    if(tmp$conflict[k - 1] == 1 && tmp$conflict[k] == 1){
-      
-      # flag current year for removal from dataset
-      tmp$remove[k] <- 1
-      
-      }
-     }
-    }
-
-  ucdp4 <- rbind(ucdp4,tmp)
-
-  }
-
-# remove flagged entries
-ucdp4 <- ucdp4 %>%
-  dplyr::filter(is.na(remove)) %>%
-  dplyr::select(-remove)
-
-
-### create summary table ---------------------------------------------------------------------------
-ucdp5 <- ucdp4 %>%
-  dplyr::group_by(confid, conflict, grouping) %>%
+ucdp2 <- ucdp2 %>%
+  dplyr::group_by(confid) %>%
   dplyr::mutate(
-    years = paste(min(year), "-", max(year)),
-    intensity = max(intensity)
-    ) %>%
+    group_id = cumsum(conflict != dplyr::lag(conflict) | is.na(lag(conflict)))
+  )
+
+
+### format full conflict dataset -------------------------------------------------------------------
+# pull iso3c, country, initial_start_date, and ucdp_region for each confid
+confid_data <- ucdp2 %>%
+  dplyr::group_by(confid) %>%
+  dplyr::summarise(
+    iso3c = max(iso3c, na.rm = TRUE),
+    country = max(country, na.rm = TRUE),
+    initial_start_date = max(initial_start_date, na.rm = TRUE),
+    ucdp_region = max(ucdp_region, na.rm = TRUE),
+  )
+
+conflict_full_data <- ucdp2 %>%
+  dplyr::select(-c(iso3c, country, initial_start_date, ucdp_region)) %>%
+  dplyr::left_join(confid_data, by = "confid") %>%
+  dplyr::select(confid, iso3c, country, year, conflict, conflict_recoded, group_id, intensity,
+                ucdp_region) %>%
+  dplyr::arrange(confid, year)
+
+
+### collapse by groupings --------------------------------------------------------------------------
+ucdp3 <- ucdp2 %>%
+  dplyr::group_by(confid, group_id) %>%
+  dplyr::summarise(
+    start_year = min(year, na.rm = TRUE),
+    end_year = max(year, na.rm = TRUE),
+    conflict = first(conflict, na.rm = TRUE),
+    intensity = max(intensity, na.rm = TRUE),
+    episode_start_date = min(episode_start_date, na.rm = TRUE),
+    end_date = max(end_date, na.rm = TRUE),
+    .groups = 'drop'
+  ) %>%
   dplyr::ungroup() %>%
-  dplyr::group_by(confid, conflict, years) %>%
-  dplyr::summarise(length = n()) %>%
-  dplyr::ungroup() %>%
-  dplyr::arrange(confid, years) %>%
-  dplyr::full_join(list_of_conflicts_and_countries, by = "confid") %>%
+  # merge in confid-wide variables
+  dplyr::left_join(confid_data, by = "confid") %>%
   dplyr::mutate(
-    yrstart = as.numeric(stringr::str_sub(years, start = 1, end = 4)),
-    yrend = as.numeric(stringr::str_sub(years, start = -4))
+    # fix -Inf values
+    dplyr::across(dplyr::everything(), .fns = ~ replace(., is.infinite(.), NA)),
+    # calculate additional metrics
+    episode_length_in_months = as.numeric(lubridate::interval(episode_start_date, end_date) /
+                                            base::months(1)),
+    episode_length_in_years = end_year - start_year,
+    total_conflict_length_in_months = as.numeric(lubridate::interval(initial_start_date, end_date) /
+                                                   base::months(1)),
+    years = paste0(start_year, "–", end_year),
+    length = end_year - start_year + 1
     ) %>%
-  dplyr::relocate(iso3c, .after = confid) %>%
-  dplyr::relocate(country, .after = iso3c)
+  dplyr::arrange(confid, start_year) %>%
+  dplyr::select(confid, iso3c, country, start_year, end_year, years, length, conflict, group_id,
+                ucdp_region, intensity, initial_start_date, episode_start_date, end_date,
+                episode_length_in_months, episode_length_in_years, total_conflict_length_in_months)
 
 
 ### write data -------------------------------------------------------------------------------------
 # writes formatted dataframes as csv files
-write.csv(ucdp3, "Data files/Formatted data files/conflict_full_data.csv", row.names = FALSE)
-write.csv(ucdp4, "Data files/Formatted data files/conflict_years.csv", row.names = FALSE)
-write.csv(ucdp5, "Data files/Formatted data files/conflict_table.csv", row.names = FALSE)
 
+# full conflict data by confid-year
+write.csv(conflict_full_data,
+          "Data files/Formatted data files/conflict_full_data.csv",
+          row.names = FALSE)
 
-# #### termination data on ucdp4 ####
-# term <- read_excel("~/Documents/conflict_outcomes2.xlsx") %>%
-#   select(-reason)
-# term$confid <- as.character(term$confid)
-# 
-# term$outcome[is.na(term$outcome)] <- -1
-# 
-# ucdp4a <- ucdp4 %>%
-#   full_join(term,by=c("confid","year")) %>%
-#   arrange(year) %>%
-#   arrange(confid)
-# 
-# for(i in 2:nrow(ucdp4a)){
-#   if(is.na(ucdp4a$outcome[i])){
-#     ucdp4a$outcome[i] <- ucdp4a$outcome[i-1]
-#   }
-# }
-# 
-# ucdp4a <- ucdp4a %>%
-#   pivot_wider(names_from = outcome, values_from = outcome)
-# 
-# ucdp4a$`6`[!is.na(ucdp4a$`6`)] <- 1
-# ucdp4a$`5`[!is.na(ucdp4a$`5`)] <- 1
-# ucdp4a$`4`[!is.na(ucdp4a$`4`)] <- 1
-# ucdp4a$`3`[!is.na(ucdp4a$`3`)] <- 1
-# ucdp4a$`2`[!is.na(ucdp4a$`2`)] <- 1
-# ucdp4a$`1`[!is.na(ucdp4a$`1`)] <- 1
-# ucdp4a$`-1`[!is.na(ucdp4a$`-1`)] <- 1
-# ucdp4a$`6`[is.na(ucdp4a$`6`)] <- 0
-# ucdp4a$`5`[is.na(ucdp4a$`5`)] <- 0
-# ucdp4a$`4`[is.na(ucdp4a$`4`)] <- 0
-# ucdp4a$`3`[is.na(ucdp4a$`3`)] <- 0
-# ucdp4a$`2`[is.na(ucdp4a$`2`)] <- 0
-# ucdp4a$`1`[is.na(ucdp4a$`1`)] <- 0
-# ucdp4a$`-1`[is.na(ucdp4a$`-1`)] <- 0
+# collapsed conflict data by confid episode
+write.csv(ucdp3,
+          "Data files/Formatted data files/conflict_table.csv",
+          row.names = FALSE)
