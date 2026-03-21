@@ -394,7 +394,7 @@ conflict_variables <- dplyr::full_join(years_since_conf, other_conf, by = c("con
   dplyr::full_join(prev_relap, by = c("confid", "iso3c", "year")) %>%
   dplyr::full_join(conf_length2, by = c("confid", "iso3c", "year")) %>%
   dplyr::full_join(conflict_termination, by = c("confid", "iso3c", "year")) %>%
-  dplyr::full_join(conflict_termination2, by = c("confid", "iso3c", "year"))
+  dplyr::full_join(conflict_termination2, by = c("confid", "iso3c", "year", "conflict"))
 
   
 ### write data -------------------------------------------------------------------------------------

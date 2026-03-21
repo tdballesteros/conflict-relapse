@@ -28,14 +28,16 @@ shadow_economy <- read.csv("Data files/Formatted data files/shadow_economy.csv")
 energy_and_steel <- read.csv("Data files/Formatted data files/energy_and_steel.csv")
 ethnic_fractionalization <- read.csv("Data files/Formatted data files/ethnic_fractionalization.csv")
 oil <- read.csv("Data files/Formatted data files/oil.csv")
-bureaucratic_capacity <- read.csv("Data files/Formatted data files/icrg_bureaucratic_capacity.csv")
+icrg_bureaucracy <- read.csv("Data files/Formatted data files/icrg_bureaucratic_capacity.csv")
+battle_deaths <- read.csv("Data files/Formatted data files/battle_related_deaths.csv")
 
 military_capacity_ccpu <- read.csv("Data files/Formatted data files/military_capacity_index_ccpu.csv")
 fiscal_capacity <- read.csv("Data files/Formatted data files/fiscal_capacity_index.csv")
+bureaucratic_capacity <- read.csv("Data files/Formatted data files/bureaucratic_capacity_index.csv")
 
+conflict_names <- read.csv("Data files/Formatted data files/conflict_names.csv")
 conflict_variables <- read.csv("Data files/Formatted data files/conflict_variables.csv")
 conflict_table <- read.csv("Data files/Formatted data files/conflict_table.csv")
-conflict_years <- read.csv("Data files/Formatted data files/conflict_years.csv")
 conflict_issues <- read.csv("Data files/Formatted data files/conflict_issues.csv")
 
 
@@ -59,7 +61,7 @@ country_region <- country_regions3 %>%
 
 # POPULATION
 population <- population %>%
-  dplyr::select(iso3c, start_year = year, un.pop, cow.pop) %>%
+  dplyr::select(iso3c, year, un.pop, cow.pop) %>%
   dplyr::mutate(
     un.pop.log = log(un.pop),
     cow.pop.log = log(cow.pop)
@@ -68,146 +70,151 @@ population <- population %>%
 # SOV fixes
 population <- population %>%
   dplyr::filter(iso3c %!in% c("EST", "LVA", "LTU", "BLR", "UKR", "MDA", "RUS", "GEO", "ARM",
-                              "AZE", "KAZ", "KGZ", "TJK", "TKM", "UZB") | start_year >= 1991) %>%
+                              "AZE", "KAZ", "KGZ", "TJK", "TKM", "UZB") | year >= 1991) %>%
   rbind(
     population %>%
-      dplyr::filter(iso3c == "SOV" & start_year %in% c(1946:1990)) %>%
+      dplyr::filter(iso3c == "SOV" & year %in% c(1946:1990)) %>%
       dplyr::mutate(iso3c = "EST"),
     population %>%
-      dplyr::filter(iso3c == "SOV" & start_year %in% c(1946:1990)) %>%
+      dplyr::filter(iso3c == "SOV" & year %in% c(1946:1990)) %>%
       dplyr::mutate(iso3c = "LVA"),
     population %>%
-      dplyr::filter(iso3c == "SOV" & start_year %in% c(1946:1990)) %>%
+      dplyr::filter(iso3c == "SOV" & year %in% c(1946:1990)) %>%
       dplyr::mutate(iso3c = "LTU"),
     population %>%
-      dplyr::filter(iso3c == "SOV" & start_year %in% c(1946:1990)) %>%
+      dplyr::filter(iso3c == "SOV" & year %in% c(1946:1990)) %>%
       dplyr::mutate(iso3c = "BLR"),
     population %>%
-      dplyr::filter(iso3c == "SOV" & start_year %in% c(1946:1990)) %>%
+      dplyr::filter(iso3c == "SOV" & year %in% c(1946:1990)) %>%
       dplyr::mutate(iso3c = "UKR"),
     population %>%
-      dplyr::filter(iso3c == "SOV" & start_year %in% c(1946:1990)) %>%
+      dplyr::filter(iso3c == "SOV" & year %in% c(1946:1990)) %>%
       dplyr::mutate(iso3c = "MDA"),
     population %>%
-      dplyr::filter(iso3c == "SOV" & start_year %in% c(1946:1990)) %>%
+      dplyr::filter(iso3c == "SOV" & year %in% c(1946:1990)) %>%
       dplyr::mutate(iso3c = "RUS"),
     population %>%
-      dplyr::filter(iso3c == "SOV" & start_year %in% c(1946:1990)) %>%
+      dplyr::filter(iso3c == "SOV" & year %in% c(1946:1990)) %>%
       dplyr::mutate(iso3c = "GEO"),
     population %>%
-      dplyr::filter(iso3c == "SOV" & start_year %in% c(1946:1990)) %>%
+      dplyr::filter(iso3c == "SOV" & year %in% c(1946:1990)) %>%
       dplyr::mutate(iso3c = "ARM"),
     population %>%
-      dplyr::filter(iso3c == "SOV" & start_year %in% c(1946:1990)) %>%
+      dplyr::filter(iso3c == "SOV" & year %in% c(1946:1990)) %>%
       dplyr::mutate(iso3c = "AZE"),
     population %>%
-      dplyr::filter(iso3c == "SOV" & start_year %in% c(1946:1990)) %>%
+      dplyr::filter(iso3c == "SOV" & year %in% c(1946:1990)) %>%
       dplyr::mutate(iso3c = "KAZ"),
     population %>%
-      dplyr::filter(iso3c == "SOV" & start_year %in% c(1946:1990)) %>%
+      dplyr::filter(iso3c == "SOV" & year %in% c(1946:1990)) %>%
       dplyr::mutate(iso3c = "KGZ"),
     population %>%
-      dplyr::filter(iso3c == "SOV" & start_year %in% c(1946:1990)) %>%
+      dplyr::filter(iso3c == "SOV" & year %in% c(1946:1990)) %>%
       dplyr::mutate(iso3c = "TJK"),
     population %>%
-      dplyr::filter(iso3c == "SOV" & start_year %in% c(1946:1990)) %>%
+      dplyr::filter(iso3c == "SOV" & year %in% c(1946:1990)) %>%
       dplyr::mutate(iso3c = "TKM"),
     population %>%
-      dplyr::filter(iso3c == "SOV" & start_year %in% c(1946:1990)) %>%
+      dplyr::filter(iso3c == "SOV" & year %in% c(1946:1990)) %>%
       dplyr::mutate(iso3c = "UZB")
   )
 
 # GDP
-gdp <- gdp %>%
-  dplyr::rename(start_year = year)
+# gdp <- gdp %>%
+#   dplyr::rename(start_year = year)
 
 # GDP PER CAPITA
 gdppc <- gdppc %>%
-  dplyr::select(iso3c, start_year = year, gdppc.pwt.un, gdppc.pwt.cow, gdppc.gl.un, gdppc.gl.cow) %>%
+  dplyr::select(iso3c, year, gdppc.pwt.un, gdppc.pwt.cow, gdppc.gl.un, gdppc.gl.cow) %>%
   dplyr::filter(!is.na(gdppc.pwt.un) & !is.na(gdppc.pwt.cow) & !is.na(gdppc.gl.un) & !is.na(gdppc.gl.cow))
 
 # POLITY
 polity <- polity %>%
-  dplyr::select(-country) %>%
-  dplyr::rename(start_year = year)
+  dplyr::select(-country) # %>%
+  # dplyr::rename(start_year = year)
 
 # VDEM
-vdem_hl <- vdem_hl %>%
-  dplyr::rename(start_year = year)
+# vdem_hl <- vdem_hl %>%
+#   dplyr::rename(start_year = year)
 
 # PKO
 pko <- pko %>%
-  dplyr::select(iso3c, start_year = year, pko_mission)
+  dplyr::select(iso3c, year, pko_mission)
 
 # POPULATION DENSITY
-pop_density <- pop_density %>%
-  dplyr::rename(start_year = year)
+# pop_density <- pop_density %>%
+#   dplyr::rename(start_year = year)
 
 # ELECTIONS
 elec <- elec %>%
-  dplyr::select(-country) %>%
-  dplyr::rename(start_year = year)
+  dplyr::select(-country) # %>%
+  # dplyr::rename(start_year = year)
 
 # AID
-aid <- aid %>%
-  dplyr::rename(start_year = year)
+# aid <- aid %>%
+#   dplyr::rename(start_year = year)
 
 # code SOV aid as $0
 aid$aid_value[aid$iso3c == "SOV"] <- 0
 
 # TAX REVENUE
 tax_revenue <- tax_revenue %>%
-  dplyr::select(-country) %>%
-  dplyr::rename(start_year = year)
+  dplyr::select(-country) # %>%
+  # dplyr::rename(start_year = year)
 
 # TRADE VOLUME
-trade_volume <- trade_volume %>%
-  dplyr::rename(start_year = year)
+# trade_volume <- trade_volume %>%
+#   dplyr::rename(start_year = year)
 
 # SHADOW ECONOMY
-shadow_economy <- shadow_economy %>%
-  dplyr::rename(start_year = year)
+# shadow_economy <- shadow_economy %>%
+#   dplyr::rename(start_year = year)
 
 # ENERGY AND STEEL
-energy_and_steel <- energy_and_steel %>%
-  dplyr::rename(start_year = year)
+# energy_and_steel <- energy_and_steel %>%
+#   dplyr::rename(start_year = year)
 
 # ETHNIC FRACTIONALIZATION
-ethnic_fractionalization <- ethnic_fractionalization %>%
-  dplyr::rename(start_year = year)
+# ethnic_fractionalization <- ethnic_fractionalization %>%
+#   dplyr::rename(start_year = year)
 
 # OIL
-oil <- oil %>%
-  dplyr::rename(start_year = year)
+# oil <- oil %>%
+#   dplyr::rename(start_year = year)
 
 # BUREAU CAP
-bureaucratic_capacity <- bureaucratic_capacity %>%
-  dplyr::rename(start_year = year)
+# icrg_bureaucracy <- icrg_bureaucracy %>%
+#   dplyr::rename(start_year = year)
 
 # MILITARY CAPACITY
-military_capacity_ccpu <- military_capacity_ccpu %>%
-  dplyr::rename(start_year = year)
+# military_capacity_ccpu <- military_capacity_ccpu %>%
+#   dplyr::rename(start_year = year)
 
 # FISCAL CAPACITY
-fiscal_capacity <- fiscal_capacity %>%
-  dplyr::rename(start_year = year)
+# fiscal_capacity <- fiscal_capacity %>%
+#   dplyr::rename(start_year = year)
 
 # CONFLICT VARIABLES
-cv <- conflict_variables %>%
-  dplyr::rename(start_year = year)
+# cv <- conflict_variables %>%
+#   dplyr::rename(start_year = year)
 
 # CONFLICT TABLE
 ct <- conflict_table %>%
-  dplyr::filter(conflict == 0) %>%
+  dplyr::filter(
+    conflict == 0,
+    group_id != 1
+    ) %>%
+  dplyr::rename(year = start_year) %>%
   dplyr::mutate(ongoing_peace = ifelse(end_year == 2019, 1, 0)) %>%
   dplyr::group_by(confid, iso3c) %>%
   dplyr::mutate(id = dplyr::row_number()) %>%
   dplyr::ungroup() %>%
   dplyr::mutate(uniqueid = paste0(confid, iso3c, id)) %>%
   dplyr::group_by(confid, conflict) %>%
-  dplyr::arrange(start_year) %>%
+  dplyr::arrange(year) %>%
   dplyr::mutate(episode = row_number()) %>%
-  dplyr::ungroup()
+  dplyr::ungroup() %>%
+  dplyr::full_join(conflict_names, by = "confid")
 
 # CONFLICT ISSUES
 # conflict_issues <- conflict_issues %>%
@@ -238,39 +245,40 @@ ct <- conflict_table %>%
 
 # merge data
 merge_df <- gdp %>%
-  dplyr::left_join(population, by = c("iso3c", "start_year")) %>%
-  dplyr::left_join(gdppc, by = c("iso3c", "start_year")) %>%
-  dplyr::left_join(polity, by = c("iso3c", "start_year")) %>%
-  dplyr::left_join(vdem_hl, by = c("iso3c", "start_year")) %>%
-  dplyr::left_join(pko, by = c("iso3c", "start_year")) %>%
-  dplyr::left_join(pop_density, by = c("iso3c", "start_year")) %>%
-  dplyr::left_join(elec, by = c("iso3c", "start_year")) %>%
-  dplyr::left_join(aid, by = c("iso3c", "start_year")) %>%
-  # dplyr::left_join(tax_revenue, by = c("iso3c", "start_year")) %>%
-  dplyr::left_join(trade_volume, by = c("iso3c", "start_year")) %>%
-  dplyr::left_join(shadow_economy, by = c("iso3c", "start_year")) %>%
-  dplyr::left_join(energy_and_steel, by = c("iso3c", "start_year")) %>%
-  dplyr::left_join(ethnic_fractionalization, by = c("iso3c", "start_year")) %>%
-  dplyr::left_join(oil, by = c("iso3c", "start_year")) %>%
-  dplyr::left_join(bureaucratic_capacity, by = c("iso3c", "start_year")) %>%
-  dplyr::left_join(military_capacity_ccpu, by = c("iso3c", "start_year")) # %>%
-  # dplyr::left_join(fiscal_capacity, by = c("iso3c", "start_year"))
+  dplyr::left_join(population, by = c("iso3c", "year")) %>%
+  dplyr::left_join(gdppc, by = c("iso3c", "year")) %>%
+  dplyr::left_join(polity, by = c("iso3c", "year")) %>%
+  dplyr::left_join(vdem_hl, by = c("iso3c", "year")) %>%
+  dplyr::left_join(pko, by = c("iso3c", "year")) %>%
+  dplyr::left_join(pop_density, by = c("iso3c", "year")) %>%
+  dplyr::left_join(elec, by = c("iso3c", "year")) %>%
+  dplyr::left_join(aid, by = c("iso3c", "year")) %>%
+  # dplyr::left_join(tax_revenue, by = c("iso3c", "year")) %>%
+  dplyr::left_join(trade_volume, by = c("iso3c", "year")) %>%
+  dplyr::left_join(shadow_economy, by = c("iso3c", "year")) %>%
+  dplyr::left_join(energy_and_steel, by = c("iso3c", "year")) %>%
+  dplyr::left_join(ethnic_fractionalization, by = c("iso3c", "year")) %>%
+  dplyr::left_join(oil, by = c("iso3c", "year")) %>%
+  dplyr::left_join(icrg_bureaucracy, by = c("iso3c", "year")) %>%
+  dplyr::left_join(military_capacity_ccpu, by = c("iso3c", "year")) %>%
+  dplyr::left_join(bureaucratic_capacity, by = c("iso3c", "year")) # %>%
+  # dplyr::left_join(fiscal_capacity, by = c("iso3c", "year"))
 
 # x <- merge_df %>%
-#   dplyr::group_by(iso3c, start_year) %>%
+#   dplyr::group_by(iso3c, year) %>%
 #   dplyr::tally()
 
 # append SOV duplicates for post-Soviet countries using the iso3c code for data 1946-1990
 merge_df_sov <- merge_df %>%
   dplyr::filter(
     iso3c == "SOV",
-    start_year <= 1990
+    year <= 1990
     )
 
 merge_df <- merge_df %>%
   dplyr::filter(
     iso3c %!in% c("ARM", "AZE", "BLR", "EST", "GEO", "KAZ", "KGZ", "LTU", "LVA", "MDA", "RUS",
-                  "TJK", "TKM", "UKR", "UZB") | start_year >= 1991
+                  "TJK", "TKM", "UKR", "UZB") | year >= 1991
   ) %>%
   rbind(merge_df_sov %>%
           dplyr::mutate(iso3c = "ARM")) %>%
@@ -307,12 +315,12 @@ merge_df <- merge_df %>%
 merge_df_yem <- merge_df %>%
   dplyr::filter(
     iso3c == "YEM",
-    start_year > 1990
+    year > 1990
   )
 
 merge_df <- merge_df %>%
   dplyr::filter(iso3c != "YEM",
-                iso3c %!in% c("YAR", "YPR") | start_year <= 1990) %>%
+                iso3c %!in% c("YAR", "YPR") | year <= 1990) %>%
   rbind(merge_df_yem %>%
           dplyr::mutate(iso3c = "YAR")) %>%
   rbind(merge_df_yem %>%
@@ -321,9 +329,11 @@ merge_df <- merge_df %>%
 survival_df <- ct %>%
   dplyr::left_join(country_region, by = c("iso3c")) %>%
   dplyr::left_join(colonialism, by = c("iso3c")) %>%
-  dplyr::left_join(merge_df, by = c("iso3c", "start_year")) %>%
-  dplyr::left_join(cv, by = c("confid", "start_year", "iso3c")) %>%
-  dplyr::left_join(conflict_issues, by = c("confid")) %>%
+  dplyr::left_join(merge_df, by = c("iso3c", "year")) %>%
+  dplyr::left_join(conflict_variables, by = c("confid", "year", "iso3c")) %>%
+  dplyr::left_join(conflict_issues, by = c("confid", "iso3c", "year" = "peace_start_year")) %>%
+  dplyr::left_join(battle_deaths, by = c("confid" = "conflict_id", "group_id")) %>%
+  
   dplyr::mutate(
     aid_perc_gdp.pwt = aid_value / gdp.pwt.est,
     aid_perc_gdp.gl = aid_value / gdp.gl.est,
@@ -332,18 +342,17 @@ survival_df <- ct %>%
     ) %>%
   # drop OMN's 258 conflict as it occurred one year in 1958
   dplyr::filter(confid != 258)
-  
 
-# table(survival_df$start_year >= 1989, survival_df$issue_l1_justice, useNA = "always")
+# table(survival_df$year >= 1989, survival_df$issue_l1_justice, useNA = "always")
 # 
 # 
 # sdf <- survival_df %>%
-#   dplyr::select(confid, start_year)
+#   dplyr::select(confid, year)
 # 
 # ci <- conflict_issues %>%
-#   dplyr::select(confid, start_year, issue_l1_justice)
+#   dplyr::select(confid, year, issue_l1_justice)
 # 
-# sdf_ci <- dplyr::full_join(sdf, ci, by = c("confid", "start_year"))
+# sdf_ci <- dplyr::full_join(sdf, ci, by = c("confid", "year"))
 # 
 # table(sdf_ci$issue_l1_justice, useNA = "always")
 
@@ -365,13 +374,13 @@ survival_model_modern_vars <- c("exporter")
 
 surv_model_df_missing <- survival_df %>%
   dplyr::mutate(across(everything(), as.character)) %>%
-  dplyr::select(iso3c, start_year, dplyr::all_of(survival_model_all_years_vars)) %>%
+  dplyr::select(iso3c, year, dplyr::all_of(survival_model_all_years_vars)) %>%
   tidyr::pivot_longer(3:(length(survival_model_all_years_vars) + 2), names_to = "variable",
                       values_to = "value") %>%
   dplyr::filter(is.na(value))
 
 surv_df_missing <- surv_model_df_missing %>%
-  dplyr::group_by(iso3c, start_year) %>%
+  dplyr::group_by(iso3c, year) %>%
   dplyr::tally()
 
 surv_model1 <- survival::coxph(survival::Surv(length, ongoing_peace) ~ Americas + Asia + SSA +
@@ -391,9 +400,22 @@ surv_model1 <- survival::coxph(survival::Surv(length, ongoing_peace) ~ Americas 
                                    data = survival_df)
 summary(surv_model1)
 
+# pull conflicts currently in a state of peace
+current_peace_survival_df <- survival_df %>%
+  dplyr::group_by(confid) %>%
+  dplyr::filter(group_id == max(group_id)) %>%
+  dplyr::ungroup() %>%
+  dplyr::filter(conflict.x == 0)
+                  
+predictions_surv_model1 <- stats::predict(surv_model1, current_peace_survival_df, type = "risk") %>%
+  as.data.frame() %>%
+  cbind(current_peace_survival_df$iso3c, current_peace_survival_df$confid, current_peace_survival_df$conf_name)
+names(predictions_surv_model1) <- c("prob", "iso3c", "confid", "conf_name")
+
+
 
 survival_df2 <- survival_df %>%
-  dplyr::filter(start_year >= 1980)
+  dplyr::filter(year >= 1989)
 
 surv_model2 <- survival::coxph(survival::Surv(length, ongoing_peace) ~ Americas + Asia + SSA +
                                  MENA + colony_gbr + colony_esp + colony_fra + colony_prt +
@@ -411,7 +433,9 @@ surv_model2 <- survival::coxph(survival::Surv(length, ongoing_peace) ~ Americas 
                                  log(land_area) + shec + irst_per_capita_un +
                                  
                                  # new vars
-                                 exporter + bq + lo + cr +
+                                 exporter + bur.cap + bd_best,
+                                 
+                                 ### L1 ###
                                  # issue_l1_territory + # 164 / 60
                                  # issue_l1_state_structure + # 208 / 16
                                  # issue_l1_governance + # 169 / 55
@@ -421,44 +445,170 @@ surv_model2 <- survival::coxph(survival::Surv(length, ongoing_peace) ~ Americas 
                                  # issue_l1_refugees_prisoners +
                                  # issue_l1_negotiations +
                                  # issue_l1_justice,
-                                 issue_l2_subcategory_separatism +
-                                 issue_l2_subcategory_unification +
-                                 issue_l2_subcategory_selfrule +
-                                 issue_l2_admin_arrangements +
-                                 issue_l2_change_political_system +
-                                 issue_l2_executive +
-                                 issue_l2_parliament +
-                                 issue_l2_judicial + 
-                                 issue_l2_security_sector +
-                                 issue_l2_bureaucratic +
-                                 issue_l2_quality_of_governance +
-                                 issue_l2_elections +
-                                 issue_l2_civil_rights_and_freedoms +
-                                 issue_l2_religious_rights_and_freedoms +
-                                 issue_l2_cultural_rights_and_freedoms +
-                                 issue_l2_gender_rights_and_freedoms +
-                                 issue_l2_labor_rights_and_freedoms +
-                                 issue_l2_childrens_rights_and_freedoms +
-                                 issue_l2_referendums +
-                                 issue_l2_state_distribution_systems +
-                                 issue_l2_natural_resources +
-                                 issue_l2_ifi +
-                                 issue_l2_dfi +
-                                 issue_l2_attrocities_and_abuses +
-                                 issue_l2_collective_targeting +
-                                 issue_l2_call_for_collective_targeting +
-                                 issue_l2_military_conduct +
-                                 issue_l2_revenge +
-                                 issue_l2_return_of_refugees +
-                                 issue_l2_release_of_prisoners +
-                                 issue_l2_negotiations +
-                                 issue_l2_ceasefires +
-                                 issue_l2_peace_agreement +
-                                 issue_l2_truth_reconciliation +
-                                 issue_l2_liability,
-                                data = survival_df2)
+                                 
+                                 ### L2 ###
+                                 # issue_l2_subcategory_separatism +
+                                 # issue_l2_subcategory_unification +
+                                 # issue_l2_subcategory_selfrule +
+                                 # issue_l2_admin_arrangements +
+                                 # issue_l2_change_political_system +
+                                 # issue_l2_executive +
+                                 # issue_l2_parliament +
+                                 # issue_l2_judicial +
+                                 # issue_l2_security_sector +
+                                 # issue_l2_bureaucratic +
+                                 # issue_l2_quality_of_governance +
+                                 # issue_l2_elections +
+                                 # issue_l2_civil_rights_and_freedoms +
+                                 # issue_l2_religious_rights_and_freedoms +
+                                 # issue_l2_cultural_rights_and_freedoms +
+                                 # issue_l2_gender_rights_and_freedoms +
+                                 # issue_l2_labor_rights_and_freedoms +
+                                 # issue_l2_childrens_rights_and_freedoms +
+                                 # issue_l2_referendums +
+                                 # # issue_l2_state_distribution_systems +
+                                 # issue_l2_natural_resources +
+                                 # issue_l2_ifi +
+                                 # issue_l2_dfi +
+                                 # issue_l2_attrocities_and_abuses +
+                                 # issue_l2_collective_targeting +
+                                 # issue_l2_call_for_collective_targeting +
+                                 # issue_l2_military_conduct +
+                                 # issue_l2_revenge +
+                                 # issue_l2_return_of_refugees +
+                                 # issue_l2_release_of_prisoners +
+                                 # issue_l2_negotiations +
+                                 # # issue_l2_ceasefires +
+                                 # issue_l2_peace_agreement +
+                                 # issue_l2_truth_reconciliation +
+                                 # issue_l2_liability,
+                               
+                               ### L3 ###
+                                 # issue_l3_independence +
+                                 # issue_l3_irredentism +
+                                 # issue_l3_unification_of_states +
+                                 # issue_l3_autonomy +
+                                 # issue_l3_federalism +
+                                 # issue_l3_confederation_union +
+                                 # issue_l3_decentralization +
+                                 # issue_l3_change_of_admin_divisions +
+                                 # issue_l3_cps_democracy +
+                                 # issue_l3_cps_socialism +
+                                 # issue_l3_cps_islamic +
+                                 # issue_l3_cps_other +
+                                 # issue_l3_oust_full_executive +
+                                 # issue_l3_oust_head_of_executive +
+                                 # issue_l3_reform_executive_structure +
+                                 # issue_l3_executive_power_sharing +
+                                 # issue_l3_executive_power_sharing_interim +
+                                 # issue_l3_oust_local_executive +
+                                 # issue_l3_oust_parliament +
+                                 # issue_l3_reform_parliament +
+                                 # issue_l3_parliamentary_power_sharing +
+                                 # issue_l3_change_judicial_system +
+                                 # issue_l3_reform_judicial_system +
+                                 # issue_l3_constitutional_issues +
+                                 # issue_l3_restructure_military_forces +
+                                 # issue_l3_restructure_police_forces +
+                                 # issue_l3_disband_paramilitary_forces +
+                                 # issue_l3_security_sector_power_sharing +
+                                 # issue_l3_bureaucratic_setup +
+                                 # issue_l3_rule_of_law +
+                                 # issue_l3_law_and_order +
+                                 # issue_l3_corruption +
+                                 # issue_l3_foreign_policy_reform +
+                                 # issue_l3_hold_elections +
+                                 # issue_l3_opposition_to_elections +
+                                 # issue_l3_electoral_reform +
+                                 # issue_l3_electoral_fraud +
+                                 # issue_l3_civil_rights +
+                                 # issue_l3_restriction_on_civil_rights +
+                                 # issue_l3_citizenship_reform +
+                                 # issue_l3_human_rights +
+                                 # issue_l3_freedom_of_expression +
+                                 # issue_l3_freedom_of_association +
+                                 # issue_l3_freedom_of_movement +
+                                 # issue_l3_recognition_as_political_party +
+                                 # issue_l3_restrictions_on_freedom_of_expression +
+                                 # issue_l3_religious_freedom +
+                                 # issue_l3_restriction_on_religious_rights +
+                                 # issue_l3_education_system_increase_religion +
+                                 # issue_l3_blasphemy +
+                                 # issue_l3_cultural_rights +
+                                 # issue_l3_restrictions_on_cultural_rights +
+                                 # issue_l3_language_rights +
+                                 # issue_l3_education_system_culture +
+                                 # issue_l3_protection_of_cultural_heritage +
+                                 # issue_l3_destruction_of_cultural_heritage +
+                                 # issue_l3_gender_relations +
+                                 # issue_l3_restriction_of_gender_rights  +
+                                 # issue_l3_labor_rights +
+                                 # issue_l3_childrens_rights +
+                                 # issue_l3_referendum +
+                                 # issue_l3_change_economic_system +
+                                 # issue_l3_economic_reforms +
+                                 # issue_l3_public_services +
+                                 # issue_l3_basic_needs +
+                                 # issue_l3_land_reforms +
+                                 # issue_l3_water_resources +
+                                 # issue_l3_revenue_from_natural_resources +
+                                 # issue_l3_protection_of_natural_resources_environment +
+                                 # # issue_l3_climate_change +
+                                 # issue_l3_ifi_military_intervention_foreign_forces +
+                                 # issue_l3_ifi_military_support +
+                                 # issue_l3_ifi_political_support +
+                                 # issue_l3_ifi_financial_support +
+                                 # issue_l3_ifi_intal_monitoring +
+                                 # issue_l3_ifi_support_from_diasporas_foreign_fighters +
+                                 # issue_l3_ifi_sanctions +
+                                 # issue_l3_ifi_humanitarian_aid +
+                                 # issue_l3_ifi_intl_investigation_court_tribunal +
+                                 # issue_l3_ifi_foreign_mediator +
+                                 # issue_l3_ifi_recognition +
+                                 # issue_l3_ifi_use_of_foreign_influence +
+                                 # issue_l3_dfi_withdrawal_of_military_intervention +
+                                 # issue_l3_dfi_withdrawal_of_military_support +
+                                 # issue_l3_dfi_withdrawal_of_political_support +
+                                 # issue_l3_dfi_withdrawal_of_financial_support +
+                                 # # issue_l3_dfi_withdrawal_of_intl_monitoring +
+                                 # issue_l3_dfi_withdrawal_of_sanctions +
+                                 # issue_l3_dfi_removal_of_foreign_mediator +
+                                 # issue_l3_dfi_removal_of_foreigners +
+                                 # issue_l3_dfi_removal_of_foreign_influence +
+                                 # issue_l3_dfi_withdrawal_of_humanitarian_aid +
+                                 # issue_l3_attrocities_and_abuses +
+                                 # issue_l3_collective_targeting_ethnic +
+                                 # # issue_l3_collective_targeting_political +
+                                 # issue_l3_collective_targeting_religious +
+                                 # issue_l3_collective_targeting_other_group +
+                                 # issue_l3_call_for_collective_targeting_ethnic +
+                                 # issue_l3_call_for_collective_targeting_political +
+                                 # issue_l3_call_for_collective_targeting_religious +
+                                 # issue_l3_call_for_collective_targeting_othergroup +
+                                 # issue_l3_military_conduct +
+                                 # issue_l3_revenge_vengance +
+                                 # issue_l3_return_of_refugees +
+                                 # issue_l3_nonrefoulement_of_refugees +
+                                 # issue_l3_release_of_prisoners +
+                                 # issue_l3_call_for_negotiations +
+                                 # issue_l3_opposition_to_negotiations +
+                                 # issue_l3_structure_of_negotiations +
+                                 # issue_l3_national_dialogue +
+                                 # issue_l3_call_for_ceasefire +
+                                 # issue_l3_call_for_implementaion_of_ceasefire +
+                                 # issue_l3_peace_agreement_implementation +
+                                 # issue_l3_opposition_to_peace_agreement +
+                                 # issue_l3_ddr_issues +
+                                 # issue_l3_call_for_truth_and_reconciliation_processes +
+                                 # issue_l3_accountability_prosecution_investigation +
+                                 # issue_l3_amnesties +
+                                 # issue_l3_recognition_of_wrongdoing +
+                                 # issue_l3_compensation_restoration,
+                               data = survival_df2,
+                               control = coxph.control(iter.max = 100))
 summary(surv_model2)
 
+table(survival_df2$issue_l3_climate_change, useNA = "always")
 
   
 x <- survival_df %>%
@@ -518,10 +668,10 @@ summary(lop_glm)
 #     y = "Overall survival probability"
 #   )
 
-survival3 <- survivalAnalysis::analyse_multivariate(
-  data = survival_df,
-  time_status = vars(length, ongoing_peace),
-  covariates = vars(gdppc.pwt.un,polity.pca,colony,ln.un.pop,region1)
-                    #Acceptance.of.the.Rights.of.Others,Equitable.Distribution.of.Resources,Free.Flow.of.Information,High.Levels.of.Human.Capital,Low.Levels.of.Corruption,Well.Functioning.Government)
-)
-survival3
+# survival3 <- survivalAnalysis::analyse_multivariate(
+#   data = survival_df,
+#   time_status = vars(length, ongoing_peace),
+#   covariates = vars(gdppc.pwt.un,polity.pca,colony,ln.un.pop,region1)
+#                     #Acceptance.of.the.Rights.of.Others,Equitable.Distribution.of.Resources,Free.Flow.of.Information,High.Levels.of.Human.Capital,Low.Levels.of.Corruption,Well.Functioning.Government)
+# )
+# survival3

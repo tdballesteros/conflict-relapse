@@ -9,7 +9,10 @@ library(dplyr)
 
 
 ### load data file ---------------------------------------------------------------------------------
+# data through 2019
 ucdp_original <- read.csv("Data files/Raw data files/ucdp-prio-acd-201.csv")
+
+# data through 2024
 # ucdp_original <- readxl::read_xlsx("Data files/Raw data files/UcdpPrioConflict_v25_1.xlsx")
 
 
@@ -18,9 +21,9 @@ ucdp <- ucdp_original %>%
   # Remove colonial/imperial wars and interstate conflict
   dplyr::filter(type_of_conflict > 2) %>%
   # drop unneeded variables and rename
-  dplyr::select(confid = conflict_id, country = side_a, year, intensity = intensity_level,
-                initial_start_date = start_date, episode_start_date = start_date2,
-                end_date = ep_end_date, ucdp_region = region) %>%
+  dplyr::select(confid = conflict_id, country = side_a, rebel_group = side_b, year,
+                intensity = intensity_level, initial_start_date = start_date,
+                episode_start_date = start_date2, end_date = ep_end_date, ucdp_region = region) %>%
   dplyr::mutate(
     country = gsub(pattern = "Government of ", replacement = "", country),
     confid = as.character(confid),
@@ -46,7 +49,7 @@ ucdp <- ucdp_original %>%
       .default = countrycode::countrycode(country, "country.name", "iso3c", warn = FALSE)
     )) %>%
   dplyr::relocate(iso3c, .before = country) %>%
-  dplyr::select(-country) %>%
+  # dplyr::select(-country) %>%
   dplyr::mutate(
     # recode iso3c codes for select conflict ids
     iso3c = dplyr::case_when(
@@ -100,6 +103,17 @@ ucdp <- ucdp_original %>%
     ) %>%
   dplyr::arrange(confid, year)
 
+conflict_names <- ucdp %>%
+  dplyr::group_by(confid) %>%
+  dplyr::summarise(
+    conf_name = {
+      all_groups <- unlist(stringr::str_split(rebel_group, ","))
+      all_groups <- stringr::str_trim(all_groups)
+      clean_groups <- all_groups[!is.na(all_groups) & all_groups != "NA" & all_groups != ""]
+      unique_groups <- unique(clean_groups)
+      paste0("Country vs. ", paste(unique_groups, collapse = ", "))
+    }) %>%
+  ungroup()
 
 ### fill short peace gaps --------------------------------------------------------------------------
 # replaces one-year peace intervals with continued conflict, per literature standard
@@ -196,6 +210,11 @@ ucdp3 <- ucdp2 %>%
 
 ### write data -------------------------------------------------------------------------------------
 # writes formatted dataframes as csv files
+
+# conflict names by confid
+write.csv(conflict_names,
+          "Data files/Formatted data files/conflict_names.csv",
+          row.names = FALSE)
 
 # full conflict data by confid-year
 write.csv(conflict_full_data,

@@ -66,7 +66,7 @@ mil.metrics.inf <- mil.metrics %>%
   ) %>%
   dplyr::group_by(iso3c) %>%
   dplyr::tally()
-    
+
 mil.metrics[as.matrix(mil.metrics) == Inf]  <- 0
 mil.metrics[as.matrix(mil.metrics) == -Inf]  <- 0
 
@@ -86,13 +86,13 @@ ccpu_vars_all <- c(
   "mil.personnel.cow.ln","mil.expenditure.per.capita.cow.un.ln","mil.expenditure.perc.gdp.cow.pwt.ln",
   "mil.expenditure.per.personnel.cow.cow.ln","mil.personnel.per.capita.cow.un.ln",
   "gdp.per.mil.personnel.pwt.cow.ln"
-  )
+)
 
 ccpu_vars_pca <- c(
   "mil.expenditure.per.capita.cow.un.ln","mil.expenditure.perc.gdp.cow.pwt.ln",
   "mil.expenditure.per.personnel.cow.cow.ln","mil.personnel.per.capita.cow.un.ln",
   "gdp.per.mil.personnel.pwt.cow.ln"
-  )
+)
 
 # index_ccpu_data <- index_ccpu_data %>%
 #   dplyr::mutate(
@@ -116,7 +116,7 @@ ccpu_vars_pca <- c(
 index_ccpu_data <- mil.metrics %>%
   dplyr::select(
     iso3c, year, dplyr::all_of(ccpu_vars_pca)
-    ) %>%
+  ) %>%
   dplyr::filter(
     iso3c %!in% c(
       "DMA","GRD","LCA","VCT","ATG","KNA","MCO","LIE","AND","SMR","ISL","MDV","VUT",

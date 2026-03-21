@@ -21,6 +21,7 @@ land_area <- read.csv("Data files/Formatted data files/population_density.csv")
 
 military_capacity_ccpu <- read.csv("Data files/Formatted data files/military_capacity_index_ccpu.csv")
 
+conflict_names <- read.csv("Data files/Formatted data files/conflict_names.csv")
 conflict_variables <- read.csv("Data files/Formatted data files/conflict_variables.csv")
 conflict_table <- read.csv("Data files/Formatted data files/conflict_table.csv")
 conflict_years <- read.csv("Data files/Formatted data files/conflict_years.csv")
@@ -28,32 +29,33 @@ conflict_years <- read.csv("Data files/Formatted data files/conflict_years.csv")
 ### combine data ----------------------------------------------------------------------
 
 logit_data <- conflict_years %>%
-  # dplyr::left_join(country_regions1,by=c("iso3c","country")) %>%
-  # dplyr::left_join(country_regions2,by=c("iso3c","country")) %>%
-  dplyr::left_join(country_regions3,by=c("iso3c","country")) %>%
-  dplyr::left_join(colonialism,by=c("iso3c","country")) %>%
-  # dplyr::left_join(gdp,by=c("iso3c","country","year")) %>%
-  dplyr::left_join(population,by=c("iso3c","country","year")) %>%
-  dplyr::left_join(gdppc,by=c("iso3c","country","year")) %>%
-  dplyr::left_join(conflict_variables,by=c("confid","iso3c","year","conflict")) %>%
-  dplyr::left_join(polity,by=c("iso3c","country","year")) %>%
-  dplyr::left_join(military_capacity_ccpu,by=c("iso3c","year")) %>%
-  dplyr::left_join(pko,by=c("iso3c","country","year")) %>%
-  dplyr::left_join(ppi,by=c("iso3c","year")) %>%
-  dplyr::left_join(elections,by=c("iso3c","country","year")) %>%
-  dplyr::left_join(land_area,by=c("iso3c","year"))
+  dplyr::left_join(country_regions1, by = c("iso3c", "country")) %>%
+  dplyr::left_join(country_regions2, by = c("iso3c", "country")) %>%
+  dplyr::left_join(country_regions3, by = c("iso3c", "country")) %>%
+  dplyr::left_join(colonialism, by = c("iso3c", "country")) %>%
+  # dplyr::left_join(gdp,by = c("iso3c", "country", "year")) %>%
+  dplyr::left_join(population, by = c("iso3c", "year")) %>%
+  dplyr::left_join(gdppc, by = c("iso3c", "year")) %>%
+  dplyr::left_join(conflict_names, by = "confid") %>%
+  dplyr::left_join(conflict_variables, by = c("confid", "iso3c", "year", "conflict")) %>%
+  dplyr::left_join(polity, by = c("iso3c", "country", "year")) %>%
+  dplyr::left_join(military_capacity_ccpu, by = c("iso3c", "year")) %>%
+  dplyr::left_join(pko, by = c("iso3c", "year")) %>%
+  dplyr::left_join(ppi,by = c("iso3c", "year")) %>%
+  dplyr::left_join(elections, by = c("iso3c", "country", "year")) %>%
+  dplyr::left_join(land_area, by = c("iso3c", "year"))
 
 logit_data$region1 <- factor(logit_data$region1,
-                             levels = c("Europe","Americas","Asia","MENA","SSA"))
+                             levels = c("Europe", "Americas", "Asia", "MENA", "SSA"))
 logit_data$region2 <- factor(logit_data$region2,
-                             levels = c("WEOG","South America","East Asia","Middle East","Southeast Asia",
-                                        "Eastern Europe","Central America","South Asia","Caribbean","Central Africa",
-                                        "East Africa","West Africa","Southern Africa","North Africa","Central Asia"))
+                             levels = c("WEOG", "South America", "East Asia", "Middle East", "Southeast Asia",
+                                        "Eastern Europe", "Central America", "South Asia", "Caribbean", "Central Africa",
+                                        "East Africa", "West Africa", "Southern Africa", "North Africa", "Central Asia"))
 logit_data$outcome <- factor(logit_data$outcome,
-                             levels = c("5: Low Activity","1: Peace Agreement","2: Ceasefire Agreement",
-                                        "3: Government Victory","4: Non-Government Victory","6: Actor Ceases to Exist"))
+                             levels = c("5: Low Activity", "1: Peace Agreement", "2: Ceasefire Agreement",
+                                        "3: Government Victory", "4: Non-Government Victory", "6: Actor Ceases to Exist"))
 logit_data$colonizer <- factor(logit_data$colonizer,
-                             levels = c("Not colonized","Colony of ESP","Colony of FRA","Colony of GBR","Colony of PRT",
+                             levels = c("Not colonized", "Colony of ESP", "Colony of FRA", "Colony of GBR", "Colony of PRT",
                                         "Colony of another country"))
   
 test_variables <- c(
@@ -70,14 +72,14 @@ test_variables <- c(
   "polity.pca",
   "mil.cap",
   "pop.per.km.un",
-  "natelec","natelec.n","natelec.l","years_since_last_elec",
+  "natelec","natelec.n","natelec.l","years_since_last_elec"
                     # "Overall.PPI.Score",
-                    "Acceptance.of.the.Rights.of.Others","Equitable.Distribution.of.Resources","Free.Flow.of.Information",
-                    "High.Levels.of.Human.Capital","Low.Levels.of.Corruption","Sound.Business.Environment","Well.Functioning.Government"
+                    # "Acceptance.of.the.Rights.of.Others","Equitable.Distribution.of.Resources","Free.Flow.of.Information",
+                    # "High.Levels.of.Human.Capital","Low.Levels.of.Corruption","Sound.Business.Environment","Well.Functioning.Government"
                     )
 
 logit_data_slim <- logit_data %>%
-  dplyr::select(conflict,dplyr::all_of(test_variables)) %>%
+  dplyr::select(conflict, dplyr::all_of(test_variables)) %>%
   dplyr::mutate(
     un.pop.ln = log(un.pop),
     gdppc.pwt.un.ln = log(gdppc.pwt.un)
@@ -92,6 +94,23 @@ glm1 <- glm(conflict ~ .,
             data = logit_data_slim, family = "binomial")
 summary(glm1)
 car::vif(glm1)
+
+
+prediction_data <- logit_data %>%
+  dplyr::filter(year == 2019) %>%
+  dplyr::select(iso3c, confid, conf_name, dplyr::all_of(test_variables)) %>%
+  dplyr::mutate(
+    un.pop.ln = log(un.pop),
+    gdppc.pwt.un.ln = log(gdppc.pwt.un)
+  )
+
+predictions_glm1 <- stats::predict(glm1, prediction_data, type = "response") %>%
+  as.data.frame() %>%
+  cbind(prediction_data$iso3c, prediction_data$confid, prediction_data$conf_name)
+names(predictions_glm1) <- c("prob", "iso3c", "confid", "conf_name")
+
+
+
 
 glm.test <- glm(conflict ~ natelec + natelec.l + natelec.n + log(years_since_last_elec),
                 data = logit_data_slim, family = "binomial")

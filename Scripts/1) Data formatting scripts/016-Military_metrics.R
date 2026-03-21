@@ -1055,7 +1055,15 @@ mildata <- dplyr::full_join(cow, military.balance.data, by = c("iso3c", "year"))
   dplyr::relocate(mil.personnel.cow, .after = mil.expenditure.cow) %>%
   dplyr::relocate(mil.expenditure.wmeat, .after = mil.personnel.cow) %>%
   dplyr::relocate(mil.personnel.wmeat, .after = mil.expenditure.wmeat) %>%
-  dplyr::relocate(mil.expenditure.sipri, .after = mil.personnel.wmeat)
+  dplyr::relocate(mil.expenditure.sipri, .after = mil.personnel.wmeat) %>%
+  
+  # create estimation flags
+  dplyr::mutate(
+    mil.expenditure.cow.ef = ifelse(is.na(mil.expenditure.cow), 1, 0),
+    mil.personnel.cow.ef = ifelse(is.na(mil.personnel.cow), 1, 0),
+    mil.expenditure.wmeat.ef = ifelse(is.na(mil.expenditure.wmeat), 1, 0),
+    mil.personnel.wmeat.ef = ifelse(is.na(mil.personnel.wmeat), 1, 0)
+  )
 
 ### military metrics estimator functions -----------------------------------------------------------
 mil_expenditure_growth_estimator_func <- function(df = mildata, col_missing, col_ref, iso, yr,
@@ -15349,7 +15357,7 @@ mildata <- mildata %>%
 mildata_year_prior <- mildata %>%
   dplyr::mutate(year = year + 1)
 
-names(mildata_year_prior)[4:59] <- paste0(names(mildata_year_prior)[4:59],".plus1")
+names(mildata_year_prior)[4:ncol(mildata_year_prior)] <- paste0(names(mildata_year_prior)[4:ncol(mildata_year_prior)],".plus1")
 
 mildata <- mildata %>%
   dplyr::left_join(mildata_year_prior, by = c("iso3c", "country", "year")) %>%
@@ -15400,7 +15408,7 @@ mildata <- mildata %>%
     gdp.per.mil.personnel.growth.rate.gl.cow = 100 * (gdp.per.mil.personnel.gl.cow - gdp.per.mil.personnel.gl.cow.plus1) / gdp.per.mil.personnel.gl.cow.plus1,
     gdp.per.mil.personnel.growth.rate.gl.wmeat = 100 * (gdp.per.mil.personnel.gl.wmeat - gdp.per.mil.personnel.gl.wmeat.plus1) / gdp.per.mil.personnel.gl.wmeat.plus1
   ) %>%
-  dplyr::select(-contains("plus1")) %>%
+  dplyr::select(-dplyr::contains("plus1")) %>%
   dplyr::filter(cn == 1) %>%
   dplyr::select(-c(un.pop,cow.pop,gdp.pwt.est,gdp.gl.est,cn))
 

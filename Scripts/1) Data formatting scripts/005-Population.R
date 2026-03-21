@@ -257,7 +257,8 @@ pd <- pd %>%
     )) %>%
   
   # filter pre-1945 years (keeping 1945 to assist with growth rates)
-  dplyr::filter(year >= 1945)
+  dplyr::filter(year >= 1945) %>%
+  dplyr::arrange(iso3c, year)
 
 
 ### Load Custom Functions --------------------------------------------------------------------------
@@ -324,9 +325,9 @@ pop_growth_estimator_mpd_func <- function(df = pd, iso, yr = 1950, restricted = 
   df <- df %>%
     dplyr::mutate(
       un.pop = ifelse(iso3c == iso, un.pop / baseline * relative.un, un.pop),
-      cow.pop = ifelse(iso3c == iso, cow.pop / baseline * relative.cow, cow.pop),
-      un.pop.estimated = 1,
-      cow.pop.estimated = 1
+      cow.pop = ifelse(iso3c == iso, cow.pop / baseline * relative.cow, cow.pop) #,
+      # un.pop.estimated = 1,
+      # cow.pop.estimated = 1
     ) %>%
     dplyr::select(iso3c, year, un.pop, cow.pop, mpd.pop, gl.pop, un.pop.estimated, cow.pop.estimated)
 
@@ -426,8 +427,8 @@ pd <- pd %>%
     cow.pop = sum(cow.pop, na.rm = TRUE),
     mpd.pop = sum(mpd.pop, na.rm = TRUE),
     gl.pop = sum(gl.pop, na.rm = TRUE),
-    un.pop.estimated = 1,
-    cow.pop.estimated = 1
+    un.pop.estimated = max(un.pop.estimated),
+    cow.pop.estimated = max(cow.pop.estimated)
     ) %>%
   dplyr::ungroup() %>%
   # replace 0s generated from summarising with NAs
